@@ -1,0 +1,20 @@
+[package]
+name = "tuiui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossterm = "0.28"
+portable-pty = "0.8"
+vt100 = "0.15"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+dirs = "5"
+
+[lib]
+name = "tuiui"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tuiui"
+path = "src/main.rs"
