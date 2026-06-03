@@ -30,8 +30,8 @@ pub enum SnapZone { Left, Right }
 
 /// Returns a snap zone if `p` is within `threshold` cells of the left/right screen edge.
 pub fn snap_zone(p: Point, screen: Rect, threshold: i32) -> Option<SnapZone> {
-    if p.x <= screen.x + threshold - 1 { Some(SnapZone::Left) }
-    else if p.x >= screen.right() - threshold + 1 { Some(SnapZone::Right) }
+    if p.x < screen.x + threshold { Some(SnapZone::Left) }
+    else if p.x > screen.right() - threshold { Some(SnapZone::Right) }
     else { None }
 }
 

@@ -94,7 +94,7 @@ fn render_window_draws_title_and_content() {
     content.write_str(0, 0, "hello", tuiui::cell::Rgba::rgb(255, 255, 255), tuiui::cell::Rgba::TRANSPARENT);
     let layers = render_window(m.get(id).unwrap(), &content, true);
     // shadow layer + window layer
-    assert!(layers.len() >= 1);
+    assert!(!layers.is_empty());
     let win_layer = layers.last().unwrap();
     let titlerow: String = (0..12).map(|x| win_layer.buf.get(x, 0).unwrap().ch).collect();
     assert!(titlerow.contains("btop"));

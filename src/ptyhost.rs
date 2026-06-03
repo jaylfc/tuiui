@@ -36,7 +36,7 @@ impl AppInstance {
                 pixel_width: 0,
                 pixel_height: 0,
             })
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         let mut builder = CommandBuilder::new(cmd);
         for a in args {
@@ -45,7 +45,7 @@ impl AppInstance {
         let child = pair
             .slave
             .spawn_command(builder)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         // Drop the slave end so EOF is delivered when the child exits.
         drop(pair.slave);
@@ -59,12 +59,12 @@ impl AppInstance {
         let mut reader = pair
             .master
             .try_clone_reader()
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         let writer = pair
             .master
             .take_writer()
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         let pclone = parser.clone();
         std::thread::spawn(move || {
