@@ -48,8 +48,18 @@ Apps are arbitrary third-party programs. v1 trust = **curated catalog + the exac
 - **Slice 3 — The Store:** catalog sync, manifest format, installer, store UI.
 - **Slice 4 — Settings & config:** full settings panel writing `config.toml`.
 - **Slice 5 — Theming.**
+- **Slice 6 — GUI / Wayland mode (future, ambitious):** embed a headless Wayland compositor (Rust `smithay`) in the daemon so real GUI apps render into Tuiui windows, streamed to the terminal via the Kitty graphics protocol / Sixel. See "Window content abstraction" below. Linux-host only; terminal-gated (pixel-capable terminals); damage-tracked + frame-capped for bandwidth. Pairs with the remote story: GUI apps on a Linux daemon, viewed from a Mac/other terminal.
 
 Rationale: Slice 1 de-risks the defining, riskiest capabilities (compositing, mouse cursor, running real TUIs in windows). Everything else is valuable but lower-risk and builds on a proven shell.
+
+## Window content abstraction (seam reserved now, used later)
+
+A window does not need to know *what kind* of app fills it — only how to get a renderable buffer and where to send input. Reserve a `WindowContent` trait so window content sources are interchangeable:
+
+- `PtyContent` — a terminal app via `portable-pty` + `vt100` producing a cell `CellBuffer` (Slice 1's `AppInstance` becomes the first impl).
+- `WaylandSurfaceContent` *(Slice 6)* — a GUI app's surface as pixels, output via Kitty-graphics/Sixel.
+
+The window manager, chrome, input routing, and compositor operate on the abstraction, so adding GUI/Wayland windows is mostly additive rather than a rewrite. This is the concrete payoff of the "maximum modularity" directive: keep the content boundary clean from Slice 1 onward (Slice 1 may keep `AppInstance` concrete but must not let PTY specifics leak into WM/chrome/input — which the current design already avoids).
 
 ## Testing strategy (whole project)
 
