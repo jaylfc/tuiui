@@ -170,8 +170,11 @@ const SHADOW:         Rgba = Rgba { r: 0,   g: 0,   b: 0,   a: 110 };
 /// Returns `[shadow_layer, window_layer]`.  The shadow is offset by (1, 1) at
 /// `win.z * 2 + 10`; the window body is one z above that.
 ///
-/// This function is pure: it takes only a [`Window`] descriptor and a
-/// pre-rendered `content` buffer — it knows nothing about PTYs or terminals.
+/// This function is **pure**: it takes only a [`Window`] descriptor and a
+/// pre-rendered `content` [`CellBuffer`] — it has no knowledge of PTYs,
+/// terminals, or any I/O.  Callers snapshot app content independently and
+/// pass it in; this keeps rendering and process-hosting cleanly separated.
+#[must_use]
 pub fn render_window(win: &Window, content: &CellBuffer, focused: bool) -> Vec<Layer> {
     let r = win.rect;
     let base_z = 10 + win.z * 2;
