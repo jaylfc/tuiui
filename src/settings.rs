@@ -4,7 +4,7 @@
 
 use crate::buffer::CellBuffer;
 use crate::cell::{Cell, Rgba};
-use crate::config::Config;
+use crate::config::{AppEntry, Config};
 use crate::geometry::Point;
 
 const BG: Rgba = Rgba { r: 17, g: 20, b: 29, a: 255 };
@@ -15,7 +15,7 @@ const ACCENT: Rgba = Rgba { r: 108, g: 182, b: 255, a: 255 };
 const GREEN: Rgba = Rgba { r: 126, g: 231, b: 135, a: 255 };
 
 const SIDEBAR_W: i32 = 18;
-const SECTIONS: &[&str] = &["Windows", "Appearance", "Updates", "About"];
+const SECTIONS: &[&str] = &["Windows", "Appearance", "Updates", "Apps", "About"];
 
 /// An action the session must perform on behalf of the settings panel
 /// (these touch the network / spawn processes, so the panel only requests them).
@@ -27,6 +27,15 @@ pub enum SettingsAction {
     InstallUpdate,
 }
 
+/// In-progress custom-app entry shown in the Apps section's add form.
+#[derive(Default)]
+struct AppEdit {
+    name: String,
+    command: String,
+    /// Focused field: 0 = name, 1 = command.
+    field: u8,
+}
+
 /// Settings panel state (owns a working copy of the config).
 pub struct Settings {
     cfg: Config,
@@ -34,12 +43,14 @@ pub struct Settings {
     sel: usize,
     action: Option<SettingsAction>,
     update_status: String,
+    /// `Some` while the Apps section's add form is open.
+    edit: Option<AppEdit>,
 }
 
 impl Settings {
     /// Create a settings panel editing a copy of `cfg`.
     pub fn new(cfg: Config) -> Self {
-        Self { cfg, section: 0, sel: 0, action: None, update_status: String::new() }
+        Self { cfg, section: 0, sel: 0, action: None, update_status: String::new(), edit: None }
     }
 
     /// Take a pending action requested by the user (cleared on read).
@@ -57,42 +68,88 @@ impl Settings {
         &self.cfg
     }
 
+    /// Whether the Apps section's text-entry form is currently open (the client
+    /// forwards typed characters only in this state).
+    pub fn is_editing(&self) -> bool {
+        self.edit.is_some()
+    }
+
     /// Number of interactive rows in the current section.
     fn item_count(&self) -> usize {
         match self.section {
-            0 => 2, // snapping, threshold
-            1 => 2, // shadows, theme
-            2 => 2, // check, install
-            _ => 0, // About
+            0 => 2,                            // snapping, threshold
+            1 => 2,                            // shadows, theme
+            2 => 2,                            // check, install
+            3 => self.cfg.launcher.len() + 1,  // custom apps + "＋ Add app…"
+            _ => 0,                            // About
         }
     }
 
     pub fn move_up(&mut self) {
+        if let Some(e) = self.edit.as_mut() {
+            e.field = 0; // focus the Name field
+            return;
+        }
         self.sel = self.sel.saturating_sub(1);
     }
     pub fn move_down(&mut self) {
+        if let Some(e) = self.edit.as_mut() {
+            e.field = 1; // focus the Command field
+            return;
+        }
         if self.sel + 1 < self.item_count() {
             self.sel += 1;
         }
     }
     pub fn prev_section(&mut self) {
+        if self.edit.is_some() {
+            return; // don't leave a half-typed form via arrow keys
+        }
         if self.section > 0 {
             self.section -= 1;
             self.sel = 0;
         }
     }
     pub fn next_section(&mut self) {
+        if self.edit.is_some() {
+            return;
+        }
         if self.section + 1 < SECTIONS.len() {
             self.section += 1;
             self.sel = 0;
         }
     }
 
+    /// Append a character to the focused form field (Apps add form only).
+    pub fn type_char(&mut self, c: char) {
+        if let Some(e) = self.edit.as_mut() {
+            match e.field {
+                0 => e.name.push(c),
+                _ => e.command.push(c),
+            }
+        }
+    }
+
+    /// Delete the last character of the focused form field.
+    pub fn backspace(&mut self) {
+        if let Some(e) = self.edit.as_mut() {
+            match e.field {
+                0 => { e.name.pop(); }
+                _ => { e.command.pop(); }
+            }
+        }
+    }
+
+    /// Abandon the Apps add form without saving.
+    pub fn cancel_edit(&mut self) {
+        self.edit = None;
+    }
+
     /// Toggle / activate the selected row.
     pub fn toggle(&mut self) {
         self.adjust(0);
     }
-    /// Decrease / turn off the selected row.
+    /// Decrease / turn off / remove the selected row.
     pub fn left(&mut self) {
         self.adjust(-1);
     }
@@ -127,12 +184,66 @@ impl Settings {
             // Updates section: Enter/Space (dir 0) requests an action from the session.
             (2, 0) if dir == 0 => self.action = Some(SettingsAction::CheckUpdates),
             (2, 1) if dir == 0 => self.action = Some(SettingsAction::InstallUpdate),
+            // Apps section.
+            (3, _) => self.adjust_apps(dir),
             _ => {}
         }
     }
 
+    /// Apps section: Enter on the form commits it; Enter on "＋ Add app…" opens
+    /// the form; Left removes the selected custom app.
+    fn adjust_apps(&mut self, dir: i32) {
+        if self.edit.is_some() {
+            if dir == 0 {
+                self.commit_edit();
+            }
+            return;
+        }
+        let n = self.cfg.launcher.len();
+        if dir == 0 {
+            if self.sel == n {
+                self.edit = Some(AppEdit::default()); // "＋ Add app…" row
+            }
+        } else if dir == -1 && self.sel < n {
+            self.cfg.launcher.remove(self.sel);
+            self.sel = self.sel.min(self.item_count().saturating_sub(1));
+        }
+    }
+
+    /// Validate and save the add form into `cfg.launcher`. Empty fields just move
+    /// focus to the offending field instead of committing.
+    fn commit_edit(&mut self) {
+        let (name, command) = match self.edit.as_ref() {
+            Some(e) => (e.name.trim().to_string(), e.command.trim().to_string()),
+            None => return,
+        };
+        if name.is_empty() {
+            self.edit.as_mut().unwrap().field = 0;
+            return;
+        }
+        if command.is_empty() {
+            self.edit.as_mut().unwrap().field = 1;
+            return;
+        }
+        // Split the command line into program + args on whitespace.
+        let mut parts = command.split_whitespace().map(String::from);
+        let program = parts.next().unwrap();
+        let args: Vec<String> = parts.collect();
+        self.cfg.launcher.push(AppEntry {
+            name,
+            command: program,
+            args,
+            category: Some("Custom".into()),
+        });
+        self.edit = None;
+        self.sel = self.cfg.launcher.len(); // park on the "＋ Add app…" row
+    }
+
     /// Handle a content-local click; returns `true` if a setting changed.
     pub fn handle_click(&mut self, p: Point, _w: i32, _h: i32) -> bool {
+        if self.edit.is_some() {
+            return false; // the add form is keyboard-driven
+        }
         if p.x < SIDEBAR_W {
             let i = (p.y - 1) as usize;
             if i < SECTIONS.len() {
@@ -191,6 +302,7 @@ impl Settings {
                     buf.write_str(cx, 7, &self.update_status, col, BG);
                 }
             }
+            3 => self.render_apps(&mut buf, cx, w),
             _ => {
                 buf.write_str(cx, 3, "tuiui — a desktop environment for the terminal", FG, BG);
                 buf.write_str(cx, 5, "Settings are saved to ~/.config/tuiui/config.toml", DIM, BG);
@@ -198,6 +310,50 @@ impl Settings {
             }
         }
         buf
+    }
+
+    /// Render the Apps section: either the add form or the custom-app list.
+    fn render_apps(&self, buf: &mut CellBuffer, cx: i32, w: i32) {
+        if let Some(e) = self.edit.as_ref() {
+            buf.write_str(cx, 3, "Add a custom app", FG, BG);
+            self.field(buf, cx, 5, "Name", &e.name, e.field == 0);
+            self.field(buf, cx, 6, "Command", &e.command, e.field == 1);
+            buf.write_str(cx, 8, "Enter save \u{00B7} \u{2191}\u{2193} switch field \u{00B7} Esc cancel", DIM, BG);
+            return;
+        }
+
+        if self.cfg.launcher.is_empty() {
+            buf.write_str(cx, 3, "No custom apps yet.", DIM, BG);
+        }
+        for (i, a) in self.cfg.launcher.iter().enumerate() {
+            let y = 3 + i as i32;
+            let sel = i == self.sel;
+            let marker = if sel { "\u{25B8} " } else { "  " };
+            buf.write_str(cx, y, marker, ACCENT, BG);
+            buf.write_str(cx + 2, y, &a.name, if sel { FG } else { DIM }, BG);
+            let cmd = command_line(a);
+            let cmd_x = cx + 16;
+            let max = (w - cmd_x - 12).max(4) as usize;
+            buf.write_str(cmd_x, y, &truncate(&cmd, max), DIM, BG);
+            if sel {
+                buf.write_str(w - 12, y, "\u{2190} remove", DIM, BG);
+            }
+        }
+        // "＋ Add app…" row.
+        let add_y = 3 + self.cfg.launcher.len() as i32;
+        let add_sel = self.sel == self.cfg.launcher.len();
+        let marker = if add_sel { "\u{25B8} " } else { "  " };
+        buf.write_str(cx, add_y, marker, ACCENT, BG);
+        buf.write_str(cx + 2, add_y, "\u{FF0B} Add app\u{2026}", if add_sel { GREEN } else { DIM }, BG);
+    }
+
+    /// Draw one labelled form field with a block cursor on the focused field.
+    fn field(&self, buf: &mut CellBuffer, x: i32, y: i32, label: &str, value: &str, focused: bool) {
+        let lcol = if focused { ACCENT } else { DIM };
+        buf.write_str(x, y, &format!("{label}:"), lcol, BG);
+        let vx = x + 10;
+        let shown = if focused { format!("{value}\u{2588}") } else { value.to_string() };
+        buf.write_str(vx, y, &shown, FG, BG);
     }
 
     fn row(&self, buf: &mut CellBuffer, x: i32, y: i32, idx: usize, label: &str, value: String) {
@@ -220,4 +376,96 @@ fn flip(current: bool, dir: i32) -> bool {
 
 fn toggle_val(on: bool) -> String {
     if on { "\u{25CF} on".into() } else { "\u{25CB} off".into() }
+}
+
+/// The full command line (program + args) of a launcher entry, for display.
+fn command_line(a: &AppEntry) -> String {
+    if a.args.is_empty() {
+        a.command.clone()
+    } else {
+        format!("{} {}", a.command, a.args.join(" "))
+    }
+}
+
+/// Truncate `s` to at most `max` characters, appending `…` when cut.
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let keep = max.saturating_sub(1);
+        format!("{}\u{2026}", s.chars().take(keep).collect::<String>())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Advance the section selector to the Apps panel ("Windows" → … → "Apps").
+    fn to_apps(s: &mut Settings) {
+        while SECTIONS[s.section] != "Apps" {
+            s.next_section();
+        }
+    }
+
+    #[test]
+    fn add_custom_app_splits_command_and_args() {
+        let mut s = Settings::new(Config::default());
+        to_apps(&mut s);
+        assert!(s.config().launcher.is_empty());
+
+        s.toggle(); // open the add form on the "＋ Add app…" row
+        assert!(s.is_editing());
+        for c in "SSH box".chars() { s.type_char(c); }
+        s.move_down(); // focus the Command field
+        for c in "ssh user@host".chars() { s.type_char(c); }
+        s.toggle(); // commit
+
+        assert!(!s.is_editing());
+        let apps = &s.config().launcher;
+        assert_eq!(apps.len(), 1);
+        assert_eq!(apps[0].name, "SSH box");
+        assert_eq!(apps[0].command, "ssh");
+        assert_eq!(apps[0].args, vec!["user@host".to_string()]);
+        assert_eq!(apps[0].category.as_deref(), Some("Custom"));
+    }
+
+    #[test]
+    fn empty_field_blocks_commit_and_refocuses() {
+        let mut s = Settings::new(Config::default());
+        to_apps(&mut s);
+        s.toggle(); // open form
+        // Commit with both fields empty: stays editing, focused on Name.
+        s.toggle();
+        assert!(s.is_editing());
+        assert!(s.config().launcher.is_empty());
+    }
+
+    #[test]
+    fn cancel_edit_discards_the_form() {
+        let mut s = Settings::new(Config::default());
+        to_apps(&mut s);
+        s.toggle();
+        for c in "junk".chars() { s.type_char(c); }
+        s.cancel_edit();
+        assert!(!s.is_editing());
+        assert!(s.config().launcher.is_empty());
+    }
+
+    #[test]
+    fn left_removes_selected_custom_app() {
+        let cfg = Config {
+            launcher: vec![
+                AppEntry { name: "A".into(), command: "a".into(), args: vec![], category: Some("Custom".into()) },
+                AppEntry { name: "B".into(), command: "b".into(), args: vec![], category: Some("Custom".into()) },
+            ],
+            ..Config::default()
+        };
+        let mut s = Settings::new(cfg);
+        to_apps(&mut s);
+        s.sel = 0;
+        s.left(); // remove "A"
+        assert_eq!(s.config().launcher.len(), 1);
+        assert_eq!(s.config().launcher[0].name, "B");
+    }
 }

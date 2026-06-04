@@ -146,6 +146,12 @@ pub enum ClientMsg {
     SettingsLeft,
     SettingsRight,
     SettingsToggle,
+    /// Settings (Apps add form): type a character into the focused field.
+    SettingsChar(char),
+    /// Settings (Apps add form): delete the last character of the focused field.
+    SettingsBackspace,
+    /// Settings (Apps add form): abandon the form without saving (Escape).
+    SettingsCancelEdit,
     /// Settings: close the settings window (Escape).
     SettingsClose,
     /// Shut down the daemon entirely (kills all apps). Sent by `tuiui kill`.
@@ -419,6 +425,9 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 }
                 self.sync_settings();
             }
+            ClientMsg::SettingsChar(c) => { if let Some(s) = self.focused_settings_mut() { s.type_char(c); } }
+            ClientMsg::SettingsBackspace => { if let Some(s) = self.focused_settings_mut() { s.backspace(); } }
+            ClientMsg::SettingsCancelEdit => { if let Some(s) = self.focused_settings_mut() { s.cancel_edit(); } }
             ClientMsg::SettingsClose => {
                 if let Some(id) = self.wm.focused() {
                     if matches!(self.contents.get(&id), Some(WinContent::Settings(_))) {
@@ -456,6 +465,16 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             .unwrap_or(false)
     }
 
+    /// `true` when the focused settings panel is in a text-entry field (Apps add
+    /// form), so the client should forward typed characters rather than treat
+    /// them as navigation.
+    pub fn settings_editing(&self) -> bool {
+        matches!(
+            self.wm.focused().and_then(|id| self.contents.get(&id)),
+            Some(WinContent::Settings(s)) if s.is_editing()
+        )
+    }
+
     fn focused_settings_mut(&mut self) -> Option<&mut Settings> {
         let id = self.wm.focused()?;
         match self.contents.get_mut(&id)? {
@@ -472,9 +491,15 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             _ => None,
         };
         if let Some(cfg) = cfg {
+            // Rebuilding the launcher rescans $PATH, so only do it when the
+            // custom-app list actually changed (not on every shadow/theme tweak).
+            let launcher_changed = cfg.launcher != self.cfg.launcher;
             self.cfg = cfg;
             crate::theme::set(&self.cfg.theme);
             let _ = self.cfg.save();
+            if launcher_changed {
+                self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg));
+            }
         }
     }
 

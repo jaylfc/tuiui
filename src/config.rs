@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// A single application entry in the config file.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct AppEntry {
     /// Human-readable name shown in the dock.
     pub name: String,

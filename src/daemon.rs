@@ -108,6 +108,7 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             spotlight_open: core.spotlight_open(),
             store_focused: core.focused_is_store(),
             settings_focused: core.focused_is_settings(),
+            settings_editing: core.settings_editing(),
             detach: core.quit_requested(),
         };
         let mut buf = serde_json::to_vec(&FrameMsg { changes, cursor: frame.cursor, flags })

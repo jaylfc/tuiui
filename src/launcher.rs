@@ -164,28 +164,65 @@ impl Launcher {
         out
     }
 
-    fn render_menu(&self, _w: i32, _h: i32) -> Rendered {
+    /// Render the dropdown as a multi-column grid of category blocks, fanning
+    /// categories across as many columns as fit under the menubar (Windows
+    /// Start-menu style). Columns are height-balanced by greedy packing.
+    fn render_menu(&self, w: i32, _h: i32) -> Rendered {
         let filtered = self.filtered();
-        let rows = self.rows(&filtered);
-        let name_w = filtered.iter().map(|e| e.name.chars().count()).max().unwrap_or(8) as i32;
-        let inner_w = (name_w + 4).max(16);
-        let box_w = inner_w + 2;
-        let box_h = rows.len() as i32 + 2;
         let origin = Point::new(0, 1); // directly under the menubar brand
+        if filtered.is_empty() {
+            let (box_w, box_h) = (18, 3);
+            let mut buf = CellBuffer::new(box_w, box_h);
+            fill_box(&mut buf, box_w, box_h);
+            draw_row(&mut buf, 1, box_w - 2, 1, "(no apps)", false, false);
+            return Rendered {
+                layers: vec![Layer { z: 5000, origin, buf, opacity: 1.0, scissor: None }],
+                items: Vec::new(),
+            };
+        }
+
+        let blocks = self.blocks(&filtered);
+        let name_w = filtered.iter().map(|e| e.name.chars().count()).max().unwrap_or(8) as i32;
+        let col_w = (name_w + 4).clamp(14, 26);
+        const GAP: i32 = 2;
+
+        // Number of columns that fit under the menubar (anchored at x = 0).
+        let avail = (w - 2).max(col_w);
+        let ncols = (((avail + GAP) / (col_w + GAP)).max(1) as usize).min(blocks.len());
+
+        // Greedily pack each block into the currently-shortest column. A block is
+        // 1 header + its items + a trailing spacer row.
+        let mut col_blocks: Vec<Vec<&Block>> = vec![Vec::new(); ncols];
+        let mut col_h: Vec<i32> = vec![0; ncols];
+        for b in &blocks {
+            let bh = 1 + b.items.len() as i32 + 1;
+            let c = (0..ncols).min_by_key(|&c| col_h[c]).unwrap();
+            col_blocks[c].push(b);
+            col_h[c] += bh;
+        }
+
+        // Tallest column drives the height (drop its trailing spacer).
+        let content_h = col_h.iter().copied().max().unwrap_or(1).saturating_sub(1).max(1);
+        let box_w = 2 + ncols as i32 * col_w + (ncols as i32 - 1) * GAP;
+        let box_h = content_h + 2;
 
         let mut buf = CellBuffer::new(box_w, box_h);
         fill_box(&mut buf, box_w, box_h);
 
         let mut items = Vec::new();
-        for (ri, row) in rows.iter().enumerate() {
-            let y = 1 + ri as i32;
-            match row {
-                Row::Header(c) => draw_header(&mut buf, box_w, y, c),
-                Row::Item(i) => {
-                    let e = &filtered[*i];
-                    draw_row(&mut buf, box_w, y, &e.name, *i == self.selected, false);
-                    items.push((e.clone(), Rect::new(origin.x + 1, origin.y + y, inner_w, 1)));
+        for (ci, blocks_in_col) in col_blocks.iter().enumerate() {
+            let x0 = 1 + ci as i32 * (col_w + GAP);
+            let mut y = 1;
+            for b in blocks_in_col {
+                draw_header(&mut buf, x0, col_w, y, &b.header);
+                y += 1;
+                for &i in &b.items {
+                    let e = &filtered[i];
+                    draw_row(&mut buf, x0, col_w, y, &e.name, i == self.selected, false);
+                    items.push((e.clone(), Rect::new(origin.x + x0, origin.y + y, col_w, 1)));
+                    y += 1;
                 }
+                y += 1; // spacer between blocks
             }
         }
 
@@ -193,6 +230,19 @@ impl Launcher {
             layers: vec![Layer { z: 5000, origin, buf, opacity: 1.0, scissor: None }],
             items,
         }
+    }
+
+    /// Group `filtered` into contiguous category blocks (header + item indices).
+    fn blocks(&self, filtered: &[AppEntry]) -> Vec<Block> {
+        let mut out: Vec<Block> = Vec::new();
+        for (i, e) in filtered.iter().enumerate() {
+            let c = cat_of(e);
+            if out.last().map(|b| b.header.as_str()) != Some(c.as_str()) {
+                out.push(Block { header: c, items: Vec::new() });
+            }
+            out.last_mut().unwrap().items.push(i);
+        }
+        out
     }
 
     fn render_spotlight(&self, w: i32, _h: i32) -> Rendered {
@@ -221,10 +271,10 @@ impl Launcher {
         for (ri, row) in rows.iter().enumerate() {
             let y = 3 + ri as i32;
             match row {
-                Row::Header(c) => draw_header(&mut buf, box_w, y, c),
+                Row::Header(c) => draw_header(&mut buf, 1, box_w - 2, y, c),
                 Row::Item(i) => {
                     let e = &filtered[*i];
-                    draw_row(&mut buf, box_w, y, &e.name, *i == self.selected, true);
+                    draw_row(&mut buf, 1, box_w - 2, y, &e.name, *i == self.selected, true);
                     items.push((e.clone(), Rect::new(origin.x + 1, origin.y + y, inner_w, 1)));
                 }
             }
@@ -243,17 +293,24 @@ enum Row {
     Item(usize),
 }
 
+/// A category block for grid layout: a header and the `filtered` indices under it.
+struct Block {
+    header: String,
+    items: Vec<usize>,
+}
+
 /// The category an entry belongs to ("Apps" when unset).
 fn cat_of(a: &AppEntry) -> String {
     a.category.clone().unwrap_or_else(|| "Apps".into())
 }
 
-/// Draw a dimmed, uppercase category header row.
-fn draw_header(buf: &mut CellBuffer, w: i32, row: i32, cat: &str) {
-    for x in 1..w - 1 {
+/// Draw a dimmed, uppercase category header spanning `cw` cells from `x0`.
+fn draw_header(buf: &mut CellBuffer, x0: i32, cw: i32, row: i32, cat: &str) {
+    for x in x0..x0 + cw {
         buf.set(x, row, Cell { ch: ' ', fg: HINT, bg: MENU_BG, attrs: Default::default() });
     }
-    buf.write_str(1, row, &cat.to_uppercase(), HINT, MENU_BG);
+    let label: String = cat.to_uppercase().chars().take(cw.max(1) as usize).collect();
+    buf.write_str(x0, row, &label, HINT, MENU_BG);
 }
 
 /// Fill a buffer with the menu background and draw a rounded border.
@@ -274,13 +331,74 @@ fn fill_box(buf: &mut CellBuffer, w: i32, h: i32) {
     buf.set(w - 1, h - 1, b('\u{256F}'));
 }
 
-/// Draw one app row, optionally highlighted, with optional `▸` selection marker.
-fn draw_row(buf: &mut CellBuffer, w: i32, row: i32, name: &str, highlighted: bool, marker: bool) {
+/// Draw one app row spanning `cw` cells from `x0`, optionally highlighted, with
+/// an optional `▸` selection marker. The name is truncated to fit the column.
+fn draw_row(buf: &mut CellBuffer, x0: i32, cw: i32, row: i32, name: &str, highlighted: bool, marker: bool) {
     let (fg, bg) = if highlighted { (SEL_FG, SEL_BG) } else { (MENU_FG, MENU_BG) };
-    for x in 1..w - 1 {
+    for x in x0..x0 + cw {
         buf.set(x, row, Cell { ch: ' ', fg, bg, attrs: Default::default() });
     }
     let lead = if marker && highlighted { "\u{25B8} " } else { "  " };
-    buf.write_str(1, row, lead, ACCENT, bg);
-    buf.write_str(3, row, name, fg, bg);
+    buf.write_str(x0, row, lead, ACCENT, bg);
+    let avail = (cw - 2).max(1) as usize;
+    let shown: String = if name.chars().count() > avail {
+        name.chars().take(avail.saturating_sub(1)).collect::<String>() + "\u{2026}"
+    } else {
+        name.to_string()
+    };
+    buf.write_str(x0 + 2, row, &shown, fg, bg);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app(name: &str, cat: &str) -> AppEntry {
+        AppEntry { name: name.into(), command: name.into(), args: vec![], category: Some(cat.into()) }
+    }
+
+    fn many() -> Vec<AppEntry> {
+        vec![
+            app("alpha", "Git"), app("beta", "Git"),
+            app("gamma", "System"), app("delta", "System"),
+            app("epsilon", "Net"), app("zeta", "Net"),
+            app("eta", "Games"), app("theta", "Games"),
+        ]
+    }
+
+    #[test]
+    fn menu_grid_renders_every_app() {
+        let mut l = Launcher::new(many());
+        l.toggle_menu();
+        let r = l.render(120, 40);
+        // Every entry is clickable exactly once.
+        assert_eq!(r.items.len(), many().len());
+    }
+
+    #[test]
+    fn wide_menu_uses_multiple_columns() {
+        let mut l = Launcher::new(many());
+        l.toggle_menu();
+        let r = l.render(120, 40);
+        let columns: std::collections::BTreeSet<i32> = r.items.iter().map(|(_, rect)| rect.x).collect();
+        assert!(columns.len() > 1, "wide screen should fan categories across columns");
+    }
+
+    #[test]
+    fn narrow_menu_collapses_to_one_column() {
+        let mut l = Launcher::new(many());
+        l.toggle_menu();
+        let r = l.render(20, 40);
+        let columns: std::collections::BTreeSet<i32> = r.items.iter().map(|(_, rect)| rect.x).collect();
+        assert_eq!(columns.len(), 1, "narrow screen should use a single column");
+        assert_eq!(r.items.len(), many().len());
+    }
+
+    #[test]
+    fn closed_launcher_renders_nothing() {
+        let l = Launcher::new(many());
+        let r = l.render(120, 40);
+        assert!(r.items.is_empty());
+        assert!(r.layers.is_empty());
+    }
 }

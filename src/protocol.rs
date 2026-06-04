@@ -26,6 +26,10 @@ pub struct Flags {
     pub spotlight_open: bool,
     pub store_focused: bool,
     pub settings_focused: bool,
+    /// The settings panel is in a text-entry field (Apps section add/edit form),
+    /// so the client forwards typed characters instead of treating them as
+    /// navigation commands.
+    pub settings_editing: bool,
     /// The daemon asked the client to detach (e.g. the Quit button was clicked).
     pub detach: bool,
 }

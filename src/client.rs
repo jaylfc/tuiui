@@ -109,6 +109,17 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             KeyCode::Char(c) if !ctrl => send(&mut out_stream, &ClientMsg::StoreChar(c))?,
                             _ => {}
                         }
+                    } else if f.settings_focused && f.settings_editing {
+                        // Apps add form: forward typed characters into the field.
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::SettingsCancelEdit)?,
+                            KeyCode::Enter => send(&mut out_stream, &ClientMsg::SettingsToggle)?,
+                            KeyCode::Up => send(&mut out_stream, &ClientMsg::SettingsUp)?,
+                            KeyCode::Down => send(&mut out_stream, &ClientMsg::SettingsDown)?,
+                            KeyCode::Backspace => send(&mut out_stream, &ClientMsg::SettingsBackspace)?,
+                            KeyCode::Char(c) if !ctrl => send(&mut out_stream, &ClientMsg::SettingsChar(c))?,
+                            _ => {}
+                        }
                     } else if f.settings_focused {
                         match k.code {
                             KeyCode::Esc => send(&mut out_stream, &ClientMsg::SettingsClose)?,
