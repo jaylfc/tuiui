@@ -1,1 +1,1002 @@
-{}
+{
+ "ATAC": {
+  "install": "brew install atac",
+  "method": "brew",
+  "verified": true
+ },
+ "Bagels": {
+  "install": "brew install bagels",
+  "method": "brew",
+  "verified": true
+ },
+ "Chawan": {
+  "install": "brew install chawan",
+  "method": "brew",
+  "verified": true
+ },
+ "Durdraw": {
+  "install": "brew install durdraw",
+  "method": "brew",
+  "verified": true
+ },
+ "Feluda": {
+  "install": "brew install feluda",
+  "method": "brew",
+  "verified": true
+ },
+ "GitType": {
+  "install": "brew install gittype",
+  "method": "brew",
+  "verified": true
+ },
+ "Glances": {
+  "install": "brew install glances",
+  "method": "brew",
+  "verified": true
+ },
+ "Glow": {
+  "install": "brew install glow",
+  "method": "brew",
+  "verified": true
+ },
+ "Goaccess": {
+  "install": "brew install goaccess",
+  "method": "brew",
+  "verified": true
+ },
+ "Greed": {
+  "install": "brew install greed",
+  "method": "brew",
+  "verified": true
+ },
+ "LYNX": {
+  "install": "brew install lynx",
+  "method": "brew",
+  "verified": true
+ },
+ "LazySSH": {
+  "install": "brew install lazyssh",
+  "method": "brew",
+  "verified": true
+ },
+ "Mutt": {
+  "install": "brew install mutt",
+  "method": "brew",
+  "verified": true
+ },
+ "MyMan": {
+  "install": "brew install myman",
+  "method": "brew",
+  "verified": true
+ },
+ "NetHack": {
+  "install": "brew install nethack",
+  "method": "brew",
+  "verified": true
+ },
+ "Podman-tui": {
+  "install": "brew install podman-tui",
+  "method": "brew",
+  "verified": true
+ },
+ "Profanity": {
+  "install": "brew install profanity",
+  "method": "brew",
+  "verified": true
+ },
+ "Slumber": {
+  "install": "brew install slumber",
+  "method": "brew",
+  "verified": true
+ },
+ "TUIOS": {
+  "install": "brew install tuios",
+  "method": "brew",
+  "verified": true
+ },
+ "Tabiew": {
+  "install": "brew install tabiew",
+  "method": "brew",
+  "verified": true
+ },
+ "Tock": {
+  "install": "brew install tock",
+  "method": "brew",
+  "verified": true
+ },
+ "VT Code": {
+  "install": "brew install vtcode",
+  "method": "brew",
+  "verified": true
+ },
+ "Vifm": {
+  "install": "brew install vifm",
+  "method": "brew",
+  "verified": true
+ },
+ "Visidata": {
+  "install": "brew install visidata",
+  "method": "brew",
+  "verified": true
+ },
+ "WTF": {
+  "install": "brew install wtf",
+  "method": "brew",
+  "verified": true
+ },
+ "Weechat": {
+  "install": "brew install weechat",
+  "method": "brew",
+  "verified": true
+ },
+ "Wordle": {
+  "install": "brew install wordle",
+  "method": "brew",
+  "verified": true
+ },
+ "Yozefu": {
+  "install": "brew install yozefu",
+  "method": "brew",
+  "verified": true
+ },
+ "abook": {
+  "install": "brew install abook",
+  "method": "brew",
+  "verified": true
+ },
+ "aerc": {
+  "install": "brew install aerc",
+  "method": "brew",
+  "verified": true
+ },
+ "alpine": {
+  "install": "brew install alpine",
+  "method": "brew",
+  "verified": true
+ },
+ "amp": {
+  "install": "brew install amp",
+  "method": "brew",
+  "verified": true
+ },
+ "apachetop": {
+  "install": "brew install apachetop",
+  "method": "brew",
+  "verified": true
+ },
+ "arttime": {
+  "install": "brew install arttime",
+  "method": "brew",
+  "verified": true
+ },
+ "asak": {
+  "install": "brew install asak",
+  "method": "brew",
+  "verified": true
+ },
+ "astroterm": {
+  "install": "brew install astroterm",
+  "method": "brew",
+  "verified": true
+ },
+ "atop": {
+  "install": "brew install atop",
+  "method": "brew",
+  "verified": true
+ },
+ "bandwhich": {
+  "install": "brew install bandwhich",
+  "method": "brew",
+  "verified": true
+ },
+ "bastet": {
+  "install": "brew install bastet",
+  "method": "brew",
+  "verified": true
+ },
+ "binsider": {
+  "install": "brew install binsider",
+  "method": "brew",
+  "verified": true
+ },
+ "bmon": {
+  "install": "brew install bmon",
+  "method": "brew",
+  "verified": true
+ },
+ "bombadillo": {
+  "install": "brew install bombadillo",
+  "method": "brew",
+  "verified": true
+ },
+ "bookokrat": {
+  "install": "brew install bookokrat",
+  "method": "brew",
+  "verified": true
+ },
+ "bottom": {
+  "install": "brew install bottom",
+  "method": "brew",
+  "verified": true
+ },
+ "bpytop": {
+  "install": "brew install bpytop",
+  "method": "brew",
+  "verified": true
+ },
+ "broot": {
+  "install": "brew install broot",
+  "method": "brew",
+  "verified": true
+ },
+ "btop++": {
+  "install": "brew install btop",
+  "method": "brew",
+  "verified": true
+ },
+ "bulletty": {
+  "install": "brew install bulletty",
+  "method": "brew",
+  "verified": true
+ },
+ "calcurse": {
+  "install": "brew install calcurse",
+  "method": "brew",
+  "verified": true
+ },
+ "cava": {
+  "install": "brew install cava",
+  "method": "brew",
+  "verified": true
+ },
+ "cbonsai": {
+  "install": "brew install cbonsai",
+  "method": "brew",
+  "verified": true
+ },
+ "cgdb": {
+  "install": "brew install cgdb",
+  "method": "brew",
+  "verified": true
+ },
+ "chafa": {
+  "install": "brew install chafa",
+  "method": "brew",
+  "verified": true
+ },
+ "chdig": {
+  "install": "brew install chdig",
+  "method": "brew",
+  "verified": true
+ },
+ "chiko": {
+  "install": "brew install chiko",
+  "method": "brew",
+  "verified": true
+ },
+ "cloudflare-speed-cli": {
+  "install": "brew install cloudflare-speed-cli",
+  "method": "brew",
+  "verified": true
+ },
+ "cmus": {
+  "install": "brew install cmus",
+  "method": "brew",
+  "verified": true
+ },
+ "csvlens": {
+  "install": "brew install csvlens",
+  "method": "brew",
+  "verified": true
+ },
+ "ctop": {
+  "install": "brew install ctop",
+  "method": "brew",
+  "verified": true
+ },
+ "dblab": {
+  "install": "brew install dblab",
+  "method": "brew",
+  "verified": true
+ },
+ "delta": {
+  "install": "brew install git-delta",
+  "method": "brew",
+  "verified": true
+ },
+ "diary": {
+  "install": "brew install diary",
+  "method": "brew",
+  "verified": true
+ },
+ "diskonaut": {
+  "install": "brew install diskonaut",
+  "method": "brew",
+  "verified": true
+ },
+ "dive": {
+  "install": "brew install dive",
+  "method": "brew",
+  "verified": true
+ },
+ "dockly": {
+  "install": "brew install dockly",
+  "method": "brew",
+  "verified": true
+ },
+ "dolphie": {
+  "install": "brew install dolphie",
+  "method": "brew",
+  "verified": true
+ },
+ "doxx": {
+  "install": "brew install doxx",
+  "method": "brew",
+  "verified": true
+ },
+ "dry": {
+  "install": "brew install dry",
+  "method": "brew",
+  "verified": true
+ },
+ "dtop": {
+  "install": "brew install dtop",
+  "method": "brew",
+  "verified": true
+ },
+ "ducker": {
+  "install": "brew install ducker",
+  "method": "brew",
+  "verified": true
+ },
+ "e1s": {
+  "install": "brew install e1s",
+  "method": "brew",
+  "verified": true
+ },
+ "ekphos": {
+  "install": "brew install ekphos",
+  "method": "brew",
+  "verified": true
+ },
+ "fancy-cat": {
+  "install": "brew install fancy-cat",
+  "method": "brew",
+  "verified": true
+ },
+ "fjira": {
+  "install": "brew install fjira",
+  "method": "brew",
+  "verified": true
+ },
+ "flawz": {
+  "install": "brew install flawz",
+  "method": "brew",
+  "verified": true
+ },
+ "framework-tool-tui": {
+  "install": "brew install framework-tool-tui",
+  "method": "brew",
+  "verified": true
+ },
+ "fx": {
+  "install": "brew install fx",
+  "method": "brew",
+  "verified": true
+ },
+ "fzf": {
+  "install": "brew install fzf",
+  "method": "brew",
+  "verified": true
+ },
+ "gdu": {
+  "install": "brew install gdu",
+  "method": "brew",
+  "verified": true
+ },
+ "ggc": {
+  "install": "brew install ggc",
+  "method": "brew",
+  "verified": true
+ },
+ "gitlogue": {
+  "install": "brew install gitlogue",
+  "method": "brew",
+  "verified": true
+ },
+ "gitui": {
+  "install": "brew install gitui",
+  "method": "brew",
+  "verified": true
+ },
+ "gocheat": {
+  "install": "brew install gocheat",
+  "method": "brew",
+  "verified": true
+ },
+ "godap": {
+  "install": "brew install godap",
+  "method": "brew",
+  "verified": true
+ },
+ "gonzo": {
+  "install": "brew install gonzo",
+  "method": "brew",
+  "verified": true
+ },
+ "gotop": {
+  "install": "brew install gotop",
+  "method": "brew",
+  "verified": true
+ },
+ "gpg-tui": {
+  "install": "brew install gpg-tui",
+  "method": "brew",
+  "verified": true
+ },
+ "gping": {
+  "install": "brew install gping",
+  "method": "brew",
+  "verified": true
+ },
+ "harlequin": {
+  "install": "brew install harlequin",
+  "method": "brew",
+  "verified": true
+ },
+ "helix": {
+  "install": "brew install helix",
+  "method": "brew",
+  "verified": true
+ },
+ "helm": {
+  "install": "brew install helm",
+  "method": "brew",
+  "verified": true
+ },
+ "htop": {
+  "install": "brew install htop",
+  "method": "brew",
+  "verified": true
+ },
+ "iamb": {
+  "install": "brew install iamb",
+  "method": "brew",
+  "verified": true
+ },
+ "intelli-shell": {
+  "install": "brew install intelli-shell",
+  "method": "brew",
+  "verified": true
+ },
+ "irssi": {
+  "install": "brew install irssi",
+  "method": "brew",
+  "verified": true
+ },
+ "jiratui": {
+  "install": "brew install jiratui",
+  "method": "brew",
+  "verified": true
+ },
+ "jqp": {
+  "install": "brew install jqp",
+  "method": "brew",
+  "verified": true
+ },
+ "jrnl": {
+  "install": "brew install jrnl",
+  "method": "brew",
+  "verified": true
+ },
+ "k9s": {
+  "install": "brew install k9s",
+  "method": "brew",
+  "verified": true
+ },
+ "kakoune": {
+  "install": "brew install kakoune",
+  "method": "brew",
+  "verified": true
+ },
+ "kaskade": {
+  "install": "brew install kaskade",
+  "method": "brew",
+  "verified": true
+ },
+ "kew": {
+  "install": "brew install kew",
+  "method": "brew",
+  "verified": true
+ },
+ "khal": {
+  "install": "brew install khal",
+  "method": "brew",
+  "verified": true
+ },
+ "ktop": {
+  "install": "brew install ktop",
+  "method": "brew",
+  "verified": true
+ },
+ "kubetui": {
+  "install": "brew install kubetui",
+  "method": "brew",
+  "verified": true
+ },
+ "lazycontainer": {
+  "install": "brew install lazycontainer",
+  "method": "brew",
+  "verified": true
+ },
+ "lazydocker": {
+  "install": "brew install lazydocker",
+  "method": "brew",
+  "verified": true
+ },
+ "lazygit": {
+  "install": "brew install lazygit",
+  "method": "brew",
+  "verified": true
+ },
+ "lazyjournal": {
+  "install": "brew install lazyjournal",
+  "method": "brew",
+  "verified": true
+ },
+ "lazymake": {
+  "install": "brew install lazymake",
+  "method": "brew",
+  "verified": true
+ },
+ "lazysql": {
+  "install": "brew install lazysql",
+  "method": "brew",
+  "verified": true
+ },
+ "lf": {
+  "install": "brew install lf",
+  "method": "brew",
+  "verified": true
+ },
+ "lnav": {
+  "install": "brew install lnav",
+  "method": "brew",
+  "verified": true
+ },
+ "mac-cleanup-go": {
+  "install": "brew install mac-cleanup-go",
+  "method": "brew",
+  "verified": true
+ },
+ "macmon": {
+  "install": "brew install macmon",
+  "method": "brew",
+  "verified": true
+ },
+ "mapscii": {
+  "install": "brew install mapscii",
+  "method": "brew",
+  "verified": true
+ },
+ "matcha": {
+  "install": "brew install matcha",
+  "method": "brew",
+  "verified": true
+ },
+ "mc": {
+  "install": "brew install midnight-commander",
+  "method": "brew",
+  "verified": true
+ },
+ "mcabber": {
+  "install": "brew install mcabber",
+  "method": "brew",
+  "verified": true
+ },
+ "mcfly": {
+  "install": "brew install mcfly",
+  "method": "brew",
+  "verified": true
+ },
+ "meli": {
+  "install": "brew install meli",
+  "method": "brew",
+  "verified": true
+ },
+ "micro": {
+  "install": "brew install micro",
+  "method": "brew",
+  "verified": true
+ },
+ "moc": {
+  "install": "brew install moc",
+  "method": "brew",
+  "verified": true
+ },
+ "models": {
+  "install": "brew install models",
+  "method": "brew",
+  "verified": true
+ },
+ "moon-buggy": {
+  "install": "brew install moon-buggy",
+  "method": "brew",
+  "verified": true
+ },
+ "moribito": {
+  "install": "brew install moribito",
+  "method": "brew",
+  "verified": true
+ },
+ "mqttui": {
+  "install": "brew install mqttui",
+  "method": "brew",
+  "verified": true
+ },
+ "nInvaders": {
+  "install": "brew install ninvaders",
+  "method": "brew",
+  "verified": true
+ },
+ "nSnake": {
+  "install": "brew install nsnake",
+  "method": "brew",
+  "verified": true
+ },
+ "nap": {
+  "install": "brew install nap",
+  "method": "brew",
+  "verified": true
+ },
+ "ncdu": {
+  "install": "brew install ncdu",
+  "method": "brew",
+  "verified": true
+ },
+ "ncspot": {
+  "install": "brew install ncspot",
+  "method": "brew",
+  "verified": true
+ },
+ "nemu": {
+  "install": "brew install nemu",
+  "method": "brew",
+  "verified": true
+ },
+ "nerdlog": {
+  "install": "brew install nerdlog",
+  "method": "brew",
+  "verified": true
+ },
+ "nethogs": {
+  "install": "brew install nethogs",
+  "method": "brew",
+  "verified": true
+ },
+ "netscanner": {
+  "install": "brew install netscanner",
+  "method": "brew",
+  "verified": true
+ },
+ "newsboat": {
+  "install": "brew install newsboat",
+  "method": "brew",
+  "verified": true
+ },
+ "nnn": {
+  "install": "brew install nnn",
+  "method": "brew",
+  "verified": true
+ },
+ "nudoku": {
+  "install": "brew install nudoku",
+  "method": "brew",
+  "verified": true
+ },
+ "nvtop": {
+  "install": "brew install nvtop",
+  "method": "brew",
+  "verified": true
+ },
+ "oha": {
+  "install": "brew install oha",
+  "method": "brew",
+  "verified": true
+ },
+ "opencode": {
+  "install": "brew install opencode",
+  "method": "brew",
+  "verified": true
+ },
+ "orbiton": {
+  "install": "brew install orbiton",
+  "method": "brew",
+  "verified": true
+ },
+ "oxker": {
+  "install": "brew install oxker",
+  "method": "brew",
+  "verified": true
+ },
+ "patat": {
+  "install": "brew install patat",
+  "method": "brew",
+  "verified": true
+ },
+ "posting": {
+  "install": "brew install posting",
+  "method": "brew",
+  "verified": true
+ },
+ "presenterm": {
+  "install": "brew install presenterm",
+  "method": "brew",
+  "verified": true
+ },
+ "prs": {
+  "install": "brew install prs",
+  "method": "brew",
+  "verified": true
+ },
+ "pug": {
+  "install": "brew install pug",
+  "method": "brew",
+  "verified": true
+ },
+ "qo": {
+  "install": "brew install qo",
+  "method": "brew",
+  "verified": true
+ },
+ "rainfrog": {
+  "install": "brew install rainfrog",
+  "method": "brew",
+  "verified": true
+ },
+ "ranger": {
+  "install": "brew install ranger",
+  "method": "brew",
+  "verified": true
+ },
+ "recoverpy": {
+  "install": "brew install recoverpy",
+  "method": "brew",
+  "verified": true
+ },
+ "redu": {
+  "install": "brew install redu",
+  "method": "brew",
+  "verified": true
+ },
+ "resterm": {
+  "install": "brew install resterm",
+  "method": "brew",
+  "verified": true
+ },
+ "rmpc": {
+  "install": "brew install rmpc",
+  "method": "brew",
+  "verified": true
+ },
+ "rtorrent": {
+  "install": "brew install rtorrent",
+  "method": "brew",
+  "verified": true
+ },
+ "runme": {
+  "install": "brew install runme",
+  "method": "brew",
+  "verified": true
+ },
+ "rustnet": {
+  "install": "brew install rustnet",
+  "method": "brew",
+  "verified": true
+ },
+ "sc-im": {
+  "install": "brew install sc-im",
+  "method": "brew",
+  "verified": true
+ },
+ "serie": {
+  "install": "brew install serie",
+  "method": "brew",
+  "verified": true
+ },
+ "slides": {
+  "install": "brew install slides",
+  "method": "brew",
+  "verified": true
+ },
+ "soft-serve": {
+  "install": "brew install soft-serve",
+  "method": "brew",
+  "verified": true
+ },
+ "spotify-player": {
+  "install": "brew install spotify_player",
+  "method": "brew",
+  "verified": true
+ },
+ "sq": {
+  "install": "brew install sq",
+  "method": "brew",
+  "verified": true
+ },
+ "stu": {
+  "install": "brew install stu",
+  "method": "brew",
+  "verified": true
+ },
+ "superfile": {
+  "install": "brew install superfile",
+  "method": "brew",
+  "verified": true
+ },
+ "taskline": {
+  "install": "brew install taskline",
+  "method": "brew",
+  "verified": true
+ },
+ "taskwarrior-tui": {
+  "install": "brew install taskwarrior-tui",
+  "method": "brew",
+  "verified": true
+ },
+ "tdf": {
+  "install": "brew install tdf",
+  "method": "brew",
+  "verified": true
+ },
+ "television": {
+  "install": "brew install television",
+  "method": "brew",
+  "verified": true
+ },
+ "tenere": {
+  "install": "brew install tenere",
+  "method": "brew",
+  "verified": true
+ },
+ "termscp": {
+  "install": "brew install termscp",
+  "method": "brew",
+  "verified": true
+ },
+ "termshark": {
+  "install": "brew install termshark",
+  "method": "brew",
+  "verified": true
+ },
+ "termusic": {
+  "install": "brew install termusic",
+  "method": "brew",
+  "verified": true
+ },
+ "tig": {
+  "install": "brew install tig",
+  "method": "brew",
+  "verified": true
+ },
+ "timg": {
+  "install": "brew install timg",
+  "method": "brew",
+  "verified": true
+ },
+ "tmux": {
+  "install": "brew install tmux",
+  "method": "brew",
+  "verified": true
+ },
+ "todoman": {
+  "install": "brew install todoman",
+  "method": "brew",
+  "verified": true
+ },
+ "toot": {
+  "install": "brew install toot",
+  "method": "brew",
+  "verified": true
+ },
+ "topydo": {
+  "install": "brew install topydo",
+  "method": "brew",
+  "verified": true
+ },
+ "treemd": {
+  "install": "brew install treemd",
+  "method": "brew",
+  "verified": true
+ },
+ "trippy": {
+  "install": "brew install trippy",
+  "method": "brew",
+  "verified": true
+ },
+ "try-rs": {
+  "install": "brew install try-rs",
+  "method": "brew",
+  "verified": true
+ },
+ "tty-solitaire": {
+  "install": "brew install tty-solitaire",
+  "method": "brew",
+  "verified": true
+ },
+ "ttyplot": {
+  "install": "brew install ttyplot",
+  "method": "brew",
+  "verified": true
+ },
+ "tuisky": {
+  "install": "brew install tuisky",
+  "method": "brew",
+  "verified": true
+ },
+ "tut": {
+  "install": "brew install tut",
+  "method": "brew",
+  "verified": true
+ },
+ "tweakcc": {
+  "install": "brew install tweakcc",
+  "method": "brew",
+  "verified": true
+ },
+ "typtea": {
+  "install": "brew install typtea",
+  "method": "brew",
+  "verified": true
+ },
+ "vis": {
+  "install": "brew install vis",
+  "method": "brew",
+  "verified": true
+ },
+ "viu": {
+  "install": "brew install viu",
+  "method": "brew",
+  "verified": true
+ },
+ "w3m": {
+  "install": "brew install w3m",
+  "method": "brew",
+  "verified": true
+ },
+ "wego": {
+  "install": "brew install wego",
+  "method": "brew",
+  "verified": true
+ },
+ "wifitui": {
+  "install": "brew install wifitui",
+  "method": "brew",
+  "verified": true
+ },
+ "x-cmd": {
+  "install": "brew install x-cmd",
+  "method": "brew",
+  "verified": true
+ },
+ "xplr": {
+  "install": "brew install xplr",
+  "method": "brew",
+  "verified": true
+ },
+ "yazi": {
+  "install": "brew install yazi",
+  "method": "brew",
+  "verified": true
+ },
+ "zellij": {
+  "install": "brew install zellij",
+  "method": "brew",
+  "verified": true
+ },
+ "zenith": {
+  "install": "brew install zenith",
+  "method": "brew",
+  "verified": true
+ }
+}
