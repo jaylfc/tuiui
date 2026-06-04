@@ -29,6 +29,18 @@ pub struct Config {
     pub snap_threshold: i32,
     /// Whether windows draw drop shadows.
     pub window_shadows: bool,
+    /// Tiling grid rows (1..=6).
+    #[serde(default = "default_grid_rows")]
+    pub grid_rows: u8,
+    /// Tiling grid columns (1..=6).
+    #[serde(default = "default_grid_cols")]
+    pub grid_cols: u8,
+    /// Cells of gutter between tiled windows.
+    #[serde(default)]
+    pub tile_gap: i32,
+    /// Auto-arrange all windows into the grid.
+    #[serde(default)]
+    pub auto_tile: bool,
     /// Active color theme name (one of the preset names in `theme::PRESETS`).
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -58,6 +70,10 @@ impl Default for Config {
             snapping_enabled: true,
             snap_threshold: 3,
             window_shadows: true,
+            grid_rows: 2,
+            grid_cols: 2,
+            tile_gap: 0,
+            auto_tile: false,
             theme: "midnight".into(),
             apps: vec![
                 AppEntry { name: "shell".into(), command: default_shell(), args: vec![], category: Some("Shell".into()) },
@@ -70,6 +86,9 @@ impl Default for Config {
 fn default_shell() -> String { std::env::var("SHELL").unwrap_or_else(|_| "bash".into()) }
 
 fn default_theme() -> String { "midnight".into() }
+
+fn default_grid_rows() -> u8 { 2 }
+fn default_grid_cols() -> u8 { 2 }
 
 /// Resolve the config file path from `$XDG_CONFIG_HOME` (if set) else
 /// `<home>/.config`, on every platform.

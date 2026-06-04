@@ -42,3 +42,12 @@ fn save_and_load_roundtrip() {
     std::env::remove_var("XDG_CONFIG_HOME");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn config_defaults_grid_2x2() {
+    let c = Config::default();
+    assert_eq!(c.grid_rows, 2);
+    assert_eq!(c.grid_cols, 2);
+    assert_eq!(c.tile_gap, 0);
+    assert!(!c.auto_tile);
+}
