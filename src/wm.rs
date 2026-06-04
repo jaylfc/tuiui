@@ -148,6 +148,54 @@ impl WindowManager {
         }
     }
 
+    /// Place window `id` into grid cell `(row, col)`, saving its floating rect
+    /// for restore. Resizes/positions it to the cell and records `Tiled` state.
+    pub fn send_to_cell(&mut self, id: WindowId, grid: crate::geometry::Grid, row: u8, col: u8, gap: i32) {
+        let work = self.work;
+        if let Some(w) = self.get_mut(id) {
+            if w.state == WindowState::Floating {
+                w.restore_rect = w.rect;
+            }
+            w.rect = grid.cell_rect(work, row, col, gap);
+            w.state = WindowState::Tiled { row, col };
+        }
+    }
+
+    /// Arrange all non-minimized windows into the grid in z-order (row-major).
+    /// Windows beyond `grid.cells()` are left untouched (they float on top).
+    pub fn tile_all(&mut self, grid: crate::geometry::Grid, gap: i32) {
+        let mut v: Vec<&Window> = self.windows.iter().filter(|w| !w.minimized).collect();
+        v.sort_by_key(|w| w.z);
+        let ids: Vec<WindowId> = v.into_iter().map(|w| w.id).collect();
+        for (i, id) in ids.iter().enumerate() {
+            if i as u8 >= grid.cells() {
+                break;
+            }
+            let (row, col) = grid.row_col(i as u8);
+            self.send_to_cell(*id, grid, row, col, gap);
+        }
+    }
+
+    /// Swap the rects and tiled-states of two windows (auto-tile drag swap).
+    pub fn swap_cells(&mut self, a: WindowId, b: WindowId) {
+        let (ra, sa) = match self.get(a) {
+            Some(w) => (w.rect, w.state),
+            None => return,
+        };
+        let (rb, sb) = match self.get(b) {
+            Some(w) => (w.rect, w.state),
+            None => return,
+        };
+        if let Some(w) = self.get_mut(a) {
+            w.rect = rb;
+            w.state = sb;
+        }
+        if let Some(w) = self.get_mut(b) {
+            w.rect = ra;
+            w.state = sa;
+        }
+    }
+
     /// Toggle maximize for window `id`: fill the work area, or restore the
     /// previous rect if already maximized.
     ///

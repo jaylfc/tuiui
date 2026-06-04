@@ -127,3 +127,40 @@ fn minimize_hides_and_moves_focus_then_unminimize_restores() {
     assert!(!m.get(b).unwrap().minimized);
     assert_eq!(m.focused(), Some(b)); // restored + raised
 }
+
+use tuiui::geometry::Grid;
+
+#[test]
+fn send_to_cell_places_window_in_grid() {
+    let work = Rect::new(0, 1, 12, 6);
+    let mut m = WindowManager::new(work);
+    let a = m.add_window("a".into(), Rect::new(0, 1, 3, 3));
+    m.send_to_cell(a, Grid { rows: 2, cols: 3 }, 1, 2, 0);
+    let w = m.get(a).unwrap();
+    assert_eq!(w.rect, Rect::new(8, 4, 4, 3));
+    assert_eq!(w.state, WindowState::Tiled { row: 1, col: 2 });
+}
+
+#[test]
+fn tile_all_assigns_cells_in_z_order() {
+    let work = Rect::new(0, 1, 12, 6);
+    let mut m = WindowManager::new(work);
+    let a = m.add_window("a".into(), Rect::new(0, 1, 3, 3));
+    let b = m.add_window("b".into(), Rect::new(0, 1, 3, 3));
+    m.tile_all(Grid { rows: 1, cols: 2 }, 0);
+    assert_eq!(m.get(a).unwrap().rect, Rect::new(0, 1, 6, 6));
+    assert_eq!(m.get(b).unwrap().rect, Rect::new(6, 1, 6, 6));
+}
+
+#[test]
+fn swap_cells_exchanges_two_windows() {
+    let work = Rect::new(0, 1, 12, 6);
+    let mut m = WindowManager::new(work);
+    let a = m.add_window("a".into(), Rect::new(0, 1, 3, 3));
+    let b = m.add_window("b".into(), Rect::new(0, 1, 3, 3));
+    m.tile_all(Grid { rows: 1, cols: 2 }, 0);
+    let (ra, rb) = (m.get(a).unwrap().rect, m.get(b).unwrap().rect);
+    m.swap_cells(a, b);
+    assert_eq!(m.get(a).unwrap().rect, rb);
+    assert_eq!(m.get(b).unwrap().rect, ra);
+}

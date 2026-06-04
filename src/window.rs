@@ -15,6 +15,8 @@ pub enum WindowState {
     SnappedRight,
     /// Filling the entire work area (via maximize).
     Maximized,
+    /// Tiled into grid cell `(row, col)`.
+    Tiled { row: u8, col: u8 },
 }
 
 /// A clickable control button in a window's titlebar.
