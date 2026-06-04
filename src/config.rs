@@ -41,18 +41,53 @@ impl Default for Config {
 
 fn default_shell() -> String { std::env::var("SHELL").unwrap_or_else(|_| "bash".into()) }
 
+/// Resolve the config file path from `$XDG_CONFIG_HOME` (if set) else
+/// `<home>/.config`, on every platform.
+///
+/// Note: we deliberately do **not** use `dirs::config_dir()` — on macOS that
+/// returns `~/Library/Application Support`, but tuiui standardises on the
+/// XDG-style `~/.config/tuiui/config.toml` across all platforms.
+fn config_file_path(
+    xdg_config_home: Option<std::ffi::OsString>,
+    home: Option<std::path::PathBuf>,
+) -> Option<std::path::PathBuf> {
+    let base = xdg_config_home
+        .map(std::path::PathBuf::from)
+        .or_else(|| home.map(|h| h.join(".config")))?;
+    Some(base.join("tuiui").join("config.toml"))
+}
+
 impl Config {
     /// Parse a `Config` from a TOML string.
     pub fn from_toml_str(s: &str) -> Result<Config, toml::de::Error> { toml::from_str(s) }
 
-    /// Load from `~/.config/tuiui/config.toml`, falling back to defaults on any error.
+    /// Load from `$XDG_CONFIG_HOME/tuiui/config.toml` (or `~/.config/tuiui/config.toml`),
+    /// falling back to defaults on any error.
     pub fn load() -> Config {
-        let path = dirs::config_dir().map(|d| d.join("tuiui").join("config.toml"));
+        let path = config_file_path(std::env::var_os("XDG_CONFIG_HOME"), dirs::home_dir());
         if let Some(p) = path {
             if let Ok(text) = std::fs::read_to_string(&p) {
                 if let Ok(cfg) = Config::from_toml_str(&text) { return cfg; }
             }
         }
         Config::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn config_path_prefers_xdg_config_home() {
+        let p = config_file_path(Some("/x/cfg".into()), Some(PathBuf::from("/home/u")));
+        assert_eq!(p.unwrap(), PathBuf::from("/x/cfg/tuiui/config.toml"));
+    }
+
+    #[test]
+    fn config_path_falls_back_to_dotconfig_on_all_platforms() {
+        let p = config_file_path(None, Some(PathBuf::from("/home/u")));
+        assert_eq!(p.unwrap(), PathBuf::from("/home/u/.config/tuiui/config.toml"));
     }
 }
