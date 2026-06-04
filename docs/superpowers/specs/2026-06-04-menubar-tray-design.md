@@ -174,6 +174,33 @@ pub trait SystemControl {
   tested) and executed by the poller/session with a hard timeout. A missing tool
   flips the relevant `BackendCaps` bit off — never a panic.
 
+## Optional dependencies & installer
+
+Some controls need a small external tool that may not be present — currently only
+**`blueutil`** (macOS Bluetooth control). The design keeps tuiui fully functional
+without it (the BT popover degrades to read-only via `system_profiler`), but we
+make the happy path easy to reach two ways:
+
+1. **Installer (`install.sh`):** after placing the `tuiui` binary, an optional,
+   **OS-aware** dependency step installs known helpers when a package manager is
+   present:
+   - macOS + Homebrew → `brew install blueutil`.
+   - Linux → nothing required (BlueZ `bluetoothctl`/`rfkill` ship with the distro);
+     if a future dep is needed, use the detected manager (`apt`/`dnf`/`pacman`).
+   The step is **transparent and skippable**: it prints exactly what it will run,
+   skips silently when no package manager is found, and honours
+   `TUIUI_SKIP_DEPS=1` (and is auto-skipped in non-interactive `curl | sh` unless
+   `TUIUI_INSTALL_DEPS=1` is set, so piping the installer never surprises a user
+   with package installs). A `tuiui --install-deps` subcommand runs the same step
+   on demand.
+2. **Runtime offer:** when the user opens a control whose backing tool is missing
+   (e.g. the Bluetooth popover with no `blueutil`), the popover shows a one-line
+   hint with the exact install command, and — if a package manager is available —
+   an "Install blueutil" action that spawns the install in a visible shell window
+   (the same pattern the store and the in-app updater already use).
+
+This keeps installs explicit and OS-correct, never silent, and never required.
+
 ## Error handling & safety
 
 - All shell-outs run off the render thread (in the poller or as fire-and-forget
