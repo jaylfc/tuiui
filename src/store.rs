@@ -6,6 +6,7 @@
 use crate::buffer::CellBuffer;
 use crate::catalog::{self, CatalogApp};
 use crate::cell::{Cell, Rgba};
+use crate::geometry::Point;
 
 const BG: Rgba = Rgba { r: 17, g: 20, b: 29, a: 255 };
 const FG: Rgba = Rgba { r: 200, g: 208, b: 220, a: 255 };
@@ -178,6 +179,44 @@ impl Store {
         buf
     }
 
+    /// Handle a click at content-local point `p` (within a `w × h` content area).
+    ///
+    /// Returns `true` if the click should activate (install/launch) the selected
+    /// app — i.e. the action button, or a second click on the already-selected row.
+    pub fn handle_click(&mut self, p: Point, _w: i32, h: i32) -> bool {
+        if p.y < 2 {
+            return false; // search bar / divider
+        }
+        // Category sidebar.
+        if p.x < SIDEBAR_W {
+            let i = (p.y - 2) as usize;
+            if i < self.categories.len() {
+                self.cat_index = i;
+                self.reset_list();
+            }
+            return false;
+        }
+        // App list.
+        let list_x = SIDEBAR_W + 1;
+        if p.x >= list_x && p.x < list_x + LIST_W {
+            let rows = (h - 2).max(0) as usize;
+            let idx = self.scroll_for(rows) + (p.y - 2) as usize;
+            if idx < self.filtered().len() {
+                if idx == self.selected {
+                    return true; // second click on the selected row activates
+                }
+                self.selected = idx;
+            }
+            return false;
+        }
+        // Detail pane action button (bottom).
+        let dx = list_x + LIST_W + 1;
+        if p.x >= dx && p.y == h - 2 {
+            return true;
+        }
+        false
+    }
+
     /// Scroll offset that keeps the selection visible given `rows` visible lines.
     fn scroll_for(&self, rows: usize) -> usize {
         if rows == 0 {
@@ -194,11 +233,28 @@ impl Store {
 }
 
 /// The best-effort install command for an app (run in a shell window).
+///
+/// Tries the common TUI install paths in turn — Homebrew, then `cargo install`,
+/// then `go install <repo>@latest` — and always prints the homepage so the user
+/// can finish manually. Per-app recipes will refine this over time.
 pub fn install_command(app: &CatalogApp) -> String {
+    let gopath = app
+        .homepage
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_end_matches('/');
     format!(
-        "echo 'Installing {name}…'; brew install {bin} || echo; echo; echo 'If that did not work, see: {home}'; echo 'Press Ctrl+Alt+Q-> or close this window when done.'; exec $SHELL",
+        "clear; echo 'Installing {name} — trying brew, then cargo, then go…'; echo; \
+( command -v brew >/dev/null 2>&1 && brew install {bin} ) \
+|| cargo install {bin} \
+|| go install {gopath}@latest \
+|| true; \
+echo; echo '────────'; \
+echo 'If nothing installed automatically, get {name} from:'; echo '  {home}'; \
+echo; echo 'Close this window (✕) when done.'; exec \"$SHELL\"",
         name = app.name,
         bin = app.bin,
+        gopath = gopath,
         home = app.homepage,
     )
 }

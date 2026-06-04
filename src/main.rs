@@ -135,6 +135,13 @@ fn main() -> std::io::Result<()> {
                         MouseEventKind::Moved => {
                             core.apply(ClientMsg::MouseDrag(p));
                         }
+                        // Wheel scrolls the store list when it's focused.
+                        MouseEventKind::ScrollUp if core.focused_is_store() => {
+                            core.apply(ClientMsg::StoreUp);
+                        }
+                        MouseEventKind::ScrollDown if core.focused_is_store() => {
+                            core.apply(ClientMsg::StoreDown);
+                        }
                         _ => {}
                     }
                 }

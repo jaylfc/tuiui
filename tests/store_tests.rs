@@ -37,3 +37,17 @@ fn render_returns_sized_buffer() {
     assert_eq!(buf.width(), 80);
     assert_eq!(buf.height(), 24);
 }
+
+#[test]
+fn click_selects_category_and_row() {
+    use tuiui::geometry::Point;
+    let mut s = Store::new();
+    // sidebar: category at y = 2 + index; click "Dashboards" (index 1)
+    let _ = s.handle_click(Point::new(2, 3), 96, 22);
+    assert!(s.filtered().len() < 500 && !s.filtered().is_empty());
+    // list column starts at x=17; first visible row at y=2 selects index 0
+    let _ = s.handle_click(Point::new(20, 2), 96, 22);
+    assert_eq!(s.selected_app().map(|a| a.name.clone()), s.filtered().first().map(|a| a.name.clone()));
+    // second click on the same (selected) row activates
+    assert!(s.handle_click(Point::new(20, 2), 96, 22));
+}

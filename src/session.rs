@@ -516,8 +516,18 @@ impl SessionCore {
             }
             Action::FocusAndForward { id, local } => {
                 self.wm.raise(id);
-                // Mouse-forwarding into apps is keyboard-first in Slice 1; raise is enough.
-                let _ = local;
+                // The store handles content clicks (category/row/install); PTY apps
+                // are keyboard-first for now, so raising is enough for them.
+                let cr = self.wm.get(id).map(|w| w.content_rect());
+                let mut activate = false;
+                if let Some(cr) = cr {
+                    if let Some(WinContent::Store(s)) = self.contents.get_mut(&id) {
+                        activate = s.handle_click(local, cr.w, cr.h);
+                    }
+                }
+                if activate {
+                    self.store_activate();
+                }
             }
             Action::EndDrag => {
                 if let Some(Hit::Moving { id, .. }) = self.drag {
