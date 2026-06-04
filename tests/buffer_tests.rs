@@ -12,9 +12,7 @@ fn new_buffer_is_default_filled() {
 #[test]
 fn set_and_get_roundtrip() {
     let mut b = CellBuffer::new(3, 3);
-    let mut c = Cell::default();
-    c.ch = 'X';
-    c.bg = Rgba::rgb(1, 2, 3);
+    let c = Cell { ch: 'X', bg: Rgba::rgb(1, 2, 3), ..Default::default() };
     b.set(1, 2, c);
     assert_eq!(b.get(1, 2).unwrap().ch, 'X');
     assert_eq!(b.get(1, 2).unwrap().bg, Rgba::rgb(1, 2, 3));

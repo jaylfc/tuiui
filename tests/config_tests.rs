@@ -28,10 +28,12 @@ command = "bash"
 fn save_and_load_roundtrip() {
     let dir = std::env::temp_dir().join(format!("tuiui-cfg-{}", std::process::id()));
     std::env::set_var("XDG_CONFIG_HOME", &dir);
-    let mut c = Config::default();
-    c.snapping_enabled = false;
-    c.window_shadows = false;
-    c.snap_threshold = 7;
+    let c = Config {
+        snapping_enabled: false,
+        window_shadows: false,
+        snap_threshold: 7,
+        ..Config::default()
+    };
     c.save().unwrap();
     let loaded = Config::load();
     assert!(!loaded.snapping_enabled);

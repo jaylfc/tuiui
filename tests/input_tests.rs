@@ -9,7 +9,7 @@ fn win(id: u64, rect: Rect, z: i32) -> Window {
 #[test]
 fn click_on_titlebar_starts_move() {
     let w = win(1, Rect::new(0,1,20,8), 1);
-    let act = route_mouse(MouseKind::Down, Point::new(3,1), &[w.clone()], None);
+    let act = route_mouse(MouseKind::Down, Point::new(3,1), &[w], None);
     assert_eq!(act, Action::BeginMove(WindowId(1)));
 }
 
