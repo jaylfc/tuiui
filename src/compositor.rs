@@ -30,8 +30,9 @@ pub struct CellChange {
     pub cell: Cell,
 }
 
-/// Desktop background fill color — the color shown in cells not covered by any layer.
-const DESKTOP_BG: Rgba = Rgba { r: 18, g: 20, b: 28, a: 255 };
+/// Desktop background fill color — a neutral dark grey backdrop, distinct from the
+/// (bluish, near-black) window titlebars so inactive windows stand out against it.
+const DESKTOP_BG: Rgba = Rgba { r: 44, g: 46, b: 50, a: 255 };
 
 /// Double-buffered compositor: composites z-ordered [`Layer`]s (with alpha blending),
 /// overlays a block cursor, and diffs successive frames into a minimal [`CellChange`] list.
