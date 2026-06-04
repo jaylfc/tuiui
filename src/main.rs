@@ -50,13 +50,29 @@ fn main() -> std::io::Result<()> {
             match event::read()? {
                 // Key events — skip Release so we don't double-send.
                 Event::Key(k) if k.kind != KeyEventKind::Release => {
-                    // Reserved Ctrl+Alt window-management chords are intercepted
-                    // before forwarding input to the focused app.
                     let ctrl_alt = k.modifiers.contains(KeyModifiers::CONTROL)
                         && k.modifiers.contains(KeyModifiers::ALT);
-                    if ctrl_alt {
+
+                    if core.launcher_open() {
+                        // An open launcher captures keyboard navigation/typing.
+                        match k.code {
+                            KeyCode::Char('q') if ctrl_alt => break 'outer,
+                            KeyCode::Char(' ') if ctrl_alt => core.apply(ClientMsg::ToggleSpotlight),
+                            KeyCode::Esc => core.apply(ClientMsg::LauncherEsc),
+                            KeyCode::Enter => core.apply(ClientMsg::LauncherEnter),
+                            KeyCode::Up => core.apply(ClientMsg::LauncherUp),
+                            KeyCode::Down => core.apply(ClientMsg::LauncherDown),
+                            KeyCode::Backspace => core.apply(ClientMsg::LauncherBackspace),
+                            KeyCode::Char(c) if !ctrl_alt && core.spotlight_open() => {
+                                core.apply(ClientMsg::LauncherChar(c));
+                            }
+                            _ => {}
+                        }
+                    } else if ctrl_alt {
+                        // Reserved Ctrl+Alt chords (window management + Spotlight).
                         match k.code {
                             KeyCode::Char('q') => break 'outer,
+                            KeyCode::Char(' ') => core.apply(ClientMsg::ToggleSpotlight),
                             KeyCode::Up => core.apply(ClientMsg::MaximizeFocused),
                             KeyCode::Down => core.apply(ClientMsg::MinimizeFocused),
                             KeyCode::Left => core.apply(ClientMsg::SnapFocused(SnapZone::Left)),

@@ -7,6 +7,7 @@ pub mod ptyhost;
 pub mod window;
 pub mod wm;
 pub mod chrome;
+pub mod launcher;
 pub mod input;
 pub mod session;
 pub mod config;

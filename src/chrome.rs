@@ -54,6 +54,12 @@ pub fn render_menubar(width: i32, focused_app: &str) -> Layer {
     Layer { z: 1000, origin: Point::new(0, 0), buf, opacity: 1.0, scissor: None }
 }
 
+/// Screen-space hit region for the menubar brand ("✦ Tuiui"), used to open the
+/// launcher dropdown. Top-left of the menubar.
+pub fn menubar_brand_region() -> Rect {
+    Rect::new(0, 0, 9, 1)
+}
+
 /// Screen-space hit region for the menubar quit button (top row, right side).
 ///
 /// Returned in the same coordinate space as [`dock_hit_regions`] so input

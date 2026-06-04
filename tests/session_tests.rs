@@ -35,3 +35,16 @@ fn clicking_menubar_quit_button_requests_quit() {
     assert!(core.quit_requested());
     core.shutdown();
 }
+
+#[test]
+fn spotlight_launches_selected_app() {
+    let mut core = SessionCore::new(80, 24, Config::default());
+    assert!(!core.spotlight_open());
+    core.apply(ClientMsg::ToggleSpotlight);
+    assert!(core.spotlight_open());
+    let before = core.window_count();
+    core.apply(ClientMsg::LauncherEnter); // launch highlighted (the default shell)
+    assert!(!core.launcher_open());
+    assert_eq!(core.window_count(), before + 1);
+    core.shutdown();
+}

@@ -10,11 +10,14 @@
 //! details cross this boundary — it is the seam that a future daemon will
 //! expose on a socket.
 
-use crate::chrome::{render_menubar, render_dock, dock_hit_regions, menubar_quit_region, DockItem};
+use crate::chrome::{
+    render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_quit_region, DockItem,
+};
 use crate::compositor::Layer;
-use crate::config::Config;
+use crate::config::{AppEntry, Config};
 use crate::geometry::{Point, Rect, SnapZone, snap_zone};
 use crate::input::{route_mouse, MouseKind, Hit, Action};
+use crate::launcher::Launcher;
 use crate::ptyhost::AppInstance;
 use crate::window::WindowId;
 use crate::wm::{WindowManager, render_window};
@@ -54,6 +57,20 @@ pub enum ClientMsg {
     MinimizeFocused,
     /// Snap the focused window to a screen half (keyboard command).
     SnapFocused(SnapZone),
+    /// Open/close the Spotlight search overlay (keyboard command).
+    ToggleSpotlight,
+    /// Type a character into the Spotlight query.
+    LauncherChar(char),
+    /// Delete the last character of the Spotlight query.
+    LauncherBackspace,
+    /// Move the launcher highlight up.
+    LauncherUp,
+    /// Move the launcher highlight down.
+    LauncherDown,
+    /// Launch the highlighted entry (Enter).
+    LauncherEnter,
+    /// Dismiss the launcher (Escape).
+    LauncherEsc,
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -94,6 +111,8 @@ pub struct SessionCore {
     cursor: Point,
     /// Set when the user clicks the menubar quit button; polled by the loop.
     quit: bool,
+    /// The app launcher (menubar dropdown + Spotlight overlay).
+    launcher: Launcher,
 }
 
 impl SessionCore {
@@ -103,6 +122,7 @@ impl SessionCore {
     /// the single-row dock at the bottom, i.e. `Rect::new(0, 1, w, h - 2)`.
     pub fn new(w: i32, h: i32, cfg: Config) -> Self {
         let work = Rect::new(0, 1, w, h - 2);
+        let launcher = Launcher::new(cfg.launcher_apps());
         Self {
             wm: WindowManager::new(work),
             apps: HashMap::new(),
@@ -113,7 +133,19 @@ impl SessionCore {
             drag: None,
             cursor: Point::new(w / 2, h / 2),
             quit: false,
+            launcher,
         }
+    }
+
+    /// Whether the launcher (menu or Spotlight) is currently open.
+    pub fn launcher_open(&self) -> bool {
+        self.launcher.is_open()
+    }
+
+    /// Whether the Spotlight overlay specifically is open (the loop routes typed
+    /// characters to the query only in this mode).
+    pub fn spotlight_open(&self) -> bool {
+        self.launcher.mode() == Some(crate::launcher::LauncherMode::Spotlight)
     }
 
     /// Whether the user has requested quit (clicked the menubar quit button).
@@ -208,7 +240,24 @@ impl SessionCore {
                     self.sync_app_size(id);
                 }
             }
+            ClientMsg::ToggleSpotlight => self.launcher.toggle_spotlight(),
+            ClientMsg::LauncherChar(c) => self.launcher.type_char(c),
+            ClientMsg::LauncherBackspace => self.launcher.backspace(),
+            ClientMsg::LauncherUp => self.launcher.move_up(),
+            ClientMsg::LauncherDown => self.launcher.move_down(),
+            ClientMsg::LauncherEnter => {
+                if let Some(e) = self.launcher.selected_entry() {
+                    self.launcher.close();
+                    self.launch_entry(e);
+                }
+            }
+            ClientMsg::LauncherEsc => self.launcher.close(),
         }
+    }
+
+    /// Spawn a launcher entry as a new window and bring it to the front.
+    fn launch_entry(&mut self, e: AppEntry) {
+        self.launch(e.name, e.command, e.args);
     }
 
     /// Spawn a new PTY-backed window.
@@ -245,9 +294,27 @@ impl SessionCore {
 
     /// Route a mouse event through dock hit-testing then the WM input router.
     fn handle_mouse(&mut self, kind: MouseKind, p: Point) {
-        // Menubar quit button and dock clicks are checked first so they bypass
-        // normal window routing.
+        // An open launcher captures the next click: launch an item, or dismiss.
+        if kind == MouseKind::Down && self.launcher.is_open() {
+            let rendered = self.launcher.render(self.w, self.h);
+            for (entry, r) in rendered.items {
+                if r.contains(p) {
+                    self.launcher.close();
+                    self.launch_entry(entry);
+                    return;
+                }
+            }
+            self.launcher.close();
+            return;
+        }
+
+        // Menubar brand opens the launcher dropdown; quit button and dock clicks
+        // are checked before normal window routing.
         if kind == MouseKind::Down {
+            if menubar_brand_region().contains(p) {
+                self.launcher.toggle_menu();
+                return;
+            }
             if menubar_quit_region(self.w).contains(p) {
                 self.quit = true;
                 return;
@@ -377,6 +444,9 @@ impl SessionCore {
 
         layers.push(render_menubar(self.w, &app_name));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
+
+        // Launcher (dropdown / Spotlight) renders above all chrome.
+        layers.extend(self.launcher.render(self.w, self.h).layers);
 
         Frame { layers, cursor: Some(self.cursor) }
     }

@@ -172,7 +172,7 @@ fn blend_cell(src: Cell, dst: Cell, opacity: f32) -> Cell {
             bg: out_bg,
             attrs: src.attrs,
         }
-    } else if src_bg.a >= 255 {
+    } else if src_bg.a == 255 {
         // Opaque blank cell: clears the content beneath it.
         Cell {
             ch: ' ',

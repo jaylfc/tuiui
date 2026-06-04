@@ -23,8 +23,24 @@ pub struct Config {
     pub snapping_enabled: bool,
     /// Distance in cells from the screen edge that triggers snapping.
     pub snap_threshold: i32,
-    /// Ordered list of apps shown in the dock.
+    /// Ordered list of apps auto-started at launch (and shown in the dock).
     pub apps: Vec<AppEntry>,
+    /// Apps offered in the launcher menu / spotlight. Falls back to `apps`
+    /// (via [`Config::launcher_apps`]) when left empty.
+    #[serde(default)]
+    pub launcher: Vec<AppEntry>,
+}
+
+impl Config {
+    /// The apps the launcher should offer: the explicit `launcher` list, or the
+    /// autostart `apps` when no launcher list is configured.
+    pub fn launcher_apps(&self) -> Vec<AppEntry> {
+        if self.launcher.is_empty() {
+            self.apps.clone()
+        } else {
+            self.launcher.clone()
+        }
+    }
 }
 
 impl Default for Config {
@@ -35,6 +51,7 @@ impl Default for Config {
             apps: vec![
                 AppEntry { name: "shell".into(), command: default_shell(), args: vec![] },
             ],
+            launcher: vec![],
         }
     }
 }
