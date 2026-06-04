@@ -18,6 +18,15 @@
   ],
   "verified": true
  },
+ "Argonaut": {
+  "install": "brew tap darksworm/homebrew-tap && brew install darksworm/homebrew-tap/argonaut",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "Backlog.md": {
   "install": "brew install backlog-md",
   "method": "brew",
@@ -36,6 +45,70 @@
   ],
   "verified": true
  },
+ "Brief": {
+  "install": "brew install williamagh/tap/brief",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "BrogueCE": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "C-Edit": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "Caligula": {
+  "install": "brew tap philocalyst/tap && brew install caligula",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "Canard": {
+  "install": "go install github.com/mrusme/canard@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "Captain's log": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "CatenaVetus": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
  "Chawan": {
   "install": "brew install chawan",
   "method": "brew",
@@ -45,14 +118,33 @@
   ],
   "verified": true
  },
+ "Chronos": {
+  "install": "go install github.com/samuelstranges/chronos@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "Claude Code Bridge": {
-  "install": "tar -xzf ccb-*.tar.gz && cd ccb-* && ./install.sh install",
-  "method": "script",
-  "verified": false
+  "install": "pip install claude-code-bridge",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
  },
  "Close Mongo Ops Manager": {
   "install": "pipx install close-mongo-ops-manager",
   "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "Cloud Code Usage Monitor": {
@@ -72,6 +164,73 @@
   ],
   "verified": false
  },
+ "CrunchyCleaner": {
+  "install": "go install github.com/knuspii/crunchycleaner/v2@latest",
+  "method": "go",
+  "os": [
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "CuTE": {
+  "install": "cargo install CuTE-tui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "DOOM-ASCII": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "Desktop-TUI": {
+  "install": "cargo install desktop-tui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Devzat": {
+  "install": "go install github.com/quackduck/devzat@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "DigiSurf": {
+  "install": "cargo install digisurf",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "DockMate": {
+  "install": "brew install shubh-io/tap/dockmate",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "Durdraw": {
   "install": "brew install durdraw",
   "method": "brew",
@@ -81,9 +240,57 @@
   ],
   "verified": true
  },
+ "Edit": {
+  "install": "brew install msedit",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "Feluda": {
   "install": "brew install feluda",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "Fresh": {
+  "install": "brew install fresh-editor",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Froggit": {
+  "install": "go install github.com/thewizardshell/froggit@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Gameboy Emulator": {
+  "install": "composer global require gabrielrcouto/php-terminal-gameboy-emulator:dev-master",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "GeekCalendar": {
+  "install": "npm install -g github:fearlessgeekmedia/GeekCalendar",
+  "method": "npm",
   "os": [
    "macos",
    "linux"
@@ -126,6 +333,33 @@
   ],
   "verified": true
  },
+ "Gomphotherium": {
+  "install": "go install github.com/mrusme/gomphotherium@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "GopherTube": {
+  "install": "curl -sSL https://raw.githubusercontent.com/KrishnaSSH/GopherTube/main/install.sh | bash",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "Gorae": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "Grafterm": {
   "install": "go install github.com/slok/grafterm/cmd/grafterm@latest",
   "method": "go",
@@ -145,6 +379,33 @@
   ],
   "verified": true
  },
+ "HumBLE Explorer": {
+  "install": "pipx install humble-explorer",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "HydroFetch": {
+  "install": "curl -sSL https://raw.githubusercontent.com/Henriquehnnm/HydroFetch/main/install.fish | fish",
+  "method": "script",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "HydroToDo": {
+  "install": "git clone https://github.com/Henriquehnnm/hydrotodo && cd hydrotodo && python3 hydrotodo.py",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "ID-Spoofer": {
   "install": "",
   "method": "binary",
@@ -152,6 +413,25 @@
    "linux"
   ],
   "verified": false
+ },
+ "IconicFonts": {
+  "install": "",
+  "method": "unknown",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "Judo": {
+  "install": "cargo install judo",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
  },
  "Kyanos": {
   "install": "curl -fsSL https://raw.githubusercontent.com/hengyoush/kyanos/refs/heads/main/init_env.sh | bash",
@@ -170,6 +450,16 @@
   ],
   "verified": true
  },
+ "Lagrange": {
+  "install": "brew install --cask lagrange",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "LazySSH": {
   "install": "brew install lazyssh",
   "method": "brew",
@@ -178,6 +468,71 @@
    "linux"
   ],
   "verified": true
+ },
+ "LearnByExample": {
+  "install": "",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "LogLens": {
+  "install": "brew tap Caelrith/loglens && brew install loglens",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "MAL-Cli": {
+  "install": "cargo install mal-cli-rs",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Maze": {
+  "install": "brew install itchyny/tap/maze",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "Maze TUI": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "Micro Snake": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "Micro Tetris": {
+  "install": "",
+  "method": "unknown",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
  },
  "Mutt": {
   "install": "brew install mutt",
@@ -197,12 +552,32 @@
   ],
   "verified": true
  },
+ "NanoCore": {
+  "install": "cargo install nanocore",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "NetHack": {
   "install": "brew install nethack",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "PesterExplorer": {
+  "install": "Install-Module PesterExplorer -Scope CurrentUser",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -214,6 +589,15 @@
    "linux"
   ],
   "verified": false
+ },
+ "Pocker": {
+  "install": "pipx install pocker-tui",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
  },
  "Podman-tui": {
   "install": "brew install podman-tui",
@@ -242,6 +626,26 @@
   ],
   "verified": true
  },
+ "Quorum": {
+  "install": "pipx install quorum-cli",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "RadioGoGo": {
+  "install": "go install github.com/zi0p4tch0/radiogogo@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "Raijin": {
   "install": "cargo install Raijin",
   "method": "cargo",
@@ -251,9 +655,47 @@
   ],
   "verified": true
  },
+ "Rebels in the sky": {
+  "install": "cargo install rebels",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Relax-player": {
+  "install": "cargo install relax-player",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "ServerHub": {
   "install": "curl -fsSL https://raw.githubusercontent.com/nickprotop/ServerHub/main/install.sh | bash",
   "method": "script",
+  "verified": true
+ },
+ "SheetsUI": {
+  "install": "cargo install --git https://github.com/zaphar/sheetsui --locked",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "Slack-term": {
+  "install": "go install github.com/erroneousboat/slack-term@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Slumber": {
@@ -265,12 +707,68 @@
   ],
   "verified": true
  },
+ "Square Tic Tac Toe": {
+  "install": "pipx install squaretictactoe",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "SuperChat": {
+  "install": "curl -fsSL https://raw.githubusercontent.com/aeolun/superchat/main/install.sh | sh",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Superhighway84": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "Systemd-manager-tui": {
+  "install": "cargo install --locked systemd-manager-tui",
+  "method": "cargo",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
+ "TUIFIManager": {
+  "install": "pip3 install TUIFIManager",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "TUIOS": {
   "install": "brew install tuios",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "TUI_ProjectManager": {
+  "install": "cargo install project_manager",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -293,6 +791,15 @@
   ],
   "verified": false
  },
+ "Toad": {
+  "install": "pipx install batrachian-toad",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "Tock": {
   "install": "brew install tock",
   "method": "brew",
@@ -301,6 +808,52 @@
    "linux"
   ],
   "verified": true
+ },
+ "Toney": {
+  "install": "go install github.com/SourcewareLab/Toney@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "Toutui": {
+  "install": "bash -c 'expected_sha256=\"b5c41bcd3c480fd2ca6ec0031ccecf2cf7cf4ae01f591cad64a320fa7d72331d\" export expected_sha256 tmpfile=$(mktemp) && curl -LsSf https://github.com/AlbanDAVID/Toutui/raw/stable/hello_toutui.sh -o \"$tmpfile\" && bash \"$tmpfile\" install && rm -f \"$tmpfile\"'",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "Trophy": {
+  "install": "go install github.com/taigrr/trophy/cmd/trophy@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Twig": {
+  "install": "pipx install twg",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "UniPac": {
+  "install": "cargo install --git https://github.com/jesper-olsen/UniPac",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
  },
  "VT Code": {
   "install": "brew install vtcode",
@@ -329,6 +882,14 @@
   ],
   "verified": true
  },
+ "WG Commander": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
  "WTF": {
   "install": "brew install wtf",
   "method": "brew",
@@ -346,6 +907,34 @@
    "linux"
   ],
   "verified": true
+ },
+ "WifUI": {
+  "install": "cargo install wifui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Wikit": {
+  "install": "npm install -g @bryance/wikit",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "WireGuard Monitor": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "linux"
+  ],
+  "verified": false
  },
  "Wordle": {
   "install": "brew install wordle",
@@ -365,6 +954,24 @@
   ],
   "verified": true
  },
+ "Zigtris": {
+  "install": "",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "Zoridor": {
+  "install": "",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "abook": {
   "install": "brew install abook",
   "method": "brew",
@@ -383,12 +990,30 @@
   ],
   "verified": true
  },
+ "adbtuifm": {
+  "install": "go install github.com/darkhz/adbtuifm@latest",
+  "method": "go",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
  "aerc": {
   "install": "brew install aerc",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "agent-deck": {
+  "install": "go install github.com/asheshgoplani/agent-deck/cmd/agent-deck@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -428,6 +1053,16 @@
   ],
   "verified": true
  },
+ "ani-l": {
+  "install": "cargo install ani-l",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "apachetop": {
   "install": "brew install apachetop",
   "method": "brew",
@@ -452,6 +1087,16 @@
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "asciiMol": {
+  "install": "pip install asciimol",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -483,12 +1128,50 @@
   ],
   "verified": true
  },
+ "awkaster": {
+  "install": "git clone https://github.com/TheMozg/awk-raycaster.git && cd awk-raycaster && gawk -f awkaster.awk",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "awsui": {
+  "install": "pip install awsui",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "balatrotui": {
+  "install": "cargo install --git https://github.com/Passeriform/BalatroTUI balatro_tui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "bandwhich": {
   "install": "brew install bandwhich",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "basalt": {
+  "install": "cargo install basalt-tui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -536,6 +1219,24 @@
   ],
   "verified": false
  },
+ "bluetui": {
+  "install": "cargo install bluetui",
+  "method": "cargo",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
+ "bluetuith": {
+  "install": "go install github.com/darkhz/bluetuith@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "bmon": {
   "install": "brew install bmon",
   "method": "brew",
@@ -563,6 +1264,15 @@
   ],
   "verified": true
  },
+ "botany": {
+  "install": "git clone https://github.com/jifunks/botany.git && cd botany && python3 botany.py",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "bottom": {
   "install": "brew install bottom",
   "method": "brew",
@@ -581,6 +1291,14 @@
   ],
   "verified": true
  },
+ "brickgame-4bit": {
+  "install": "git clone https://github.com/ilyakurdyukov/brickgame-4bit && cd brickgame-4bit && make",
+  "method": "other",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
  "broot": {
   "install": "brew install broot",
   "method": "brew",
@@ -596,6 +1314,16 @@
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "browsh": {
+  "install": "go install github.com/browsh-org/browsh/interfacer/cmd/browsh@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -627,12 +1355,32 @@
   ],
   "verified": true
  },
+ "calcure": {
+  "install": "pipx install calcure",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "calcurse": {
   "install": "brew install calcurse",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "carbonyl": {
+  "install": "npm install --global carbonyl",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -643,6 +1391,15 @@
    "macos",
    "linux",
    "windows"
+  ],
+  "verified": true
+ },
+ "castero": {
+  "install": "pip install castero",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux"
   ],
   "verified": true
  },
@@ -673,12 +1430,31 @@
   ],
   "verified": true
  },
+ "cfdisk": {
+  "install": "brew install util-linux",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "cgdb": {
   "install": "brew install cgdb",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "cgdisk": {
+  "install": "brew install gptfdisk",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -709,6 +1485,16 @@
   ],
   "verified": true
  },
+ "chess-tui": {
+  "install": "brew install thomas-mauran/tap/chess-tui",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "chiko": {
   "install": "brew install chiko",
   "method": "brew",
@@ -727,9 +1513,37 @@
   ],
   "verified": true
  },
+ "clidle": {
+  "install": "go install github.com/ajeetdsouza/clidle@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "clipse": {
+  "install": "go install github.com/savedra1/clipse@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "cloudflare-speed-cli": {
   "install": "brew install cloudflare-speed-cli",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "cmdpxl": {
+  "install": "pipx install cmdpxl",
+  "method": "pipx",
   "os": [
    "macos",
    "linux"
@@ -754,6 +1568,16 @@
   ],
   "verified": true
  },
+ "codex": {
+  "install": "brew install --cask codex",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "cointop": {
   "install": "brew install cointop",
   "method": "brew",
@@ -762,6 +1586,45 @@
    "linux"
   ],
   "verified": true
+ },
+ "cruise": {
+  "install": "brew tap cruise-org/homebrew-tap && brew install --cask cruise",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "crush": {
+  "install": "brew install charmbracelet/tap/crush",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "csol": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "csope": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
  },
  "csvlens": {
   "install": "brew install csvlens",
@@ -790,6 +1653,24 @@
   ],
   "verified": true
  },
+ "ctune": {
+  "install": "git clone https://github.com/An7ar35/ctune.git && cd ctune && cmake . -DCMAKE_BUILD_TYPE=Release && cmake --build . && sudo cmake --install .",
+  "method": "other",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "d4s": {
+  "install": "brew install jr-k/d4s/d4s",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "damon": {
   "install": "go install github.com/hcjulz/damon/cmd/damon@latest",
   "method": "go",
@@ -809,12 +1690,51 @@
   ],
   "verified": true
  },
+ "dbee": {
+  "install": "go install github.com/murat-cileli/dbee/src@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "dblab": {
   "install": "brew install dblab",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "ddqa": {
+  "install": "pipx install ddqa",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "ddv": {
+  "install": "brew install lusingander/tap/ddv",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "deletor": {
+  "install": "go install github.com/pashkov256/deletor@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -827,12 +1747,40 @@
   ],
   "verified": true
  },
+ "deputui": {
+  "install": "git clone https://github.com/twiddler/deputui && cd deputui && cargo build --release && cp target/release/deputui /usr/local/bin/",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "diary": {
   "install": "brew install diary",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "differ": {
+  "install": "brew install jansmrcka/tap/differ",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "discordo": {
+  "install": "go install github.com/ayn2op/discordo@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -845,12 +1793,30 @@
   ],
   "verified": true
  },
+ "distrobox-tui": {
+  "install": "go install github.com/phanirithvij/distrobox-tui@latest",
+  "method": "go",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
  "dive": {
   "install": "brew install dive",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "docker-dash": {
+  "install": "go install github.com/GustavoCaso/docker-dash/cmd/docker-dash@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -881,6 +1847,36 @@
   ],
   "verified": true
  },
+ "dprs": {
+  "install": "curl -fsSL https://get.durableprogramming.com/dprs | sh",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "drako": {
+  "install": "go install github.com/lucky7xz/drako@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "draw": {
+  "install": "go install github.com/maaslalani/draw@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "dry": {
   "install": "brew install dry",
   "method": "brew",
@@ -908,12 +1904,50 @@
   ],
   "verified": true
  },
+ "dvtm": {
+  "install": "",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "e1s": {
   "install": "brew install e1s",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "ec": {
+  "install": "brew install chojs23/tap/ec",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "ec2-instance-selector": {
+  "install": "brew tap aws/tap && brew install ec2-instance-selector",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "eilmeldung": {
+  "install": "brew tap christo-auer/eilmeldung https://github.com/christo-auer/eilmeldung && brew install eilmeldung",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -926,12 +1960,106 @@
   ],
   "verified": true
  },
+ "eks-node-viewer": {
+  "install": "brew tap aws/tap && brew install eks-node-viewer",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "elia": {
+  "install": "pipx install elia-chat",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "elinks": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "emu2": {
+  "install": "git clone https://github.com/dmsc/emu2 && cd emu2 && make && sudo make install",
+  "method": "other",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "endcord": {
+  "install": "bash -c \"$(curl -fsSL https://raw.githubusercontent.com/mzivic7/endcord/main/tools/install.sh)\"",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "etcd-walker": {
+  "install": "go install github.com/nexusriot/etcd-walker/cmd/etcd-walker@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "euporie": {
+  "install": "pipx install euporie",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "fancy-cat": {
   "install": "brew install fancy-cat",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "far2l": {
+  "install": "brew install far2l-tty",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "fast-resume": {
+  "install": "brew tap angristan/tap && brew install fast-resume",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "favicon-editor": {
+  "install": "go install github.com/xyproto/favicon-editor@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -953,12 +2081,40 @@
   ],
   "verified": true
  },
+ "fml": {
+  "install": "git clone https://github.com/wick3dr0se/fml && cp fml/fml /usr/local/bin/fml",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "fnf": {
+  "install": "mkdir build && cd build && git clone https://github.com/leo-arch/fnf && cd fnf && make && sudo make install",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "framework-tool-tui": {
   "install": "brew install framework-tool-tui",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "frogmouth": {
+  "install": "pipx install frogmouth",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -983,6 +2139,15 @@
  "fzf": {
   "install": "brew install fzf",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "gadacz": {
+  "install": "cargo install --git https://github.com/rareitems/gadacz --branch master",
+  "method": "cargo",
   "os": [
    "macos",
    "linux"
@@ -1016,6 +2181,35 @@
   ],
   "verified": true
  },
+ "gif-for-cli": {
+  "install": "pipx install gif-for-cli",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "git-crecord": {
+  "install": "pipx install git-crecord",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "git-scope": {
+  "install": "brew tap Bharath-code/tap && brew install git-scope",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "gitlogue": {
   "install": "brew install gitlogue",
   "method": "brew",
@@ -1028,6 +2222,24 @@
  "gitui": {
   "install": "brew install gitui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "gitv": {
+  "install": "cargo install --locked gitv-tui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "go-life": {
+  "install": "go install github.com/sachaos/go-life@latest",
+  "method": "go",
   "os": [
    "macos",
    "linux"
@@ -1055,6 +2267,45 @@
  "godap": {
   "install": "brew install godap",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "goful": {
+  "install": "go install github.com/anmitsu/goful@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "gokemon": {
+  "install": "go install github.com/nathanieltooley/gokemon/poketerm@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "golazo": {
+  "install": "brew install 0xjuanma/tap/golazo",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "gomuks": {
+  "install": "go install go.mau.fi/gomuks@latest",
+  "method": "go",
   "os": [
    "macos",
    "linux"
@@ -1097,12 +2348,59 @@
   ],
   "verified": true
  },
+ "grv": {
+  "install": "brew install grv",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "gurk-rs": {
+  "install": "brew install gurk",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "h-m-m": {
+  "install": "wget -q -O - 'https://raw.githubusercontent.com/nadrad/h-m-m/main/install.sh' | sh",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "hackernews-TUI": {
+  "install": "cargo install hackernews_tui --locked",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "harlequin": {
   "install": "brew install harlequin",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "haxor-news": {
+  "install": "pipx install haxor-news",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1121,6 +2419,35 @@
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "heretek": {
+  "install": "cargo install heretek --locked",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "hledger-ui": {
+  "install": "brew install hledger",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "hnjobs": {
+  "install": "go install github.com/mwinters0/hnjobs@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1152,8 +2479,44 @@
   ],
   "verified": true
  },
+ "hygg": {
+  "install": "cargo install --locked hygg",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "iamb": {
   "install": "brew install iamb",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "image-sorter": {
+  "install": "cargo install image-sorter",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "impala": {
+  "install": "cargo install impala",
+  "method": "cargo",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
+ "instagram-cli": {
+  "install": "brew tap supreme-gg-gg/tap && brew install instagram-cli",
   "method": "brew",
   "os": [
    "macos",
@@ -1170,9 +2533,37 @@
   ],
   "verified": true
  },
+ "invidtui": {
+  "install": "go install github.com/darkhz/invidtui@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "irssi": {
   "install": "brew install irssi",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "isw": {
+  "install": "cargo install isw",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "jellyfin-tui": {
+  "install": "cargo install jellyfin-tui",
+  "method": "cargo",
   "os": [
    "macos",
    "linux"
@@ -1206,12 +2597,40 @@
   ],
   "verified": true
  },
+ "k8s-tui": {
+  "install": "go install github.com/otavioCosta2110/k8s-tui/cmd@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "k9s": {
   "install": "brew install k9s",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "kabmat": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "kagan": {
+  "install": "pipx install kagan",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1224,12 +2643,41 @@
   ],
   "verified": true
  },
+ "kanban": {
+  "install": "brew install fulsomenko/tap/kanban",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "kanban-python": {
+  "install": "pipx install kanban-python",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "kaskade": {
   "install": "brew install kaskade",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "kdash": {
+  "install": "brew tap kdash-rs/kdash && brew install kdash",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1242,6 +2690,26 @@
   ],
   "verified": true
  },
+ "keydex": {
+  "install": "curl -s https://shikaan.github.io/sup/install | REPO=shikaan/keydex sh -",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "kftui": {
+  "install": "cargo install kftui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "khal": {
   "install": "brew install khal",
   "method": "brew",
@@ -1250,6 +2718,15 @@
    "linux"
   ],
   "verified": true
+ },
+ "kilo": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
  },
  "kmon": {
   "install": "cargo install kmon",
@@ -1322,6 +2799,16 @@
   ],
   "verified": true
  },
+ "lazynginx": {
+  "install": "go install github.com/giacomomasseron/lazynginx@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "lazysql": {
   "install": "brew install lazysql",
   "method": "brew",
@@ -1330,6 +2817,35 @@
    "linux"
   ],
   "verified": true
+ },
+ "lazytrivy": {
+  "install": "brew tap owenrumney/tools && brew install lazytrivy",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "lean-tui": {
+  "install": "cargo install lean-tui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "levite": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
  },
  "lf": {
   "install": "brew install lf",
@@ -1340,12 +2856,51 @@
   ],
   "verified": true
  },
+ "line": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "lnav": {
   "install": "brew install lnav",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "logradar": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "logshark": {
+  "install": "go install github.com/ugosan/logshark/cmd/logshark@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "longbridge-terminal": {
+  "install": "brew install --cask longbridge/tap/longbridge-terminal",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1377,12 +2932,69 @@
   ],
   "verified": true
  },
+ "maki": {
+  "install": "dotnet build && cd ./maki/bin/Debug/net8.0 && ./maki",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "managarr": {
+  "install": "brew tap Dark-Alex-17/managarr && brew install managarr",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "manga-tui": {
+  "install": "cargo install manga-tui --locked",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "mapscii": {
   "install": "brew install mapscii",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "markln": {
+  "install": "git clone https://github.com/xqtr/markln && cd markln && pip install -r requirements.txt",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "marstui-audio": {
+  "install": "",
+  "method": "other",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "mastui": {
+  "install": "pipx install mastui",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1394,6 +3006,15 @@
    "linux"
   ],
   "verified": true
+ },
+ "matterhorn": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
  },
  "mc": {
   "install": "brew install midnight-commander",
@@ -1440,6 +3061,35 @@
   ],
   "verified": true
  },
+ "minesweep-rs": {
+  "install": "cargo install minesweep",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "minesweeper_4d_rs": {
+  "install": "cargo install minesweeper_4d",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "mitmproxy": {
+  "install": "brew install mitmproxy",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "moc": {
   "install": "brew install moc",
   "method": "brew",
@@ -1476,9 +3126,47 @@
   ],
   "verified": true
  },
+ "mps-youtube": {
+  "install": "pipx install mps-youtube",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "mpvc": {
+  "install": "curl -fsSLO https://github.com/gmt4/mpvc/raw/master/extras/mpvc-installer && SHELL=/bin/sh BINDIR=$HOME/bin sh ./mpvc-installer fetch-user",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "mqttui": {
   "install": "brew install mqttui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "multranslate": {
+  "install": "npm install -g multranslate",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "mynav": {
+  "install": "curl -fsSL https://raw.githubusercontent.com/GianlucaP106/mynav/main/install.bash | bash",
+  "method": "script",
   "os": [
    "macos",
    "linux"
@@ -1521,6 +3209,24 @@
   ],
   "verified": true
  },
+ "nchat": {
+  "install": "brew tap d99kris/nchat && brew install nchat",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "nchess": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "ncspot": {
   "install": "brew install ncspot",
   "method": "brew",
@@ -1533,6 +3239,24 @@
  "nemu": {
   "install": "brew install nemu",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "neo": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "neoss": {
+  "install": "npm install -g neoss",
+  "method": "npm",
   "os": [
    "macos",
    "linux"
@@ -1575,6 +3299,33 @@
   ],
   "verified": true
  },
+ "nino": {
+  "install": "git clone https://github.com/evanlin96069/nino && cd nino && mkdir build && cd build && cmake .. && cmake --build .",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "nless": {
+  "install": "brew install mpryor/tap/nless",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "nmtui": {
+  "install": "",
+  "method": "apt",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
  "nnn": {
   "install": "brew install nnn",
   "method": "brew",
@@ -1584,8 +3335,63 @@
   ],
   "verified": true
  },
+ "nodebro": {
+  "install": "go install github.com/jonaburg/nodebro@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "nomadnet": {
+  "install": "pipx install nomadnet",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "nostratui": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "nostui": {
+  "install": "cargo install nostui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "ntc": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "nudoku": {
   "install": "brew install nudoku",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "numr": {
+  "install": "brew tap nasedkinpv/tap && brew install numr",
   "method": "brew",
   "os": [
    "macos",
@@ -1602,6 +3408,16 @@
   ],
   "verified": true
  },
+ "nyaa": {
+  "install": "cargo install nyaa",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "oha": {
   "install": "brew install oha",
   "method": "brew",
@@ -1611,9 +3427,48 @@
   ],
   "verified": true
  },
+ "omaro": {
+  "install": "cargo install omaro",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "onx": {
+  "install": "pipx install onx",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "opcilloscope": {
+  "install": "curl -fsSL https://raw.githubusercontent.com/SquareWaveSystems/opcilloscope/main/install.sh | bash",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "opencode": {
   "install": "brew install opencode",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "openmux": {
+  "install": "npm install -g openmux",
+  "method": "npm",
   "os": [
    "macos",
    "linux"
@@ -1637,6 +3492,15 @@
   ],
   "verified": true
  },
+ "ostui": {
+  "install": "go install ser1.net/ostui@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "otel-tui": {
   "install": "brew install ymtdzzz/tap/otel-tui",
   "method": "brew",
@@ -1655,6 +3519,34 @@
   ],
   "verified": true
  },
+ "packemon": {
+  "install": "brew install ddddddO/tap/packemon",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "pagerduty-tui": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "pass-cli": {
+  "install": "brew tap arimxyer/homebrew-tap && brew install pass-cli",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "patat": {
   "install": "brew install patat",
   "method": "brew",
@@ -1664,9 +3556,118 @@
   ],
   "verified": true
  },
+ "pdiary": {
+  "install": "pip install pdiary",
+  "method": "pip",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
+ "physics-TUI": {
+  "install": "pip install git+https://github.com/ClaudioRMalvino/physics_TUI.git",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "pipe-viewer": {
+  "install": "perl Build.PL && ./Build && sudo ./Build install",
+  "method": "other",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "pkm": {
+  "install": "git clone https://github.com/wick3dr0se/pkm && cd pkm && bash pkm",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "play": {
+  "install": "go install github.com/paololazzari/play@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "podliner": {
+  "install": "bash <(curl -fsSL https://github.com/timkicker/podliner/releases/latest/download/install-macos.sh)",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "pokete": {
+  "install": "pip install pokete",
+  "method": "pip",
+  "os": [
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "pomo": {
+  "install": "brew install --cask bahaaio/pomo/pomo",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "pond": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "portfolio_rs": {
+  "install": "cargo install portfolio_rs",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "posting": {
   "install": "brew install posting",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "pproftui": {
+  "install": "go install github.com/Oloruntobi1/pproftui@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "pream-team": {
+  "install": "pip install pream-team",
+  "method": "pip",
   "os": [
    "macos",
    "linux"
@@ -1684,6 +3685,34 @@
  },
  "process-compose": {
   "install": "brew install f1bonacc1/tap/process-compose",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "procmux": {
+  "install": "pipx install procmux",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "productivity-timer": {
+  "install": "npm install -g productivity-timer",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "proxymock": {
+  "install": "brew install speedscale/tap/proxymock",
   "method": "brew",
   "os": [
    "macos",
@@ -1725,6 +3754,15 @@
   "method": "cargo",
   "verified": true
  },
+ "pudb": {
+  "install": "pipx install pudb",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "pug": {
   "install": "brew install pug",
   "method": "brew",
@@ -1734,12 +3772,41 @@
   ],
   "verified": true
  },
+ "pyautogit": {
+  "install": "pip install pyautogit",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "pyradio": {
+  "install": "pipx install pyradio",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "qo": {
   "install": "brew install qo",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "qrypad": {
+  "install": "go install github.com/wheelibin/qrypad@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1779,12 +3846,32 @@
   ],
   "verified": true
  },
+ "regex-tui": {
+  "install": "go install github.com/vitor-mariano/regex-tui@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "resterm": {
   "install": "brew install resterm",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "rfc_reader": {
+  "install": "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ozan2003/rfc_reader/releases/download/v0.11.2/rfc_reader-installer.sh | sh",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1797,6 +3884,34 @@
   ],
   "verified": true
  },
+ "rocket.term": {
+  "install": "pip install rocket.term",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "roku-cli": {
+  "install": "python3 -m pip install roku-tui",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "rovr": {
+  "install": "pipx install rovr",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "rtorrent": {
   "install": "brew install rtorrent",
   "method": "brew",
@@ -1805,6 +3920,14 @@
    "linux"
   ],
   "verified": true
+ },
+ "rttt": {
+  "install": "git clone https://gitlab.com/BlackEdder/rttt.git && cd rttt && cmake . && make install",
+  "method": "script",
+  "os": [
+   "linux"
+  ],
+  "verified": false
  },
  "runme": {
   "install": "brew install runme",
@@ -1824,12 +3947,42 @@
   ],
   "verified": true
  },
+ "rusty-pipes": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "rxpipes": {
+  "install": "cargo install rxpipes",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "s-tui": {
   "install": "pipx install s-tui",
   "method": "pipx",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "s3duck-tui": {
+  "install": "go install github.com/nexusriot/s3duck-tui/cmd/s3duck-tui@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1851,6 +4004,43 @@
   ],
   "verified": true
  },
+ "sclack": {
+  "install": "pip install git+https://github.com/haskellcamargo/sclack.git",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "scli": {
+  "install": "git clone https://github.com/isamert/scli.git && cd scli && python3 scli",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "searxngr": {
+  "install": "uv tool install https://github.com/scross01/searxngr.git",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "sen": {
+  "install": "pipx install sen",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "serie": {
   "install": "brew install serie",
   "method": "brew",
@@ -1860,9 +4050,75 @@
   ],
   "verified": true
  },
+ "sfm": {
+  "install": "git clone https://github.com/afify/sfm && cd sfm && make && make install",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "siggo": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "slap": {
+  "install": "npm install -g slap@latest",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "slides": {
   "install": "brew install slides",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "sls-dev-tools": {
+  "install": "npm install -g sls-dev-tools",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "smassh": {
+  "install": "pip install smassh",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "snake": {
+  "install": "bash <(curl -s https://raw.githubusercontent.com/wick3dr0se/snake/main/snake)",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "snips.sh": {
+  "install": "go install github.com/robherley/snips.sh@latest",
+  "method": "go",
   "os": [
    "macos",
    "linux"
@@ -1888,6 +4144,45 @@
   ],
   "verified": true
  },
+ "sonicradio": {
+  "install": "go install github.com/dancnb/sonicradio/cmd/sonicradio@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "sot": {
+  "install": "brew install anistark/tools/sot",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "soundcloud2000": {
+  "install": "gem install soundcloud2000",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "spotatui": {
+  "install": "cargo install spotatui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "spotify-player": {
   "install": "brew install spotify_player",
   "method": "brew",
@@ -1897,9 +4192,103 @@
   ],
   "verified": true
  },
+ "spotui": {
+  "install": "pipx install spotui",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "sq": {
   "install": "brew install sq",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "sqlit": {
+  "install": "pipx install sqlit-tui",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "ssHattrick": {
+  "install": "cargo install sshattrick",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "ssh-slides": {
+  "install": "go install github.com/ivantsepp/ssh-slides@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "sshm": {
+  "install": "brew install Gu1llaum-3/sshm/sshm",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "sshtron": {
+  "install": "go install github.com/zachlatta/sshtron@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "sssnake": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "steam-tui": {
+  "install": "cargo install steam-tui",
+  "method": "cargo",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
+ "steam_friends_list_tui": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "stegodon": {
+  "install": "go install github.com/deemkeen/stegodon@latest",
+  "method": "go",
   "os": [
    "macos",
    "linux"
@@ -1915,6 +4304,23 @@
   ],
   "verified": true
  },
+ "sudoku-rs": {
+  "install": "cargo install sudoku-rs",
+  "method": "cargo",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "sup": {
+  "install": "gem install sup",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "superfile": {
   "install": "brew install superfile",
   "method": "brew",
@@ -1924,6 +4330,25 @@
   ],
   "verified": true
  },
+ "surge": {
+  "install": "go install github.com/SurgeDM/Surge@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "sweeper": {
+  "install": "uv run https://github.com/igor47/sweeper/raw/master/sweeper.py",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "sysz": {
   "install": "",
   "method": "binary",
@@ -1932,12 +4357,32 @@
   ],
   "verified": false
  },
+ "tab-pal": {
+  "install": "pipx install tab-pal",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "talos linux": {
   "install": "brew install siderolabs/tap/talosctl",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "talos-pilot": {
+  "install": "brew install Handfish/tap/talos-pilot",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -1953,6 +4398,25 @@
  "taskwarrior-tui": {
   "install": "brew install taskwarrior-tui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "tblogs": {
+  "install": "brew tap ezeoleaf/tap && brew install tblogs",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "tcpterm": {
+  "install": "go install github.com/sachaos/tcpterm@latest",
+  "method": "go",
   "os": [
    "macos",
    "linux"
@@ -2004,6 +4468,69 @@
   ],
   "verified": true
  },
+ "term.everything": {
+  "install": "go install github.com/mmulet/term.everything@latest",
+  "method": "go",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "termdbms": {
+  "install": "go install github.com/mathaou/termdbms@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "terminal-phase": {
+  "install": "git clone https://gitlab.com/dustyweb/terminal-phase && cd terminal-phase && ./bootstrap.sh && ./configure && make && make install",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "terminal-pong": {
+  "install": "cargo install --git https://github.com/IshmamR/terminal.pong",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "terminal-yt": {
+  "install": "cargo install --git https://github.com/jooooscha/terminal-yt",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "terminalperiodictable": {
+  "install": "git clone https://github.com/velorek1/terminalperiodictable.git && cd terminalperiodictable && make && sudo make install",
+  "method": "script",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "termrex": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "termscp": {
   "install": "brew install termscp",
   "method": "brew",
@@ -2031,6 +4558,74 @@
   ],
   "verified": true
  },
+ "terraform-tui": {
+  "install": "brew install idoavrah/homebrew/tftui",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "tetro-tui": {
+  "install": "cargo install tetro-tui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "textual-paint": {
+  "install": "pipx install textual-paint",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "textual-web": {
+  "install": "pipx install textual-web",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "tgt": {
+  "install": "cargo install tgt",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "thokr": {
+  "install": "cargo install thokr",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "thymus": {
+  "install": "pipx install thymus",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "ticker": {
   "install": "brew install achannarasappa/tap/ticker",
   "method": "brew",
@@ -2049,12 +4644,57 @@
   ],
   "verified": true
  },
+ "tiki": {
+  "install": "brew install boolean-maybe/tap/tiki",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "tilde": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
  "timg": {
   "install": "brew install timg",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "tinytetris": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
+ "tizonia-openmax-il": {
+  "install": "curl -kL https://github.com/tizonia/tizonia-openmax-il/raw/master/tools/install.sh | bash",
+  "method": "script",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "tlock": {
+  "install": "go install github.com/eklairs/tlock@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -2075,12 +4715,41 @@
   ],
   "verified": true
  },
+ "tododo": {
+  "install": "brew install bmarse/tap/tododo",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "todoman": {
   "install": "brew install todoman",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "tokui": {
+  "install": "go install github.com/zdyxry/tokui@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "toolui": {
+  "install": "dotnet tool install ToolUI --global",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -2096,6 +4765,24 @@
  "topydo": {
   "install": "brew install topydo",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "tortuise": {
+  "install": "cargo install tortuise",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "tray-tui": {
+  "install": "cargo install tray-tui",
+  "method": "cargo",
   "os": [
    "macos",
    "linux"
@@ -2143,12 +4830,32 @@
   "method": "binary",
   "verified": true
  },
+ "tttui": {
+  "install": "cargo install tttui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "tty-solitaire": {
   "install": "brew install tty-solitaire",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "ttyper": {
+  "install": "cargo install ttyper",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -2169,8 +4876,63 @@
   ],
   "verified": true
  },
+ "tui-2048": {
+  "install": "pip install tui-2048",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "tui-deck": {
+  "install": "go install github.com/mebitek/tui-deck@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "tui-shop": {
+  "install": "git clone https://github.com/Gcat101/tui-shop.git && cd tui-shop && chmod +x ./install.sh && sudo ./install.sh",
+  "method": "script",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "tui-slides": {
+  "install": "cargo install tui-slides",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "tuicamp": {
   "install": "go install github.com/AbeEstrada/tuicamp@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "tuidict": {
+  "install": "cargo install tuidict",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "tuihub": {
+  "install": "go install github.com/ashis0013/tuihub@latest",
   "method": "go",
   "os": [
    "macos",
@@ -2187,6 +4949,34 @@
   ],
   "verified": true
  },
+ "tuix": {
+  "install": "cargo install --git https://github.com/pythops/tuix",
+  "method": "cargo",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "turbo": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "turbostream": {
+  "install": "go install github.com/turboline-ai/turbostream/cmd/server@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "tut": {
   "install": "brew install tut",
   "method": "brew",
@@ -2196,12 +4986,59 @@
   ],
   "verified": true
  },
+ "tvterm": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "tweakcc": {
   "install": "brew install tweakcc",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "twitch-tui": {
+  "install": "cargo install twitch-tui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "twterm": {
+  "install": "brew install ryota-ka/twterm/twterm",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "typeinc": {
+  "install": "pip install typeinc",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "typing-game-cli": {
+  "install": "npm install -g typing-game-cli",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -2223,6 +5060,44 @@
   ],
   "verified": true
  },
+ "upiano": {
+  "install": "pip install upiano",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "valveFM": {
+  "install": "go install github.com/zorig/radio-tray@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "vctui": {
+  "install": "go install github.com/thebsdbox/vctui@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "violet": {
+  "install": "go install github.com/braheezy/violet/cmd/violet@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "vis": {
   "install": "brew install vis",
   "method": "brew",
@@ -2241,6 +5116,34 @@
   ],
   "verified": true
  },
+ "vlc": {
+  "install": "brew install vlc",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "vortix": {
+  "install": "cargo install vortix",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "vv": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "w3m": {
   "install": "brew install w3m",
   "method": "brew",
@@ -2256,6 +5159,40 @@
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "wavemon": {
+  "install": "./configure && make && sudo make install",
+  "method": "other",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "waves": {
+  "install": "go install github.com/llehouerou/waves@latest",
+  "method": "go",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
+ "wb": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "weathr": {
+  "install": "cargo install weathr",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -2277,6 +5214,33 @@
   ],
   "verified": true
  },
+ "wiremix": {
+  "install": "cargo install wiremix",
+  "method": "cargo",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
+ "wocogo": {
+  "install": "",
+  "method": "unknown",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "wttr.in": {
+  "install": "",
+  "method": "other",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": false
+ },
  "x-cmd": {
   "install": "brew install x-cmd",
   "method": "brew",
@@ -2295,9 +5259,66 @@
   ],
   "verified": true
  },
+ "xytz": {
+  "install": "go install github.com/xdagiz/xytz@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "yazi": {
   "install": "brew install yazi",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "ytdl-tui": {
+  "install": "npm install -g ytdl-tui",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "ytfzf": {
+  "install": "git clone https://github.com/pystardust/ytfzf && cd ytfzf && sudo make install",
+  "method": "script",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "ytui-music": {
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": false
+ },
+ "zee": {
+  "install": "cargo install --locked zee",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "zeit": {
+  "install": "go install xn--gckvb8fzb.com/zeit@latest",
+  "method": "go",
   "os": [
    "macos",
    "linux"
@@ -2316,6 +5337,15 @@
  "zenith": {
   "install": "brew install zenith",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "zulip-terminal": {
+  "install": "pipx install zulip-term",
+  "method": "pipx",
   "os": [
    "macos",
    "linux"
