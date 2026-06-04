@@ -30,7 +30,7 @@ pub struct DockItem {
 ///
 /// The layer is 1 row tall, `width` columns wide, positioned at `(0, 0)`.
 /// It displays the brand name on the left and `focused_app` at a fixed offset.
-pub fn render_menubar(width: i32, focused_app: &str) -> Layer {
+pub fn render_menubar(width: i32, focused_app: &str, segments: &[crate::tray::Segment]) -> Layer {
     let t = crate::theme::current();
     let mut buf = CellBuffer::new(width, 1);
     buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.menubar_bg, attrs: Default::default() });
@@ -38,12 +38,18 @@ pub fn render_menubar(width: i32, focused_app: &str) -> Layer {
     // Quit button, right-aligned. write_str paints the label's own spaces with
     // QUIT_BG, giving it a button-like fill.
     let qx = (width - QUIT_LABEL.chars().count() as i32).max(0);
-    // Focused-app name sits between the brand and the quit button, truncated so
-    // it can never overwrite the button on a narrow bar.
+    // Status-tray segments occupy the right side, just left of the Quit button.
+    let tray_left = segments.iter().map(|s| s.rect.x).min().unwrap_or(qx);
+    for s in segments {
+        buf.write_str(s.rect.x, 0, &s.text, t.text, t.menubar_bg);
+    }
+    // Focused-app name sits between the brand and the tray, truncated so it can
+    // never overwrite a tray segment or the quit button on a narrow bar.
     const APP_X: i32 = 10;
-    let avail = (qx - 1 - APP_X).max(0) as usize;
+    let right_limit = tray_left.min(qx);
+    let avail = (right_limit - 1 - APP_X).max(0) as usize;
     let app: String = focused_app.chars().take(avail).collect();
-    buf.write_str(APP_X, 0, &app, t.text, t.menubar_bg);
+    buf.write_str(APP_X, 0, &app, t.dim, t.menubar_bg);
     buf.write_str(qx, 0, QUIT_LABEL, t.close_fg, QUIT_BG);
     Layer { z: 1000, origin: Point::new(0, 0), buf, opacity: 1.0, scissor: None }
 }

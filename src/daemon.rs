@@ -31,6 +31,11 @@ pub fn run() -> std::io::Result<()> {
     crate::theme::set(&cfg.theme);
     let (w, h) = (100, 30); // provisional until the first client reports its size
     let mut core = SessionCore::new(w, h, cfg.clone());
+    // Start the background system poller and feed its shared snapshot to the
+    // session so the menubar tray reflects live host state. Keep `_poller` bound
+    // for the daemon's lifetime so its thread is not detached/dropped.
+    let _poller = crate::poller::SystemPoller::start();
+    core.attach_tray_state(_poller.state());
     for app in &cfg.apps {
         core.apply(ClientMsg::Launch {
             name: app.name.clone(),

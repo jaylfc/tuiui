@@ -5,7 +5,7 @@ use tuiui::window::WindowId;
 #[test]
 fn menubar_layer_spans_top_row_and_shows_brand() {
     // 40 cols: realistic width where brand + app name + quit button all fit.
-    let layer = render_menubar(40, "btop");
+    let layer = render_menubar(40, "btop", &[]);
     assert_eq!(layer.origin, Point::new(0,0));
     assert_eq!(layer.buf.height(), 1);
     let row: String = (0..40).map(|x| layer.buf.get(x,0).unwrap().ch).collect();
@@ -38,7 +38,7 @@ fn dock_hit_regions_map_clicks_to_windows() {
 fn menubar_has_quit_button_on_right() {
     use tuiui::chrome::menubar_quit_region;
     let width = 40;
-    let layer = render_menubar(width, "btop");
+    let layer = render_menubar(width, "btop", &[]);
     let row: String = (0..width).map(|x| layer.buf.get(x, 0).unwrap().ch).collect();
     assert!(row.contains("Quit"), "menubar should show a Quit button, got: {row:?}");
     // region is on the top row, flush to the right edge

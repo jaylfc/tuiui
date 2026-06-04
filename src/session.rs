@@ -205,6 +205,8 @@ pub struct SessionCore {
     shutdown: bool,
     /// The app launcher (menubar dropdown + Spotlight overlay).
     launcher: Launcher,
+    /// Shared host-state snapshot refreshed by the daemon's `SystemPoller`.
+    tray_state: std::sync::Arc<std::sync::RwLock<crate::system::SystemState>>,
 }
 
 impl SessionCore {
@@ -229,7 +231,17 @@ impl SessionCore {
             quit: false,
             shutdown: false,
             launcher,
+            tray_state: std::sync::Arc::new(std::sync::RwLock::new(crate::system::SystemState::default())),
         }
+    }
+
+    /// Attach the daemon's shared system snapshot (written by the `SystemPoller`)
+    /// so the menubar tray reflects live host state.
+    pub fn attach_tray_state(
+        &mut self,
+        state: std::sync::Arc<std::sync::RwLock<crate::system::SystemState>>,
+    ) {
+        self.tray_state = state;
     }
 
     /// Whether `tuiui kill` requested a full daemon shutdown.
@@ -763,7 +775,11 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             .map(|(_, t)| t.clone())
             .unwrap_or_default();
 
-        layers.push(render_menubar(self.w, &app_name));
+        let segs = {
+            let st = self.tray_state.read().unwrap();
+            crate::tray::tray_segments(&st, self.w)
+        };
+        layers.push(render_menubar(self.w, &app_name, &segs));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
 
         // Launcher (dropdown / Spotlight) renders above all chrome.
