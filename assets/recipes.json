@@ -11,6 +11,11 @@
  "AdGuardian-Term": {
   "install": "cargo install adguardian",
   "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "Backlog.md": {
@@ -53,11 +58,18 @@
  "Cloud Code Usage Monitor": {
   "install": "pipx install claude-monitor",
   "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "CoreFreq": {
   "install": "",
-  "method": "other",
+  "method": "binary",
+  "os": [
+   "linux"
+  ],
   "verified": false
  },
  "Durdraw": {
@@ -115,9 +127,14 @@
   "verified": true
  },
  "Grafterm": {
-  "install": "go install github.com/slok/grafterm@latest",
+  "install": "go install github.com/slok/grafterm/cmd/grafterm@latest",
   "method": "go",
-  "verified": false
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
  },
  "Greed": {
   "install": "brew install greed",
@@ -128,9 +145,20 @@
   ],
   "verified": true
  },
- "Kyanos": {
+ "ID-Spoofer": {
   "install": "",
   "method": "binary",
+  "os": [
+   "linux"
+  ],
+  "verified": false
+ },
+ "Kyanos": {
+  "install": "curl -fsSL https://raw.githubusercontent.com/hengyoush/kyanos/refs/heads/main/init_env.sh | bash",
+  "method": "script",
+  "os": [
+   "linux"
+  ],
   "verified": false
  },
  "LYNX": {
@@ -179,8 +207,12 @@
   "verified": true
  },
  "Planor": {
-  "install": "go install github.com/mrusme/planor@latest",
-  "method": "go",
+  "install": "",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": false
  },
  "Podman-tui": {
@@ -213,6 +245,10 @@
  "Raijin": {
   "install": "cargo install Raijin",
   "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ServerHub": {
@@ -249,7 +285,12 @@
  },
  "TermUI": {
   "install": "",
-  "method": "unknown",
+  "method": "library",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": false
  },
  "Tock": {
@@ -435,6 +476,11 @@
  "austin-tui": {
   "install": "pipx install austin-tui",
   "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "bandwhich": {
@@ -465,8 +511,11 @@
   "verified": true
  },
  "below": {
-  "install": "cargo install below",
-  "method": "cargo",
+  "install": "cargo install --git https://github.com/facebookincubator/below.git below",
+  "method": "other",
+  "os": [
+   "linux"
+  ],
   "verified": true
  },
  "binsider": {
@@ -480,7 +529,11 @@
  },
  "blinkenlights": {
   "install": "",
-  "method": "unknown",
+  "method": "binary",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": false
  },
  "bmon": {
@@ -567,6 +620,11 @@
  "burf": {
   "install": "pip install burf",
   "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "calcurse": {
@@ -579,13 +637,22 @@
   "verified": true
  },
  "cargo-seek": {
-  "install": "cargo install --locked cargo-seek",
+  "install": "cargo install cargo-seek",
   "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "catalyst": {
-  "install": "go install github.com/PraveenGongada/catalyst/cmd/catalyst@latest",
-  "method": "go",
+  "install": "brew tap PraveenGongada/tap && brew install catalyst",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "cava": {
@@ -679,9 +746,13 @@
   "verified": true
  },
  "cnTUI": {
-  "install": "",
-  "method": "unknown",
-  "verified": false
+  "install": "go install github.com/fipso/cntui@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
  },
  "cointop": {
   "install": "brew install cointop",
@@ -722,11 +793,20 @@
  "damon": {
   "install": "go install github.com/hcjulz/damon/cmd/damon@latest",
   "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "dashbrew": {
   "install": "go install github.com/rasjonell/dashbrew/cmd/dashbrew@latest",
   "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "dblab": {
@@ -885,6 +965,10 @@
  "fubar": {
   "install": "cargo install fubar-cli",
   "method": "cargo",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "fx": {
@@ -924,8 +1008,12 @@
   "verified": true
  },
  "gh-dash": {
-  "install": "gh extension install dlvhdr/gh-dash",
-  "method": "script",
+  "install": "go install github.com/dlvhdr/gh-dash/v4@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gitlogue": {
@@ -1048,11 +1136,20 @@
  "htui": {
   "install": "curl -sSL https://raw.githubusercontent.com/PierreKieffer/htui/master/install/install_htui64_osx.sh | bash",
   "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "hwinfo-tui": {
   "install": "pip install hwinfo-tui",
   "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "iamb": {
@@ -1157,6 +1254,9 @@
  "kmon": {
   "install": "cargo install kmon",
   "method": "cargo",
+  "os": [
+   "linux"
+  ],
   "verified": true
  },
  "ktop": {
@@ -1252,6 +1352,11 @@
  "ls-horizons": {
   "install": "go install github.com/litescript/ls-horizons/cmd/ls-horizons@latest",
   "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "mac-cleanup-go": {
@@ -1598,11 +1703,21 @@
  "psmux": {
   "install": "cargo install psmux",
   "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "psnet": {
   "install": "cargo install psnet",
   "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "pstop": {
@@ -1710,8 +1825,12 @@
   "verified": true
  },
  "s-tui": {
-  "install": "pip install s-tui --user",
-  "method": "pip",
+  "install": "pipx install s-tui",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "sacha": {
@@ -1753,6 +1872,11 @@
  "sockttop": {
   "install": "cargo install socktop",
   "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "soft-serve": {
@@ -1801,8 +1925,11 @@
   "verified": true
  },
  "sysz": {
-  "install": "wget -O ~/.local/bin/sysz https://github.com/joehillen/sysz/releases/latest/download/sysz && chmod +x ~/.local/bin/sysz",
+  "install": "",
   "method": "binary",
+  "os": [
+   "linux"
+  ],
   "verified": false
  },
  "talos linux": {
@@ -1835,6 +1962,11 @@
  "tdash": {
   "install": "go install github.com/jessfraz/tdash@latest",
   "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
   "verified": true
  },
  "tdf": {
@@ -1849,6 +1981,9 @@
  "tegratop": {
   "install": "cargo install tegratop",
   "method": "cargo",
+  "os": [
+   "linux"
+  ],
   "verified": true
  },
  "television": {
@@ -1924,8 +2059,11 @@
   "verified": true
  },
  "tmd-top": {
-  "install": "sudo pip install tmd-top",
-  "method": "pip",
+  "install": "pipx install tmd-top",
+  "method": "pipx",
+  "os": [
+   "linux"
+  ],
   "verified": true
  },
  "tmux": {
@@ -1974,9 +2112,13 @@
   "verified": true
  },
  "trek": {
-  "install": "",
-  "method": "unknown",
-  "verified": false
+  "install": "go install github.com/franckverrot/trek@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
  },
  "trippy": {
   "install": "brew install trippy",
@@ -2020,14 +2162,21 @@
   "verified": true
  },
  "tufw": {
-  "install": "",
-  "method": "unknown",
-  "verified": false
+  "install": "go install github.com/peltho/tufw@latest",
+  "method": "go",
+  "os": [
+   "linux"
+  ],
+  "verified": true
  },
  "tuicamp": {
   "install": "go install github.com/AbeEstrada/tuicamp@latest",
   "method": "go",
-  "verified": false
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
  },
  "tuisky": {
   "install": "brew install tuisky",

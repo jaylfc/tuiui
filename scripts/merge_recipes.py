@@ -34,6 +34,11 @@ def main() -> int:
             "verified": bool(r.get("verified")),
         }
         platforms = [p for p in r.get("platforms", []) if p in ("macos", "linux", "windows")]
+        # Guard against false exclusion: a tool the agent marked as ONLY windows
+        # (excluding both macOS and Linux) is almost always a mistake for these
+        # build-from-source CLIs — don't hide it on the major desktop OSes.
+        if platforms and "macos" not in platforms and "linux" not in platforms:
+            platforms = ["macos", "linux"] + platforms
         if platforms:
             entry["os"] = platforms  # agent-derived OS compatibility
         recipes[name] = entry
