@@ -10,6 +10,10 @@ pub struct AppEntry {
     /// Optional extra arguments passed to the executable.
     #[serde(default)]
     pub args: Vec<String>,
+    /// Optional launcher category (e.g. "System", "Git"). Apps without one are
+    /// grouped under "Apps".
+    #[serde(default)]
+    pub category: Option<String>,
 }
 
 /// Top-level configuration for tuiui.
@@ -49,7 +53,7 @@ impl Default for Config {
             snapping_enabled: true,
             snap_threshold: 3,
             apps: vec![
-                AppEntry { name: "shell".into(), command: default_shell(), args: vec![] },
+                AppEntry { name: "shell".into(), command: default_shell(), args: vec![], category: Some("Shell".into()) },
             ],
             launcher: vec![],
         }

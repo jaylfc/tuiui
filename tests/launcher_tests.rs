@@ -1,7 +1,7 @@
 use tuiui::launcher::{Launcher, LauncherMode};
 use tuiui::config::AppEntry;
 
-fn entry(n: &str) -> AppEntry { AppEntry { name: n.into(), command: n.into(), args: vec![] } }
+fn entry(n: &str) -> AppEntry { AppEntry { name: n.into(), command: n.into(), args: vec![], category: None } }
 fn launcher() -> Launcher {
     Launcher::new(vec![entry("btop"), entry("lazygit"), entry("yazi"), entry("helix")])
 }
@@ -38,14 +38,16 @@ fn spotlight_query_filters() {
 
 #[test]
 fn navigation_and_selection() {
+    // No categories set, so all sort under "Apps" alphabetically:
+    // btop, helix, lazygit, yazi.
     let mut l = launcher();
     l.toggle_menu();
     assert_eq!(l.selected_entry().unwrap().name, "btop");
     l.move_down();
     l.move_down();
-    assert_eq!(l.selected_entry().unwrap().name, "yazi");
-    l.move_up();
     assert_eq!(l.selected_entry().unwrap().name, "lazygit");
+    l.move_up();
+    assert_eq!(l.selected_entry().unwrap().name, "helix");
 }
 
 #[test]
@@ -55,6 +57,19 @@ fn menu_render_exposes_clickable_items() {
     let r = l.render(120, 40);
     assert_eq!(r.items.len(), 4);
     assert!(!r.layers.is_empty());
-    // first item rect is on the row just below the menubar
-    assert_eq!(r.items[0].1.y, 2);
+    // menubar row 0, dropdown border row 1, "APPS" header row 2, first item row 3
+    assert_eq!(r.items[0].1.y, 3);
+}
+
+#[test]
+fn categories_group_with_headers() {
+    let cat = |n: &str, c: &str| AppEntry { name: n.into(), command: n.into(), args: vec![], category: Some(c.into()) };
+    let mut l = Launcher::new(vec![cat("btop","System"), cat("lazygit","Git"), cat("top","System")]);
+    l.toggle_menu();
+    let r = l.render(120, 40);
+    // 3 clickable items (headers are not items)
+    assert_eq!(r.items.len(), 3);
+    // sorted by category then name: Git(lazygit), System(btop, top)
+    let names: Vec<_> = r.items.iter().map(|(e,_)| e.name.clone()).collect();
+    assert_eq!(names, vec!["lazygit", "btop", "top"]);
 }

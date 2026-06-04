@@ -114,13 +114,19 @@ impl Launcher {
         }
     }
 
-    /// The apps matching the current query (all apps in `Menu` mode).
+    /// The apps matching the current query (all apps in `Menu` mode), sorted by
+    /// category then name so groups are contiguous for header rendering.
     pub fn filtered(&self) -> Vec<AppEntry> {
-        if self.query.is_empty() {
-            return self.items.clone();
-        }
-        let q = self.query.to_lowercase();
-        self.items.iter().filter(|a| a.name.to_lowercase().contains(&q)).cloned().collect()
+        let mut v: Vec<AppEntry> = if self.query.is_empty() {
+            self.items.clone()
+        } else {
+            let q = self.query.to_lowercase();
+            self.items.iter().filter(|a| a.name.to_lowercase().contains(&q)).cloned().collect()
+        };
+        v.sort_by(|a, b| {
+            cat_of(a).cmp(&cat_of(b)).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        });
+        v
     }
 
     /// The highlighted entry (for Enter in Spotlight).
@@ -137,28 +143,44 @@ impl Launcher {
         }
     }
 
+    /// Build the ordered list of rendered rows (category headers + item rows).
+    fn rows(&self, filtered: &[AppEntry]) -> Vec<Row> {
+        let mut out = Vec::new();
+        let mut last: Option<String> = None;
+        for (i, e) in filtered.iter().enumerate() {
+            let c = cat_of(e);
+            if last.as_deref() != Some(c.as_str()) {
+                out.push(Row::Header(c.clone()));
+                last = Some(c);
+            }
+            out.push(Row::Item(i));
+        }
+        out
+    }
+
     fn render_menu(&self, _w: i32, _h: i32) -> Rendered {
-        let entries = self.filtered();
-        let inner_w = entries
-            .iter()
-            .map(|e| e.name.chars().count() as i32)
-            .max()
-            .unwrap_or(8)
-            .max(10)
-            + 4;
+        let filtered = self.filtered();
+        let rows = self.rows(&filtered);
+        let name_w = filtered.iter().map(|e| e.name.chars().count()).max().unwrap_or(8) as i32;
+        let inner_w = (name_w + 4).max(16);
         let box_w = inner_w + 2;
-        let box_h = entries.len() as i32 + 2; // top + bottom border
+        let box_h = rows.len() as i32 + 2;
         let origin = Point::new(0, 1); // directly under the menubar brand
 
         let mut buf = CellBuffer::new(box_w, box_h);
         fill_box(&mut buf, box_w, box_h);
 
         let mut items = Vec::new();
-        for (i, e) in entries.iter().enumerate() {
-            let row = 1 + i as i32;
-            let highlighted = i == self.selected;
-            draw_row(&mut buf, box_w, row, &e.name, highlighted, false);
-            items.push((e.clone(), Rect::new(origin.x + 1, origin.y + row, inner_w, 1)));
+        for (ri, row) in rows.iter().enumerate() {
+            let y = 1 + ri as i32;
+            match row {
+                Row::Header(c) => draw_header(&mut buf, box_w, y, c),
+                Row::Item(i) => {
+                    let e = &filtered[*i];
+                    draw_row(&mut buf, box_w, y, &e.name, *i == self.selected, false);
+                    items.push((e.clone(), Rect::new(origin.x + 1, origin.y + y, inner_w, 1)));
+                }
+            }
         }
 
         Rendered {
@@ -168,33 +190,38 @@ impl Launcher {
     }
 
     fn render_spotlight(&self, w: i32, _h: i32) -> Rendered {
-        let entries = self.filtered();
-        let visible = entries.len().min(8);
-        let box_w = 46.min(w - 4).max(20);
+        let mut filtered = self.filtered();
+        filtered.truncate(8);
+        let rows = self.rows(&filtered);
+        let box_w = 46.min(w - 4).max(24);
         let inner_w = box_w - 2;
-        let box_h = visible as i32 + 4; // border + query row + separator + rows
+        let body = rows.len().max(1) as i32;
+        let box_h = body + 4; // top border + query + separator + body + bottom border
         let origin = Point::new((w - box_w) / 2, 3);
 
         let mut buf = CellBuffer::new(box_w, box_h);
         fill_box(&mut buf, box_w, box_h);
 
-        // Query row.
-        let q = format!("\u{2318} {}\u{2588}", self.query);
-        buf.write_str(2, 1, &q, ACCENT, MENU_BG);
-        // Separator.
+        // Query row + separator.
+        buf.write_str(2, 1, &format!("\u{2318} {}\u{2588}", self.query), ACCENT, MENU_BG);
         for x in 1..box_w - 1 {
             buf.set(x, 2, Cell { ch: '\u{2500}', fg: BORDER, bg: MENU_BG, attrs: Default::default() });
         }
 
         let mut items = Vec::new();
-        for (i, e) in entries.iter().take(visible).enumerate() {
-            let row = 3 + i as i32;
-            let highlighted = i == self.selected;
-            draw_row(&mut buf, box_w, row, &e.name, highlighted, true);
-            items.push((e.clone(), Rect::new(origin.x + 1, origin.y + row, inner_w, 1)));
-        }
-        if entries.is_empty() {
+        if rows.is_empty() {
             buf.write_str(2, 3, "no matches", HINT, MENU_BG);
+        }
+        for (ri, row) in rows.iter().enumerate() {
+            let y = 3 + ri as i32;
+            match row {
+                Row::Header(c) => draw_header(&mut buf, box_w, y, c),
+                Row::Item(i) => {
+                    let e = &filtered[*i];
+                    draw_row(&mut buf, box_w, y, &e.name, *i == self.selected, true);
+                    items.push((e.clone(), Rect::new(origin.x + 1, origin.y + y, inner_w, 1)));
+                }
+            }
         }
 
         Rendered {
@@ -202,6 +229,25 @@ impl Launcher {
             items,
         }
     }
+}
+
+/// A rendered launcher row: a category header or an item (index into `filtered`).
+enum Row {
+    Header(String),
+    Item(usize),
+}
+
+/// The category an entry belongs to ("Apps" when unset).
+fn cat_of(a: &AppEntry) -> String {
+    a.category.clone().unwrap_or_else(|| "Apps".into())
+}
+
+/// Draw a dimmed, uppercase category header row.
+fn draw_header(buf: &mut CellBuffer, w: i32, row: i32, cat: &str) {
+    for x in 1..w - 1 {
+        buf.set(x, row, Cell { ch: ' ', fg: HINT, bg: MENU_BG, attrs: Default::default() });
+    }
+    buf.write_str(1, row, &cat.to_uppercase(), HINT, MENU_BG);
 }
 
 /// Fill a buffer with the menu background and draw a rounded border.

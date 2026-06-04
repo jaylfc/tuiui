@@ -124,7 +124,7 @@ impl SessionCore {
     /// the single-row dock at the bottom, i.e. `Rect::new(0, 1, w, h - 2)`.
     pub fn new(w: i32, h: i32, cfg: Config) -> Self {
         let work = Rect::new(0, 1, w, h - 2);
-        let launcher = Launcher::new(cfg.launcher_apps());
+        let launcher = Launcher::new(Self::build_launcher_apps(&cfg));
         Self {
             wm: WindowManager::new(work),
             apps: HashMap::new(),
@@ -137,6 +137,25 @@ impl SessionCore {
             quit: false,
             launcher,
         }
+    }
+
+    /// Build the launcher's app list: the configured apps (with categories filled
+    /// in from the catalog where missing), plus any known TUIs detected on `$PATH`
+    /// that aren't already listed.
+    fn build_launcher_apps(cfg: &Config) -> Vec<AppEntry> {
+        let mut apps = cfg.launcher_apps();
+        for a in &mut apps {
+            if a.category.is_none() {
+                a.category = crate::catalog::category_for(&a.name)
+                    .or_else(|| crate::catalog::category_for(&a.command));
+            }
+        }
+        for detected in crate::catalog::detect_installed() {
+            if !apps.iter().any(|a| a.name.eq_ignore_ascii_case(&detected.name)) {
+                apps.push(detected);
+            }
+        }
+        apps
     }
 
     /// Whether the launcher (menu or Spotlight) is currently open.
