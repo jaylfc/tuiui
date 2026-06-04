@@ -47,8 +47,24 @@ fn bg_code(c: Rgba, caps: &Caps) -> String {
     }
 }
 
-/// Map an [`Rgba`] color to the nearest index in the xterm 256-color 6×6×6 cube (indices 16–231).
+/// Map an [`Rgba`] color to the nearest xterm 256-color index.
+///
+/// Near-grey colors use the 24-step grayscale ramp (232–255), which has far
+/// finer dark-grey resolution than the 6×6×6 color cube — without this, dark
+/// greys collapse to black. Other colors use the cube (indices 16–231).
 fn ansi256(c: Rgba) -> u8 {
+    let (r, g, b) = (c.r as i32, c.g as i32, c.b as i32);
+    if (r - g).abs() < 12 && (g - b).abs() < 12 && (r - b).abs() < 12 {
+        let grey = (r + g + b) / 3;
+        if grey < 4 {
+            return 16; // pure black
+        }
+        if grey > 246 {
+            return 231; // pure white
+        }
+        // Grayscale ramp index n (0..=23) has value 8 + 10*n.
+        return (232 + ((grey - 8).clamp(0, 238) / 10)) as u8;
+    }
     let q = |v: u8| -> u32 { v as u32 * 5 / 255 };
     (16 + 36 * q(c.r) + 6 * q(c.g) + q(c.b)) as u8
 }
