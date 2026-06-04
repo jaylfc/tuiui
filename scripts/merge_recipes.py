@@ -28,11 +28,15 @@ def main() -> int:
         existing = recipes.get(name)
         if existing and existing.get("verified") and not r.get("verified"):
             continue  # keep the better existing recipe
-        recipes[name] = {
+        entry = {
             "install": r.get("install", ""),
             "method": r.get("method", "unknown"),
             "verified": bool(r.get("verified")),
         }
+        platforms = [p for p in r.get("platforms", []) if p in ("macos", "linux", "windows")]
+        if platforms:
+            entry["os"] = platforms  # agent-derived OS compatibility
+        recipes[name] = entry
         merged += 1
 
     recipes_path.write_text(json.dumps(recipes, ensure_ascii=False, indent=1, sort_keys=True) + "\n")

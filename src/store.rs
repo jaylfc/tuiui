@@ -55,7 +55,8 @@ impl Store {
         catalog::catalog()
             .iter()
             .filter(|c| {
-                (cat == "All" || &c.category == cat)
+                catalog::runs_on_current_os(&c.name)
+                    && (cat == "All" || &c.category == cat)
                     && (q.is_empty()
                         || c.name.to_lowercase().contains(&q)
                         || c.description.to_lowercase().contains(&q))

@@ -2,6 +2,10 @@
  "ATAC": {
   "install": "brew install atac",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "AdGuardian-Term": {
@@ -12,16 +16,28 @@
  "Backlog.md": {
   "install": "brew install backlog-md",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Bagels": {
   "install": "brew install bagels",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Chawan": {
   "install": "brew install chawan",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Claude Code Bridge": {
@@ -47,31 +63,55 @@
  "Durdraw": {
   "install": "brew install durdraw",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Feluda": {
   "install": "brew install feluda",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "GitType": {
   "install": "brew install gittype",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Glances": {
   "install": "brew install glances",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Glow": {
   "install": "brew install glow",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Goaccess": {
   "install": "brew install goaccess",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Grafterm": {
@@ -82,6 +122,10 @@
  "Greed": {
   "install": "brew install greed",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Kyanos": {
@@ -92,26 +136,46 @@
  "LYNX": {
   "install": "brew install lynx",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "LazySSH": {
   "install": "brew install lazyssh",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Mutt": {
   "install": "brew install mutt",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "MyMan": {
   "install": "brew install myman",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "NetHack": {
   "install": "brew install nethack",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Planor": {
@@ -122,16 +186,28 @@
  "Podman-tui": {
   "install": "brew install podman-tui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Profanity": {
   "install": "brew install profanity",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Puffin": {
   "install": "brew install siddhantac/puffin/puffin",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Raijin": {
@@ -147,16 +223,28 @@
  "Slumber": {
   "install": "brew install slumber",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "TUIOS": {
   "install": "brew install tuios",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Tabiew": {
   "install": "brew install tabiew",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "TermUI": {
@@ -167,101 +255,181 @@
  "Tock": {
   "install": "brew install tock",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "VT Code": {
   "install": "brew install vtcode",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Vifm": {
   "install": "brew install vifm",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Visidata": {
   "install": "brew install visidata",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "WTF": {
   "install": "brew install wtf",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Weechat": {
   "install": "brew install weechat",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Wordle": {
   "install": "brew install wordle",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "Yozefu": {
   "install": "brew install yozefu",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "abook": {
   "install": "brew install abook",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "act3": {
   "install": "brew install dhth/tap/act3",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "aerc": {
   "install": "brew install aerc",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "alpine": {
   "install": "brew install alpine",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "amp": {
   "install": "brew install amp",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "amtui": {
   "install": "brew tap pehlicd/tap && brew install amtui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "amux": {
   "install": "brew tap andyrewlee/amux && brew install amux",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "apachetop": {
   "install": "brew install apachetop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "arttime": {
   "install": "brew install arttime",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "asak": {
   "install": "brew install asak",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "astroterm": {
   "install": "brew install astroterm",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "atop": {
   "install": "brew install atop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "austin-tui": {
@@ -272,16 +440,28 @@
  "bandwhich": {
   "install": "brew install bandwhich",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "bashtop": {
   "install": "brew install bashtop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "bastet": {
   "install": "brew install bastet",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "below": {
@@ -292,6 +472,10 @@
  "binsider": {
   "install": "brew install binsider",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "blinkenlights": {
@@ -302,46 +486,82 @@
  "bmon": {
   "install": "brew install bmon",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "bombadillo": {
   "install": "brew install bombadillo",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "bookokrat": {
   "install": "brew install bookokrat",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "bottom": {
   "install": "brew install bottom",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "bpytop": {
   "install": "brew install bpytop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "broot": {
   "install": "brew install broot",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "brows": {
   "install": "brew tap rubysolo/tools && brew install brows",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "btop++": {
   "install": "brew install btop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "bulletty": {
   "install": "brew install bulletty",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "burf": {
@@ -352,6 +572,10 @@
  "calcurse": {
   "install": "brew install calcurse",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "cargo-seek": {
@@ -367,51 +591,91 @@
  "cava": {
   "install": "brew install cava",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "cbonsai": {
   "install": "brew install cbonsai",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "cgdb": {
   "install": "brew install cgdb",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "chafa": {
   "install": "brew install chafa",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "chdig": {
   "install": "brew install chdig",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "cheatshh": {
   "install": "brew install AnirudhG07/AnirudhG07/cheatshh",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "chiko": {
   "install": "brew install chiko",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "claws": {
   "install": "brew install --cask clawscli/tap/claws",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "cloudflare-speed-cli": {
   "install": "brew install cloudflare-speed-cli",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "cmus": {
   "install": "brew install cmus",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "cnTUI": {
@@ -422,21 +686,37 @@
  "cointop": {
   "install": "brew install cointop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "csvlens": {
   "install": "brew install csvlens",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "csysdig": {
   "install": "brew install sysdig",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ctop": {
   "install": "brew install ctop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "damon": {
@@ -452,86 +732,154 @@
  "dblab": {
   "install": "brew install dblab",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "delta": {
   "install": "brew install git-delta",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "diary": {
   "install": "brew install diary",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "diskonaut": {
   "install": "brew install diskonaut",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "dive": {
   "install": "brew install dive",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "dockly": {
   "install": "brew install dockly",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "dolphie": {
   "install": "brew install dolphie",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "doxx": {
   "install": "brew install doxx",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "dry": {
   "install": "brew install dry",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "dtop": {
   "install": "brew install dtop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ducker": {
   "install": "brew install ducker",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "e1s": {
   "install": "brew install e1s",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ekphos": {
   "install": "brew install ekphos",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "fancy-cat": {
   "install": "brew install fancy-cat",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "fjira": {
   "install": "brew install fjira",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "flawz": {
   "install": "brew install flawz",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "framework-tool-tui": {
   "install": "brew install framework-tool-tui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "fubar": {
@@ -542,21 +890,37 @@
  "fx": {
   "install": "brew install fx",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "fzf": {
   "install": "brew install fzf",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gdu": {
   "install": "brew install gdu",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ggc": {
   "install": "brew install ggc",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gh-dash": {
@@ -567,66 +931,118 @@
  "gitlogue": {
   "install": "brew install gitlogue",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gitui": {
   "install": "brew install gitui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gobang": {
   "install": "brew install tako8ki/tap/gobang",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gocheat": {
   "install": "brew install gocheat",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "godap": {
   "install": "brew install godap",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gonzo": {
   "install": "brew install gonzo",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gotop": {
   "install": "brew install gotop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gpg-tui": {
   "install": "brew install gpg-tui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "gping": {
   "install": "brew install gping",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "harlequin": {
   "install": "brew install harlequin",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "helix": {
   "install": "brew install helix",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "helm": {
   "install": "brew install helm",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "htop": {
   "install": "brew install htop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "htui": {
@@ -642,56 +1058,100 @@
  "iamb": {
   "install": "brew install iamb",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "intelli-shell": {
   "install": "brew install intelli-shell",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "irssi": {
   "install": "brew install irssi",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "jiratui": {
   "install": "brew install jiratui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "jqp": {
   "install": "brew install jqp",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "jrnl": {
   "install": "brew install jrnl",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "k9s": {
   "install": "brew install k9s",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "kakoune": {
   "install": "brew install kakoune",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "kaskade": {
   "install": "brew install kaskade",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "kew": {
   "install": "brew install kew",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "khal": {
   "install": "brew install khal",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "kmon": {
@@ -702,51 +1162,91 @@
  "ktop": {
   "install": "brew install ktop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "kubetui": {
   "install": "brew install kubetui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "lazycontainer": {
   "install": "brew install lazycontainer",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "lazydocker": {
   "install": "brew install lazydocker",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "lazygit": {
   "install": "brew install lazygit",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "lazyjournal": {
   "install": "brew install lazyjournal",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "lazymake": {
   "install": "brew install lazymake",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "lazysql": {
   "install": "brew install lazysql",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "lf": {
   "install": "brew install lf",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "lnav": {
   "install": "brew install lnav",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ls-horizons": {
@@ -757,191 +1257,342 @@
  "mac-cleanup-go": {
   "install": "brew install mac-cleanup-go",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "macmon": {
   "install": "brew install macmon",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "mapscii": {
   "install": "brew install mapscii",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "matcha": {
   "install": "brew install matcha",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "mc": {
   "install": "brew install midnight-commander",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "mcabber": {
   "install": "brew install mcabber",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "mcfly": {
   "install": "brew install mcfly",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "meli": {
   "install": "brew install meli",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "micro": {
   "install": "brew install micro",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "moc": {
   "install": "brew install moc",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "models": {
   "install": "brew install models",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "moon-buggy": {
   "install": "brew install moon-buggy",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "moribito": {
   "install": "brew install moribito",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "mqttui": {
   "install": "brew install mqttui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "nInvaders": {
   "install": "brew install ninvaders",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "nSnake": {
   "install": "brew install nsnake",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "nap": {
   "install": "brew install nap",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ncdu": {
   "install": "brew install ncdu",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ncspot": {
   "install": "brew install ncspot",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "nemu": {
   "install": "brew install nemu",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "nerdlog": {
   "install": "brew install nerdlog",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "nethogs": {
   "install": "brew install nethogs",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "netscanner": {
   "install": "brew install netscanner",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "newsboat": {
   "install": "brew install newsboat",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "nnn": {
   "install": "brew install nnn",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "nudoku": {
   "install": "brew install nudoku",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "nvtop": {
   "install": "brew install nvtop",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "oha": {
   "install": "brew install oha",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "opencode": {
   "install": "brew install opencode",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "orbiton": {
   "install": "brew install orbiton",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "oryx": {
   "install": "pacman -S oryx",
   "method": "apt",
+  "os": [
+   "linux"
+  ],
   "verified": true
  },
  "otel-tui": {
   "install": "brew install ymtdzzz/tap/otel-tui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "oxker": {
   "install": "brew install oxker",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "patat": {
   "install": "brew install patat",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "posting": {
   "install": "brew install posting",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "presenterm": {
   "install": "brew install presenterm",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "process-compose": {
   "install": "brew install f1bonacc1/tap/process-compose",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "prs": {
   "install": "brew install prs",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "psmux": {
@@ -962,56 +1613,100 @@
  "pug": {
   "install": "brew install pug",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "qo": {
   "install": "brew install qo",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "rainfrog": {
   "install": "brew install rainfrog",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ranger": {
   "install": "brew install ranger",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "recoverpy": {
   "install": "brew install recoverpy",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "redu": {
   "install": "brew install redu",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "resterm": {
   "install": "brew install resterm",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "rmpc": {
   "install": "brew install rmpc",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "rtorrent": {
   "install": "brew install rtorrent",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "runme": {
   "install": "brew install runme",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "rustnet": {
   "install": "brew install rustnet",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "s-tui": {
@@ -1022,21 +1717,37 @@
  "sacha": {
   "install": "brew install sachamama/tap/sacha",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "sc-im": {
   "install": "brew install sc-im",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "serie": {
   "install": "brew install serie",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "slides": {
   "install": "brew install slides",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "sockttop": {
@@ -1047,26 +1758,46 @@
  "soft-serve": {
   "install": "brew install soft-serve",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "spotify-player": {
   "install": "brew install spotify_player",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "sq": {
   "install": "brew install sq",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "stu": {
   "install": "brew install stu",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "superfile": {
   "install": "brew install superfile",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "sysz": {
@@ -1077,16 +1808,28 @@
  "talos linux": {
   "install": "brew install siderolabs/tap/talosctl",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "taskline": {
   "install": "brew install taskline",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "taskwarrior-tui": {
   "install": "brew install taskwarrior-tui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "tdash": {
@@ -1097,6 +1840,10 @@
  "tdf": {
   "install": "brew install tdf",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "tegratop": {
@@ -1107,41 +1854,73 @@
  "television": {
   "install": "brew install television",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "tenere": {
   "install": "brew install tenere",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "termscp": {
   "install": "brew install termscp",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "termshark": {
   "install": "brew install termshark",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "termusic": {
   "install": "brew install termusic",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ticker": {
   "install": "brew install achannarasappa/tap/ticker",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "tig": {
   "install": "brew install tig",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "timg": {
   "install": "brew install timg",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "tmd-top": {
@@ -1152,26 +1931,46 @@
  "tmux": {
   "install": "brew install tmux",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "todoman": {
   "install": "brew install todoman",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "toot": {
   "install": "brew install toot",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "topydo": {
   "install": "brew install topydo",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "treemd": {
   "install": "brew install treemd",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "trek": {
@@ -1182,11 +1981,19 @@
  "trippy": {
   "install": "brew install trippy",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "try-rs": {
   "install": "brew install try-rs",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ttop": {
@@ -1197,11 +2004,19 @@
  "tty-solitaire": {
   "install": "brew install tty-solitaire",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "ttyplot": {
   "install": "brew install ttyplot",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "tufw": {
@@ -1217,81 +2032,145 @@
  "tuisky": {
   "install": "brew install tuisky",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "tut": {
   "install": "brew install tut",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "tweakcc": {
   "install": "brew install tweakcc",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "typtea": {
   "install": "brew install typtea",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "updo": {
   "install": "brew install owloops/tap/updo",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "vis": {
   "install": "brew install vis",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "viu": {
   "install": "brew install viu",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "w3m": {
   "install": "brew install w3m",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "wander": {
   "install": "brew install robinovitch61/tap/wander",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "wego": {
   "install": "brew install wego",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "wifitui": {
   "install": "brew install wifitui",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "x-cmd": {
   "install": "brew install x-cmd",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "xplr": {
   "install": "brew install xplr",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "yazi": {
   "install": "brew install yazi",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "zellij": {
   "install": "brew install zellij",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  },
  "zenith": {
   "install": "brew install zenith",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
   "verified": true
  }
 }

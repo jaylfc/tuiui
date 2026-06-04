@@ -1,8 +1,8 @@
-name: Update catalog
+name: Catalog check
 
-# Keeps the bundled app catalog in sync with awesome-tuis and re-verifies
-# brew-installable apps — on a weekly schedule and on demand. Runs without any
-# session being alive.
+# Checks awesome-tuis weekly for newly-added TUIs and, if any are found, opens
+# (or updates) a GitHub issue so a maintainer can review and update the catalog
+# manually. It never commits — updates stay under human control.
 
 on:
   schedule:
@@ -10,10 +10,11 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write
+  contents: read
+  issues: write
 
 jobs:
-  update:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,21 +26,24 @@ jobs:
       - name: Fetch awesome-tuis README
         run: curl -fsSL https://raw.githubusercontent.com/rothgar/awesome-tuis/master/README.md -o /tmp/awesome-tuis.md
 
-      - name: Regenerate catalog
+      - name: Regenerate catalog (working copy only — not committed)
         run: python3 scripts/gen_catalog.py /tmp/awesome-tuis.md
 
-      - name: Verify brew-installable apps
-        run: python3 scripts/match_brew.py
-
-      - name: Commit changes if any
+      - name: Detect new apps and alert via issue
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "jaylfc"
-          git config user.email "jaylfc25@gmail.com"
-          if [ -n "$(git status --porcelain assets/catalog.json assets/recipes.json)" ]; then
-            COUNT=$(python3 -c "import json;print(len(json.load(open('assets/catalog.json'))))")
-            git add assets/catalog.json assets/recipes.json
-            git commit -m "catalog: scheduled sync with awesome-tuis (${COUNT} apps)"
-            git push
-          else
-            echo "No catalog changes."
+          COUNT="$(python3 scripts/new_apps_report.py /tmp/new_apps.md)"
+          echo "New apps detected: $COUNT"
+          if [ "$COUNT" -gt 0 ]; then
+            gh label create catalog-update -c FBCA04 -d "New apps from awesome-tuis" 2>/dev/null || true
+            EXISTING="$(gh issue list --label catalog-update --state open --json number --jq '.[0].number // empty')"
+            if [ -n "$EXISTING" ]; then
+              gh issue comment "$EXISTING" --body-file /tmp/new_apps.md
+            else
+              gh issue create \
+                --title "Catalog: ${COUNT} new TUI(s) available in awesome-tuis" \
+                --label catalog-update \
+                --body-file /tmp/new_apps.md
+            fi
           fi

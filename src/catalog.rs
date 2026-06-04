@@ -40,6 +40,29 @@ pub struct Recipe {
     /// Whether this recipe was verified against the app's docs.
     #[serde(default)]
     pub verified: bool,
+    /// Operating systems the app runs on (e.g. `["macos","linux"]`). Empty means
+    /// "any/unknown" — shown everywhere.
+    #[serde(default)]
+    pub os: Vec<String>,
+}
+
+/// The current operating system as a recipe `os` token ("macos", "linux", …).
+pub fn current_os() -> &'static str {
+    match std::env::consts::OS {
+        "macos" => "macos",
+        "linux" => "linux",
+        "windows" => "windows",
+        other => other,
+    }
+}
+
+/// Whether an app is applicable to the current OS (true unless its recipe lists
+/// operating systems that exclude this one).
+pub fn runs_on_current_os(name: &str) -> bool {
+    match recipe(name) {
+        Some(r) if !r.os.is_empty() => r.os.iter().any(|o| o == current_os()),
+        _ => true,
+    }
 }
 
 /// The parsed catalog, loaded once on first use.

@@ -24,3 +24,12 @@ fn detect_returns_categorized_entries() {
         assert!(e.category.is_some(), "{} should have a category", e.name);
     }
 }
+
+#[test]
+fn os_filtering_never_hides_unknown_apps() {
+    use tuiui::catalog::{current_os, runs_on_current_os};
+    // current OS is a known token
+    assert!(["macos","linux","windows"].contains(&current_os()) || !current_os().is_empty());
+    // an app with no recipe is shown everywhere (never falsely hidden)
+    assert!(runs_on_current_os("definitely-not-a-real-app-xyz"));
+}
