@@ -26,7 +26,8 @@ tuiui uses a **leader key** (`Ctrl+Space`) so its shortcuts never collide with m
 | `Ctrl+Space` then `a` | App menu (dropdown) |
 | `Ctrl+Space` then `m` / `n` | Maximize / minimize focused window |
 | `Ctrl+Space` then `[` / `]` | Snap focused window left / right |
-| `Ctrl+Space` then `q` | Quit |
+| `Ctrl+Space` then `s` / `,` | Open the Store / Settings |
+| `Ctrl+Space` then `q` / `Q` | Detach (keep running) / shut down the daemon |
 
 Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button (top-right) to exit, titlebar buttons (`– ▢ ✕`), drag titlebars/edges to move/resize, click dock pills to focus.
 
@@ -35,8 +36,23 @@ Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button 
 Requires a [Rust toolchain](https://rustup.rs).
 
 ```bash
-cargo run --release
+cargo run --release        # starts the daemon (if needed) and attaches a client
 ```
+
+tuiui runs as a **persistent daemon + thin client** (like tmux): the daemon owns
+your windows and processes and keeps them alive, while the client renders to your
+terminal. Detaching — or an SSH disconnect — leaves everything running; reattach
+and it's all still there.
+
+```bash
+tuiui            # ensure the daemon is running, then attach
+tuiui attach     # attach to an already-running daemon
+tuiui kill       # shut the daemon down (closes all windows)
+```
+
+Detach with **`Ctrl+Space` then `q`** (or `Ctrl+Alt+Q`, or the ✕ Quit button);
+fully shut down from inside with **`Ctrl+Space` then `Q`**. The socket lives in a
+per-user `0700` directory (`$XDG_RUNTIME_DIR` or the temp dir).
 
 Configuration lives at `~/.config/tuiui/config.toml` (see [example below](#configuration)). On first run with no config, tuiui opens your `$SHELL` and auto-detects installed TUIs.
 
@@ -92,7 +108,7 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 - **✅ Slice 1 — Shell:** compositor, window manager, PTY host, chrome, launcher.
 - **✅ Slice 3 — Store:** browse/search/install the full awesome-tuis catalog (mouse + keyboard; brew/cargo/go install).
 - **✅ Slice 4 — Settings:** sidebar settings panel writing `config.toml`.
-- **Slice 2 — Daemon & remote:** persistent sessions, attach/detach, SSH attach, capability negotiation.
+- **✅ Slice 2 — Daemon:** persistent daemon + thin client; detach/reattach keeps windows and processes alive.
 - **Slice 5 — Theming** (make the palette/shadows fully configurable from Settings → Appearance).
 - **Slice 6 — GUI/Wayland mode** (host real GUI apps via the Kitty graphics protocol).
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
