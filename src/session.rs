@@ -15,7 +15,7 @@ use crate::chrome::{
 };
 use crate::compositor::Layer;
 use crate::config::{AppEntry, Config};
-use crate::geometry::{Point, Rect, SnapZone, snap_zone};
+use crate::geometry::{Point, Rect, SnapZone};
 use crate::input::{route_mouse, MouseKind, Hit, Action};
 use crate::launcher::Launcher;
 use crate::ptyhost::AppInstance;
@@ -217,6 +217,8 @@ pub struct SessionCore {
     tray: crate::tray::Tray,
     /// The OS backend that applies tray control intents (volume/wifi/bluetooth).
     backend: Box<dyn crate::system::Backend>,
+    /// Target-cell highlight shown while dragging a window near an edge.
+    drag_preview: Option<Rect>,
 }
 
 impl SessionCore {
@@ -244,6 +246,7 @@ impl SessionCore {
             tray_state: std::sync::Arc::new(std::sync::RwLock::new(crate::system::SystemState::default())),
             tray: crate::tray::Tray::new(),
             backend: crate::system::backend(),
+            drag_preview: None,
         }
     }
 
@@ -396,6 +399,7 @@ impl SessionCore {
                 if let Some(id) = self.wm.focused() {
                     self.sync_app_size(id);
                 }
+                self.auto_tile_if_enabled();
             }
             ClientMsg::MaximizeFocused => {
                 if let Some(id) = self.wm.focused() {
@@ -658,6 +662,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             Ok(app) => {
                 self.contents.insert(id, WinContent::App(app));
                 self.titles.push((id, name));
+                self.auto_tile_if_enabled();
             }
             Err(_) => {
                 self.wm.close(id);
@@ -746,6 +751,15 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             }
             Action::MoveTo { id, x, y } => {
                 self.wm.move_to(id, x, y);
+                // Show a target-cell highlight when the pointer nears an edge.
+                let work = Rect::new(0, 1, self.w, self.h - 2);
+                self.drag_preview = if self.cfg.snapping_enabled && near_edge(p, work, self.cfg.snap_threshold) {
+                    let grid = self.grid();
+                    let (row, col) = grid.cell_at(work, p);
+                    Some(grid.cell_rect(work, row, col, self.cfg.tile_gap))
+                } else {
+                    None
+                };
             }
             Action::ResizeTo { id, w, h } => {
                 let r = self.wm.get(id).unwrap().rect;
@@ -781,15 +795,27 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             }
             Action::EndDrag => {
                 if let Some(Hit::Moving { id, .. }) = self.drag {
-                    if self.cfg.snapping_enabled {
-                        let work = Rect::new(0, 1, self.w, self.h - 2);
-                        if let Some(z) = snap_zone(p, work, self.cfg.snap_threshold) {
-                            self.wm.snap(id, z);
-                            self.sync_app_size(id);
+                    let work = Rect::new(0, 1, self.w, self.h - 2);
+                    if self.cfg.snapping_enabled && near_edge(p, work, self.cfg.snap_threshold) {
+                        let grid = self.grid();
+                        let (row, col) = grid.cell_at(work, p);
+                        // In auto-tile mode, dropping onto an occupied cell swaps
+                        // the two windows; otherwise place into the target cell.
+                        match self.window_in_cell(grid, row, col, id) {
+                            Some(other) if self.cfg.auto_tile => {
+                                self.wm.swap_cells(id, other);
+                                self.sync_app_size(id);
+                                self.sync_app_size(other);
+                            }
+                            _ => {
+                                self.wm.send_to_cell(id, grid, row, col, self.cfg.tile_gap);
+                                self.sync_app_size(id);
+                            }
                         }
                     }
                 }
                 self.drag = None;
+                self.drag_preview = None;
             }
             Action::None => {}
         }
@@ -800,6 +826,25 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         crate::geometry::Grid {
             rows: self.cfg.grid_rows.clamp(1, 6),
             cols: self.cfg.grid_cols.clamp(1, 6),
+        }
+    }
+
+    /// The id of a non-`except` window currently tiled in cell `(row, col)`.
+    fn window_in_cell(&self, _grid: crate::geometry::Grid, row: u8, col: u8, except: WindowId) -> Option<WindowId> {
+        self.wm
+            .z_ordered()
+            .into_iter()
+            .find(|w| w.id != except && w.state == crate::window::WindowState::Tiled { row, col })
+            .map(|w| w.id)
+    }
+
+    /// Re-tile all windows into the grid when auto-tile is on (called after a
+    /// window opens, closes, or the screen resizes).
+    fn auto_tile_if_enabled(&mut self) {
+        if self.cfg.auto_tile {
+            let grid = self.grid();
+            self.wm.tile_all(grid, self.cfg.tile_gap);
+            self.sync_all_app_sizes();
         }
     }
 
@@ -836,6 +881,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         }
         self.titles.retain(|(i, _)| *i != id);
         self.wm.close(id);
+        self.auto_tile_if_enabled();
     }
 
     // ── Frame builder ─────────────────────────────────────────────────────────
@@ -861,6 +907,17 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 .map(|c| c.render(cr.w, cr.h))
                 .unwrap_or_else(|| crate::buffer::CellBuffer::new(cr.w, cr.h));
             layers.extend(render_window(w, &content, Some(w.id) == focused, self.cfg.window_shadows));
+        }
+
+        // Drag-to-cell preview: a translucent highlight of the target cell,
+        // above the windows but below the chrome.
+        if let Some(r) = self.drag_preview {
+            let t = crate::theme::current();
+            let mut buf = crate::buffer::CellBuffer::new(r.w, r.h);
+            let mut tint = t.accent;
+            tint.a = 70; // translucent so the windows below show through
+            buf.fill(crate::cell::Cell { ch: ' ', fg: crate::cell::Rgba::TRANSPARENT, bg: tint, attrs: Default::default() });
+            layers.push(Layer { z: 900, origin: Point::new(r.x, r.y), buf, opacity: 1.0, scissor: None });
         }
 
         let app_name = focused
@@ -913,6 +970,15 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         }
         self.contents.clear();
     }
+}
+
+/// True when `p` is within `threshold` cells of any edge of `work` — the band in
+/// which a drag engages grid-cell snapping (interior drags stay floating).
+fn near_edge(p: Point, work: Rect, threshold: i32) -> bool {
+    p.x - work.x < threshold
+        || work.right() - p.x < threshold
+        || p.y - work.y < threshold
+        || work.bottom() - p.y < threshold
 }
 
 /// Check the upstream repository for a newer commit than this build.
