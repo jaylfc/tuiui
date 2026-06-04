@@ -27,11 +27,41 @@ pub struct CatalogApp {
 }
 
 const CATALOG_JSON: &str = include_str!("../assets/catalog.json");
+const RECIPES_JSON: &str = include_str!("../assets/recipes.json");
+
+/// A curated install recipe for a catalogued app (from `assets/recipes.json`).
+#[derive(Clone, Debug, Deserialize)]
+pub struct Recipe {
+    /// The shell command that installs the app.
+    pub install: String,
+    /// Install method ("brew", "cargo", "go", …) — informational.
+    #[serde(default)]
+    pub method: String,
+    /// Whether this recipe was verified against the app's docs.
+    #[serde(default)]
+    pub verified: bool,
+}
 
 /// The parsed catalog, loaded once on first use.
 pub fn catalog() -> &'static [CatalogApp] {
     static CATALOG: OnceLock<Vec<CatalogApp>> = OnceLock::new();
     CATALOG.get_or_init(|| serde_json::from_str(CATALOG_JSON).unwrap_or_default())
+}
+
+/// Curated install recipes keyed by app name, loaded once.
+pub fn recipes() -> &'static std::collections::HashMap<String, Recipe> {
+    static RECIPES: OnceLock<std::collections::HashMap<String, Recipe>> = OnceLock::new();
+    RECIPES.get_or_init(|| serde_json::from_str(RECIPES_JSON).unwrap_or_default())
+}
+
+/// The curated install recipe for `name`, if one exists.
+pub fn recipe(name: &str) -> Option<&'static Recipe> {
+    recipes().get(name)
+}
+
+/// Count of verified recipes (progress indicator).
+pub fn verified_count() -> usize {
+    recipes().values().filter(|r| r.verified).count()
 }
 
 /// Look up the category for a known app by its display name or binary.

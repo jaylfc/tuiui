@@ -168,6 +168,12 @@ impl Store {
                 buf.write_str(dx + 1, y, &line, FG, PANEL);
             }
             buf.write_str(dx + 1, h - 4, truncate(&app.homepage, dw as usize - 2), DIM, PANEL);
+            // Verified-recipe badge.
+            if let Some(r) = catalog::recipe(&app.name) {
+                if r.verified {
+                    buf.write_str(dx + 1, h - 3, &format!("\u{2713} verified \u{00B7} {}", r.method), GREEN, PANEL);
+                }
+            }
             // Action hint.
             let installed = catalog::is_installed(&app.bin);
             let action = if installed { "[ Enter: Launch ]" } else { "[ Enter: Install ]" };
@@ -237,6 +243,18 @@ impl Store {
 /// then `go install <repo>@latest` — and always prints the homepage so the user
 /// can finish manually. Per-app recipes will refine this over time.
 pub fn install_command(app: &CatalogApp) -> String {
+    // A verified curated recipe wins over the heuristic chain.
+    if let Some(r) = catalog::recipe(&app.name) {
+        if r.verified && !r.install.is_empty() {
+            return format!(
+                "clear; echo 'Installing {name} …'; echo; {cmd}; echo; echo '────────'; \
+echo 'Done. If it succeeded, {name} is now in your launcher.'; \
+echo 'Close this window (\u{2715}) when finished.'; exec \"$SHELL\"",
+                name = app.name,
+                cmd = r.install,
+            );
+        }
+    }
     let gopath = app
         .homepage
         .trim_start_matches("https://")
