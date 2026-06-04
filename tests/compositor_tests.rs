@@ -54,3 +54,19 @@ fn diff_reports_only_changed_cells() {
     assert_eq!(changes[0].x, 1);
     assert_eq!(changes[0].cell.ch, 'Z');
 }
+
+#[test]
+fn opaque_blank_cell_covers_lower_glyph() {
+    // A window's empty (opaque) cell must hide a window beneath it — not let it show through.
+    let mut comp = Compositor::new(1, 1);
+    let mut low = CellBuffer::new(1,1);
+    low.set(0,0, glyph('X', Rgba::rgb(0,0,0)));
+    let mut top = CellBuffer::new(1,1);
+    top.set(0,0, Cell { ch:' ', fg: Rgba::rgb(200,200,200), bg: Rgba::rgb(13,15,22), attrs: Default::default() });
+    let frame = comp.composite(&[
+        Layer { z:0, origin: Point::new(0,0), buf: low, opacity:1.0, scissor: None },
+        Layer { z:1, origin: Point::new(0,0), buf: top, opacity:1.0, scissor: None },
+    ], None);
+    assert_eq!(frame.get(0,0).unwrap().ch, ' ');           // covered, not 'X'
+    assert_eq!(frame.get(0,0).unwrap().bg, Rgba::rgb(13,15,22));
+}

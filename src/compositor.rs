@@ -156,24 +156,32 @@ impl Compositor {
 /// Composite a single source cell `src` over a destination cell `dst`, modulating
 /// `src.bg` alpha by `opacity` before blending.
 ///
-/// Glyph-preservation rule: if `src` carries no visible glyph (it is a space, or its
-/// background becomes fully transparent after opacity), the destination glyph and fg are
-/// kept — this lets shadow/tint layers darken content without erasing the text beneath.
+/// Three cases:
+/// 1. `src` has a glyph → ink it over the blended background.
+/// 2. `src` is blank with an **opaque** background → a solid space that *covers*
+///    whatever was beneath (a normal window's empty area must hide lower windows).
+/// 3. `src` is blank with a **translucent** background → a shadow/tint: blend the
+///    background but keep the glyph from below showing through.
 fn blend_cell(src: Cell, dst: Cell, opacity: f32) -> Cell {
     let src_bg = src.bg.with_opacity(opacity);
     let out_bg = src_bg.over(dst.bg);
-    // A cell has a "glyph" only when its character is not a space AND the layer is
-    // opaque enough to actually paint (alpha >= 8 avoids near-invisible artifacts).
-    let glyph_present = src.ch != ' ' && src_bg.a >= 8;
-    if glyph_present {
+    if src.ch != ' ' {
         Cell {
             ch: src.ch,
             fg: src.fg.over(out_bg),
             bg: out_bg,
             attrs: src.attrs,
         }
+    } else if src_bg.a >= 255 {
+        // Opaque blank cell: clears the content beneath it.
+        Cell {
+            ch: ' ',
+            fg: src.fg,
+            bg: out_bg,
+            attrs: src.attrs,
+        }
     } else {
-        // Shadow / tint layer: blend bg only, preserve the lower glyph.
+        // Translucent blank cell (shadow / tint): keep the lower glyph.
         Cell {
             ch: dst.ch,
             fg: dst.fg,
