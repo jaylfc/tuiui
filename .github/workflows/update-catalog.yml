@@ -1,0 +1,45 @@
+name: Update catalog
+
+# Keeps the bundled app catalog in sync with awesome-tuis and re-verifies
+# brew-installable apps — on a weekly schedule and on demand. Runs without any
+# session being alive.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Fetch awesome-tuis README
+        run: curl -fsSL https://raw.githubusercontent.com/rothgar/awesome-tuis/master/README.md -o /tmp/awesome-tuis.md
+
+      - name: Regenerate catalog
+        run: python3 scripts/gen_catalog.py /tmp/awesome-tuis.md
+
+      - name: Verify brew-installable apps
+        run: python3 scripts/match_brew.py
+
+      - name: Commit changes if any
+        run: |
+          git config user.name "jaylfc"
+          git config user.email "jaylfc25@gmail.com"
+          if [ -n "$(git status --porcelain assets/catalog.json assets/recipes.json)" ]; then
+            COUNT=$(python3 -c "import json;print(len(json.load(open('assets/catalog.json'))))")
+            git add assets/catalog.json assets/recipes.json
+            git commit -m "catalog: scheduled sync with awesome-tuis (${COUNT} apps)"
+            git push
+          else
+            echo "No catalog changes."
+          fi

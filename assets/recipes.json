@@ -4,6 +4,16 @@
   "method": "brew",
   "verified": true
  },
+ "AdGuardian-Term": {
+  "install": "cargo install adguardian",
+  "method": "cargo",
+  "verified": true
+ },
+ "Backlog.md": {
+  "install": "brew install backlog-md",
+  "method": "brew",
+  "verified": true
+ },
  "Bagels": {
   "install": "brew install bagels",
   "method": "brew",
@@ -13,6 +23,26 @@
   "install": "brew install chawan",
   "method": "brew",
   "verified": true
+ },
+ "Claude Code Bridge": {
+  "install": "tar -xzf ccb-*.tar.gz && cd ccb-* && ./install.sh install",
+  "method": "script",
+  "verified": false
+ },
+ "Close Mongo Ops Manager": {
+  "install": "pipx install close-mongo-ops-manager",
+  "method": "pipx",
+  "verified": true
+ },
+ "Cloud Code Usage Monitor": {
+  "install": "pipx install claude-monitor",
+  "method": "pipx",
+  "verified": true
+ },
+ "CoreFreq": {
+  "install": "",
+  "method": "other",
+  "verified": false
  },
  "Durdraw": {
   "install": "brew install durdraw",
@@ -44,10 +74,20 @@
   "method": "brew",
   "verified": true
  },
+ "Grafterm": {
+  "install": "go install github.com/slok/grafterm@latest",
+  "method": "go",
+  "verified": false
+ },
  "Greed": {
   "install": "brew install greed",
   "method": "brew",
   "verified": true
+ },
+ "Kyanos": {
+  "install": "",
+  "method": "binary",
+  "verified": false
  },
  "LYNX": {
   "install": "brew install lynx",
@@ -74,6 +114,11 @@
   "method": "brew",
   "verified": true
  },
+ "Planor": {
+  "install": "go install github.com/mrusme/planor@latest",
+  "method": "go",
+  "verified": false
+ },
  "Podman-tui": {
   "install": "brew install podman-tui",
   "method": "brew",
@@ -82,6 +127,21 @@
  "Profanity": {
   "install": "brew install profanity",
   "method": "brew",
+  "verified": true
+ },
+ "Puffin": {
+  "install": "brew install siddhantac/puffin/puffin",
+  "method": "brew",
+  "verified": true
+ },
+ "Raijin": {
+  "install": "cargo install Raijin",
+  "method": "cargo",
+  "verified": true
+ },
+ "ServerHub": {
+  "install": "curl -fsSL https://raw.githubusercontent.com/nickprotop/ServerHub/main/install.sh | bash",
+  "method": "script",
   "verified": true
  },
  "Slumber": {
@@ -98,6 +158,11 @@
   "install": "brew install tabiew",
   "method": "brew",
   "verified": true
+ },
+ "TermUI": {
+  "install": "",
+  "method": "unknown",
+  "verified": false
  },
  "Tock": {
   "install": "brew install tock",
@@ -144,6 +209,11 @@
   "method": "brew",
   "verified": true
  },
+ "act3": {
+  "install": "brew install dhth/tap/act3",
+  "method": "brew",
+  "verified": true
+ },
  "aerc": {
   "install": "brew install aerc",
   "method": "brew",
@@ -156,6 +226,16 @@
  },
  "amp": {
   "install": "brew install amp",
+  "method": "brew",
+  "verified": true
+ },
+ "amtui": {
+  "install": "brew tap pehlicd/tap && brew install amtui",
+  "method": "brew",
+  "verified": true
+ },
+ "amux": {
+  "install": "brew tap andyrewlee/amux && brew install amux",
   "method": "brew",
   "verified": true
  },
@@ -184,8 +264,18 @@
   "method": "brew",
   "verified": true
  },
+ "austin-tui": {
+  "install": "pipx install austin-tui",
+  "method": "pipx",
+  "verified": true
+ },
  "bandwhich": {
   "install": "brew install bandwhich",
+  "method": "brew",
+  "verified": true
+ },
+ "bashtop": {
+  "install": "brew install bashtop",
   "method": "brew",
   "verified": true
  },
@@ -194,10 +284,20 @@
   "method": "brew",
   "verified": true
  },
+ "below": {
+  "install": "cargo install below",
+  "method": "cargo",
+  "verified": true
+ },
  "binsider": {
   "install": "brew install binsider",
   "method": "brew",
   "verified": true
+ },
+ "blinkenlights": {
+  "install": "",
+  "method": "unknown",
+  "verified": false
  },
  "bmon": {
   "install": "brew install bmon",
@@ -229,6 +329,11 @@
   "method": "brew",
   "verified": true
  },
+ "brows": {
+  "install": "brew tap rubysolo/tools && brew install brows",
+  "method": "brew",
+  "verified": true
+ },
  "btop++": {
   "install": "brew install btop",
   "method": "brew",
@@ -239,9 +344,24 @@
   "method": "brew",
   "verified": true
  },
+ "burf": {
+  "install": "pip install burf",
+  "method": "pip",
+  "verified": true
+ },
  "calcurse": {
   "install": "brew install calcurse",
   "method": "brew",
+  "verified": true
+ },
+ "cargo-seek": {
+  "install": "cargo install --locked cargo-seek",
+  "method": "cargo",
+  "verified": true
+ },
+ "catalyst": {
+  "install": "go install github.com/PraveenGongada/catalyst/cmd/catalyst@latest",
+  "method": "go",
   "verified": true
  },
  "cava": {
@@ -269,8 +389,18 @@
   "method": "brew",
   "verified": true
  },
+ "cheatshh": {
+  "install": "brew install AnirudhG07/AnirudhG07/cheatshh",
+  "method": "brew",
+  "verified": true
+ },
  "chiko": {
   "install": "brew install chiko",
+  "method": "brew",
+  "verified": true
+ },
+ "claws": {
+  "install": "brew install --cask clawscli/tap/claws",
   "method": "brew",
   "verified": true
  },
@@ -284,14 +414,39 @@
   "method": "brew",
   "verified": true
  },
+ "cnTUI": {
+  "install": "",
+  "method": "unknown",
+  "verified": false
+ },
+ "cointop": {
+  "install": "brew install cointop",
+  "method": "brew",
+  "verified": true
+ },
  "csvlens": {
   "install": "brew install csvlens",
+  "method": "brew",
+  "verified": true
+ },
+ "csysdig": {
+  "install": "brew install sysdig",
   "method": "brew",
   "verified": true
  },
  "ctop": {
   "install": "brew install ctop",
   "method": "brew",
+  "verified": true
+ },
+ "damon": {
+  "install": "go install github.com/hcjulz/damon/cmd/damon@latest",
+  "method": "go",
+  "verified": true
+ },
+ "dashbrew": {
+  "install": "go install github.com/rasjonell/dashbrew/cmd/dashbrew@latest",
+  "method": "go",
   "verified": true
  },
  "dblab": {
@@ -379,6 +534,11 @@
   "method": "brew",
   "verified": true
  },
+ "fubar": {
+  "install": "cargo install fubar-cli",
+  "method": "cargo",
+  "verified": true
+ },
  "fx": {
   "install": "brew install fx",
   "method": "brew",
@@ -399,6 +559,11 @@
   "method": "brew",
   "verified": true
  },
+ "gh-dash": {
+  "install": "gh extension install dlvhdr/gh-dash",
+  "method": "script",
+  "verified": true
+ },
  "gitlogue": {
   "install": "brew install gitlogue",
   "method": "brew",
@@ -406,6 +571,11 @@
  },
  "gitui": {
   "install": "brew install gitui",
+  "method": "brew",
+  "verified": true
+ },
+ "gobang": {
+  "install": "brew install tako8ki/tap/gobang",
   "method": "brew",
   "verified": true
  },
@@ -457,6 +627,16 @@
  "htop": {
   "install": "brew install htop",
   "method": "brew",
+  "verified": true
+ },
+ "htui": {
+  "install": "curl -sSL https://raw.githubusercontent.com/PierreKieffer/htui/master/install/install_htui64_osx.sh | bash",
+  "method": "script",
+  "verified": true
+ },
+ "hwinfo-tui": {
+  "install": "pip install hwinfo-tui",
+  "method": "pip",
   "verified": true
  },
  "iamb": {
@@ -514,6 +694,11 @@
   "method": "brew",
   "verified": true
  },
+ "kmon": {
+  "install": "cargo install kmon",
+  "method": "cargo",
+  "verified": true
+ },
  "ktop": {
   "install": "brew install ktop",
   "method": "brew",
@@ -562,6 +747,11 @@
  "lnav": {
   "install": "brew install lnav",
   "method": "brew",
+  "verified": true
+ },
+ "ls-horizons": {
+  "install": "go install github.com/litescript/ls-horizons/cmd/ls-horizons@latest",
+  "method": "go",
   "verified": true
  },
  "mac-cleanup-go": {
@@ -714,6 +904,16 @@
   "method": "brew",
   "verified": true
  },
+ "oryx": {
+  "install": "pacman -S oryx",
+  "method": "apt",
+  "verified": true
+ },
+ "otel-tui": {
+  "install": "brew install ymtdzzz/tap/otel-tui",
+  "method": "brew",
+  "verified": true
+ },
  "oxker": {
   "install": "brew install oxker",
   "method": "brew",
@@ -734,9 +934,29 @@
   "method": "brew",
   "verified": true
  },
+ "process-compose": {
+  "install": "brew install f1bonacc1/tap/process-compose",
+  "method": "brew",
+  "verified": true
+ },
  "prs": {
   "install": "brew install prs",
   "method": "brew",
+  "verified": true
+ },
+ "psmux": {
+  "install": "cargo install psmux",
+  "method": "cargo",
+  "verified": true
+ },
+ "psnet": {
+  "install": "cargo install psnet",
+  "method": "cargo",
+  "verified": true
+ },
+ "pstop": {
+  "install": "cargo install pstop",
+  "method": "cargo",
   "verified": true
  },
  "pug": {
@@ -794,6 +1014,16 @@
   "method": "brew",
   "verified": true
  },
+ "s-tui": {
+  "install": "pip install s-tui --user",
+  "method": "pip",
+  "verified": true
+ },
+ "sacha": {
+  "install": "brew install sachamama/tap/sacha",
+  "method": "brew",
+  "verified": true
+ },
  "sc-im": {
   "install": "brew install sc-im",
   "method": "brew",
@@ -807,6 +1037,11 @@
  "slides": {
   "install": "brew install slides",
   "method": "brew",
+  "verified": true
+ },
+ "sockttop": {
+  "install": "cargo install socktop",
+  "method": "cargo",
   "verified": true
  },
  "soft-serve": {
@@ -834,6 +1069,16 @@
   "method": "brew",
   "verified": true
  },
+ "sysz": {
+  "install": "wget -O ~/.local/bin/sysz https://github.com/joehillen/sysz/releases/latest/download/sysz && chmod +x ~/.local/bin/sysz",
+  "method": "binary",
+  "verified": false
+ },
+ "talos linux": {
+  "install": "brew install siderolabs/tap/talosctl",
+  "method": "brew",
+  "verified": true
+ },
  "taskline": {
   "install": "brew install taskline",
   "method": "brew",
@@ -844,9 +1089,19 @@
   "method": "brew",
   "verified": true
  },
+ "tdash": {
+  "install": "go install github.com/jessfraz/tdash@latest",
+  "method": "go",
+  "verified": true
+ },
  "tdf": {
   "install": "brew install tdf",
   "method": "brew",
+  "verified": true
+ },
+ "tegratop": {
+  "install": "cargo install tegratop",
+  "method": "cargo",
   "verified": true
  },
  "television": {
@@ -874,6 +1129,11 @@
   "method": "brew",
   "verified": true
  },
+ "ticker": {
+  "install": "brew install achannarasappa/tap/ticker",
+  "method": "brew",
+  "verified": true
+ },
  "tig": {
   "install": "brew install tig",
   "method": "brew",
@@ -882,6 +1142,11 @@
  "timg": {
   "install": "brew install timg",
   "method": "brew",
+  "verified": true
+ },
+ "tmd-top": {
+  "install": "sudo pip install tmd-top",
+  "method": "pip",
   "verified": true
  },
  "tmux": {
@@ -909,6 +1174,11 @@
   "method": "brew",
   "verified": true
  },
+ "trek": {
+  "install": "",
+  "method": "unknown",
+  "verified": false
+ },
  "trippy": {
   "install": "brew install trippy",
   "method": "brew",
@@ -917,6 +1187,11 @@
  "try-rs": {
   "install": "brew install try-rs",
   "method": "brew",
+  "verified": true
+ },
+ "ttop": {
+  "install": "curl -LO https://github.com/inv2004/ttop/releases/latest/download/ttop && chmod +x ttop && mv ttop ~/.local/bin/",
+  "method": "binary",
   "verified": true
  },
  "tty-solitaire": {
@@ -928,6 +1203,16 @@
   "install": "brew install ttyplot",
   "method": "brew",
   "verified": true
+ },
+ "tufw": {
+  "install": "",
+  "method": "unknown",
+  "verified": false
+ },
+ "tuicamp": {
+  "install": "go install github.com/AbeEstrada/tuicamp@latest",
+  "method": "go",
+  "verified": false
  },
  "tuisky": {
   "install": "brew install tuisky",
@@ -949,6 +1234,11 @@
   "method": "brew",
   "verified": true
  },
+ "updo": {
+  "install": "brew install owloops/tap/updo",
+  "method": "brew",
+  "verified": true
+ },
  "vis": {
   "install": "brew install vis",
   "method": "brew",
@@ -961,6 +1251,11 @@
  },
  "w3m": {
   "install": "brew install w3m",
+  "method": "brew",
+  "verified": true
+ },
+ "wander": {
+  "install": "brew install robinovitch61/tap/wander",
   "method": "brew",
   "verified": true
  },
