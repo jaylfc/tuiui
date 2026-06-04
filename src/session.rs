@@ -207,6 +207,10 @@ pub struct SessionCore {
     launcher: Launcher,
     /// Shared host-state snapshot refreshed by the daemon's `SystemPoller`.
     tray_state: std::sync::Arc<std::sync::RwLock<crate::system::SystemState>>,
+    /// The menubar status tray (open popover state + hit-testing).
+    tray: crate::tray::Tray,
+    /// The OS backend that applies tray control intents (volume/wifi/bluetooth).
+    backend: Box<dyn crate::system::Backend>,
 }
 
 impl SessionCore {
@@ -232,7 +236,33 @@ impl SessionCore {
             shutdown: false,
             launcher,
             tray_state: std::sync::Arc::new(std::sync::RwLock::new(crate::system::SystemState::default())),
+            tray: crate::tray::Tray::new(),
+            backend: crate::system::backend(),
         }
+    }
+
+    /// The current tray segments, laid out from the live snapshot.
+    fn tray_segments_now(&self) -> Vec<crate::tray::Segment> {
+        let st = self.tray_state.read().unwrap();
+        crate::tray::tray_segments(&st, self.w)
+    }
+
+    /// Apply a tray control intent: optimistically update the cached snapshot so
+    /// the UI responds immediately, then run the (timeout-guarded) backend call.
+    fn apply_intent(&mut self, intent: crate::system::ControlIntent) {
+        use crate::system::ControlIntent as I;
+        if let Ok(mut s) = self.tray_state.write() {
+            match &intent {
+                I::VolumeUp => s.volume.level = s.volume.level.saturating_add(5).min(100),
+                I::VolumeDown => s.volume.level = s.volume.level.saturating_sub(5),
+                I::VolumeSet(l) => s.volume.level = (*l).min(100),
+                I::ToggleMute => s.volume.muted = !s.volume.muted,
+                I::WifiSetEnabled(on) => { if let Some(w) = s.wifi.as_mut() { w.enabled = *on; } }
+                I::BtSetEnabled(on) => s.bluetooth.enabled = *on,
+                _ => {}
+            }
+        }
+        self.backend.apply(&intent);
     }
 
     /// Attach the daemon's shared system snapshot (written by the `SystemPoller`)
@@ -621,8 +651,20 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             return;
         }
 
-        // Menubar brand opens the launcher dropdown; quit button and dock clicks
-        // are checked before normal window routing.
+        // An open tray popover captures the next click: apply its intent, or
+        // dismiss when the click misses every hot-zone.
+        if kind == MouseKind::Down && self.tray.open().is_some() {
+            let rendered = { let st = self.tray_state.read().unwrap(); self.tray.render(self.w, self.h, &st) };
+            if let Some(intent) = self.tray.on_popover_click(p, &rendered) {
+                self.apply_intent(intent);
+                return;
+            }
+            self.tray.close();
+            return;
+        }
+
+        // Menubar brand opens the launcher dropdown; quit button, tray segments,
+        // and dock clicks are checked before normal window routing.
         if kind == MouseKind::Down {
             if menubar_brand_region().contains(p) {
                 self.launcher.toggle_menu();
@@ -630,6 +672,10 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             }
             if menubar_quit_region(self.w).contains(p) {
                 self.quit = true;
+                return;
+            }
+            let segs = self.tray_segments_now();
+            if self.tray.on_menubar_click(p, &segs) {
                 return;
             }
             for (id, r) in self.dock_regions() {
@@ -784,6 +830,12 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
 
         // Launcher (dropdown / Spotlight) renders above all chrome.
         layers.extend(self.launcher.render(self.w, self.h).layers);
+
+        // An open tray popover renders above everything else.
+        {
+            let st = self.tray_state.read().unwrap();
+            layers.extend(self.tray.render(self.w, self.h, &st).layers);
+        }
 
         Frame { layers, cursor: Some(self.cursor) }
     }
