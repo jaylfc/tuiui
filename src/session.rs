@@ -190,14 +190,17 @@ impl SessionCore {
     /// is added (silently drops the launch request — the caller can surface an
     /// error later via a `CoreMsg` notification once that protocol exists).
     fn launch(&mut self, name: String, command: String, args: Vec<String>) {
-        // Cascade new windows by a few cells so they don't stack exactly.
-        let offset = self.titles.len() as i32;
-        let rect = Rect::new(
-            4 + offset * 3,
-            3 + offset * 2,
-            48,
-            16,
-        );
+        // Cascade new windows with a generous offset so each one is clearly
+        // visible (not buried under the previous window), clamped so the whole
+        // window stays on-screen within the work area.
+        let n = self.titles.len() as i32;
+        let win_w = 56.min((self.w - 4).max(20));
+        let win_h = 18.min((self.h - 4).max(6));
+        let max_x = (self.w - win_w - 1).max(0);
+        let max_y = (self.h - 1 - win_h).max(1); // keep above the dock row
+        let x = (2 + n * 6).min(max_x);
+        let y = (2 + n * 3).min(max_y);
+        let rect = Rect::new(x, y, win_w, win_h);
         let id = self.wm.add_window(name.clone(), rect);
         let content = self.wm.get(id).unwrap().content_rect();
         match AppInstance::spawn(&command, &args, content.w.max(1), content.h.max(1)) {
