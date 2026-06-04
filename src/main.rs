@@ -44,35 +44,55 @@ fn main() -> std::io::Result<()> {
         });
     }
 
+    // Whether the previous keypress was the Tuiui leader (Ctrl+Space), so this
+    // key completes a leader chord.
+    let mut leader = false;
+
     'outer: loop {
         // Poll for input; 16 ms lets child-app output animate at ~60 fps.
         if event::poll(Duration::from_millis(16))? {
             match event::read()? {
                 // Key events — skip Release so we don't double-send.
                 Event::Key(k) if k.kind != KeyEventKind::Release => {
-                    let ctrl_alt = k.modifiers.contains(KeyModifiers::CONTROL)
-                        && k.modifiers.contains(KeyModifiers::ALT);
+                    let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
+                    let ctrl_alt = ctrl && k.modifiers.contains(KeyModifiers::ALT);
+                    // Tuiui leader = Ctrl+Space (reliable everywhere; Alt is not
+                    // delivered by default in Ghostty/macOS). Some terminals send
+                    // Ctrl+Space as the NUL key.
+                    let is_leader = (ctrl && k.code == KeyCode::Char(' ')) || k.code == KeyCode::Null;
 
-                    if core.launcher_open() {
+                    if leader {
+                        // Second key of a leader chord.
+                        leader = false;
+                        match k.code {
+                            KeyCode::Char(' ') => core.apply(ClientMsg::ToggleSpotlight),
+                            KeyCode::Char('a') | KeyCode::Char('A') => core.apply(ClientMsg::ToggleMenu),
+                            KeyCode::Char('m') | KeyCode::Char('M') => core.apply(ClientMsg::MaximizeFocused),
+                            KeyCode::Char('n') | KeyCode::Char('N') => core.apply(ClientMsg::MinimizeFocused),
+                            KeyCode::Char('[') | KeyCode::Left => core.apply(ClientMsg::SnapFocused(SnapZone::Left)),
+                            KeyCode::Char(']') | KeyCode::Right => core.apply(ClientMsg::SnapFocused(SnapZone::Right)),
+                            KeyCode::Char('q') | KeyCode::Char('Q') => break 'outer,
+                            _ => {} // Esc / anything else cancels the chord
+                        }
+                    } else if core.launcher_open() {
                         // An open launcher captures keyboard navigation/typing.
                         match k.code {
-                            KeyCode::Char('q') if ctrl_alt => break 'outer,
-                            KeyCode::Char(' ') if ctrl_alt => core.apply(ClientMsg::ToggleSpotlight),
                             KeyCode::Esc => core.apply(ClientMsg::LauncherEsc),
                             KeyCode::Enter => core.apply(ClientMsg::LauncherEnter),
                             KeyCode::Up => core.apply(ClientMsg::LauncherUp),
                             KeyCode::Down => core.apply(ClientMsg::LauncherDown),
                             KeyCode::Backspace => core.apply(ClientMsg::LauncherBackspace),
-                            KeyCode::Char(c) if !ctrl_alt && core.spotlight_open() => {
+                            KeyCode::Char(c) if core.spotlight_open() && !ctrl => {
                                 core.apply(ClientMsg::LauncherChar(c));
                             }
                             _ => {}
                         }
+                    } else if is_leader {
+                        leader = true;
                     } else if ctrl_alt {
-                        // Reserved Ctrl+Alt chords (window management + Spotlight).
+                        // Legacy Ctrl+Alt chords still work where Alt is delivered.
                         match k.code {
                             KeyCode::Char('q') => break 'outer,
-                            KeyCode::Char(' ') => core.apply(ClientMsg::ToggleSpotlight),
                             KeyCode::Up => core.apply(ClientMsg::MaximizeFocused),
                             KeyCode::Down => core.apply(ClientMsg::MinimizeFocused),
                             KeyCode::Left => core.apply(ClientMsg::SnapFocused(SnapZone::Left)),

@@ -57,6 +57,8 @@ pub enum ClientMsg {
     MinimizeFocused,
     /// Snap the focused window to a screen half (keyboard command).
     SnapFocused(SnapZone),
+    /// Open/close the launcher dropdown menu (keyboard command).
+    ToggleMenu,
     /// Open/close the Spotlight search overlay (keyboard command).
     ToggleSpotlight,
     /// Type a character into the Spotlight query.
@@ -240,6 +242,7 @@ impl SessionCore {
                     self.sync_app_size(id);
                 }
             }
+            ClientMsg::ToggleMenu => self.launcher.toggle_menu(),
             ClientMsg::ToggleSpotlight => self.launcher.toggle_spotlight(),
             ClientMsg::LauncherChar(c) => self.launcher.type_char(c),
             ClientMsg::LauncherBackspace => self.launcher.backspace(),
