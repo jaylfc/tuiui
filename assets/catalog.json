@@ -1,0 +1,4076 @@
+[
+ {
+  "name": "AdGuardian-Term",
+  "bin": "adguardian-term",
+  "category": "Dashboards",
+  "description": "A TUI dashboard for monitoring real-time traffic from an AdGuard Home instance",
+  "homepage": "https://github.com/lissy93/AdGuardian-Term"
+ },
+ {
+  "name": "apachetop",
+  "bin": "apachetop",
+  "category": "Dashboards",
+  "description": "display information from a running copy of Apache.",
+  "homepage": "https://github.com/tessus/apachetop"
+ },
+ {
+  "name": "atop",
+  "bin": "atop",
+  "category": "Dashboards",
+  "description": "root level system and process monitor for Linux",
+  "homepage": "https://github.com/Atoptool/atop/"
+ },
+ {
+  "name": "Backlog.md",
+  "bin": "backlog.md",
+  "category": "Dashboards",
+  "description": "A tool for managing project collaboration between humans and AI Agents in a git ecosystem",
+  "homepage": "https://github.com/MrLesk/Backlog.md"
+ },
+ {
+  "name": "bandwhich",
+  "bin": "bandwhich",
+  "category": "Dashboards",
+  "description": "Terminal bandwidth utilization tool",
+  "homepage": "https://github.com/imsnif/bandwhich"
+ },
+ {
+  "name": "bashtop",
+  "bin": "bashtop",
+  "category": "Dashboards",
+  "description": "Resource manager written in bash",
+  "homepage": "https://github.com/aristocratos/bashtop"
+ },
+ {
+  "name": "below",
+  "bin": "below",
+  "category": "Dashboards",
+  "description": "A time traveling resource monitor for modern Linux systems",
+  "homepage": "https://github.com/facebookincubator/below"
+ },
+ {
+  "name": "binsider",
+  "bin": "binsider",
+  "category": "Dashboards",
+  "description": "A TUI for analyzing Linux binaries.",
+  "homepage": "https://github.com/orhun/binsider"
+ },
+ {
+  "name": "bmon",
+  "bin": "bmon",
+  "category": "Dashboards",
+  "description": "A monitoring and debugging tool to capture networking related statistics and prepare them visually.",
+  "homepage": "https://github.com/tgraf/bmon"
+ },
+ {
+  "name": "bottom",
+  "bin": "btm",
+  "category": "Dashboards",
+  "description": "A customizable graphical process/system monitor for the terminal.",
+  "homepage": "https://github.com/ClementTsang/bottom"
+ },
+ {
+  "name": "bpytop",
+  "bin": "bpytop",
+  "category": "Dashboards",
+  "description": "A Python-based system monitor with lots of information.",
+  "homepage": "https://github.com/aristocratos/bpytop"
+ },
+ {
+  "name": "btop++",
+  "bin": "btop",
+  "category": "Dashboards",
+  "description": "Resource monitor with extras",
+  "homepage": "https://github.com/aristocratos/btop"
+ },
+ {
+  "name": "cgdb",
+  "bin": "cgdb",
+  "category": "Dashboards",
+  "description": "Console front-end to the GNU debugger",
+  "homepage": "https://github.com/cgdb/cgdb"
+ },
+ {
+  "name": "chdig",
+  "bin": "chdig",
+  "category": "Dashboards",
+  "description": "Dig into ClickHouse with TUI interface",
+  "homepage": "https://github.com/azat/chdig"
+ },
+ {
+  "name": "cheatshh",
+  "bin": "cheatshh",
+  "category": "Dashboards",
+  "description": "A fzf TUI for managing custom made command-line cheatsheet for Unix.",
+  "homepage": "https://github.com/AnirudhG07/cheatshh"
+ },
+ {
+  "name": "claws",
+  "bin": "claws",
+  "category": "Dashboards",
+  "description": "A terminal UI for AWS resource management with vim-style keybindings, command-mode navigation, and optional read-only mode.",
+  "homepage": "https://github.com/clawscli/claws"
+ },
+ {
+  "name": "cointop",
+  "bin": "cointop",
+  "category": "Dashboards",
+  "description": "The fastest and most interactive terminal based UI application for tracking cryptocurrencies",
+  "homepage": "https://github.com/miguelmota/cointop"
+ },
+ {
+  "name": "CoreFreq",
+  "bin": "corefreq",
+  "category": "Dashboards",
+  "description": "CPU monitoring software designed for the 64-bits Processors",
+  "homepage": "https://github.com/cyring/CoreFreq"
+ },
+ {
+  "name": "csysdig",
+  "bin": "csysdig",
+  "category": "Dashboards",
+  "description": "root level Ncurses interface for sysdig, Linux system exploration and troubleshooting tool with first class support for containers",
+  "homepage": "https://github.com/draios/sysdig"
+ },
+ {
+  "name": "damon",
+  "bin": "damon",
+  "category": "Dashboards",
+  "description": "TUI interface for Hashicorp Nomad",
+  "homepage": "https://github.com/hashicorp/damon"
+ },
+ {
+  "name": "dashbrew",
+  "bin": "dashbrew",
+  "category": "Dashboards",
+  "description": "TUI dashboard builder that lets you visualize data from scripts and APIs.",
+  "homepage": "https://github.com/rasjonell/dashbrew"
+ },
+ {
+  "name": "dolphie",
+  "bin": "dolphie",
+  "category": "Dashboards",
+  "description": "Your single pane of glass for real-time analytics into MySQL/MariaDB & ProxySQL",
+  "homepage": "https://github.com/charles-001/dolphie"
+ },
+ {
+  "name": "framework-tool-tui",
+  "bin": "framework-tool-tui",
+  "category": "Dashboards",
+  "description": "TUI for controlling and monitoring Framework Computers hardware built in Rust",
+  "homepage": "https://github.com/grouzen/framework-tool-tui"
+ },
+ {
+  "name": "fubar",
+  "bin": "fubar",
+  "category": "Dashboards",
+  "description": "Formidable Unix Binary Arsenal & Repository. TUI built for gtfobins power users.",
+  "homepage": "https://github.com/irishmaestro/fubar"
+ },
+ {
+  "name": "gh-dash",
+  "bin": "gh-dash",
+  "category": "Dashboards",
+  "description": "A rich terminal UI for GitHub PRs and Issues",
+  "homepage": "https://github.com/dlvhdr/gh-dash"
+ },
+ {
+  "name": "Glances",
+  "bin": "glances",
+  "category": "Dashboards",
+  "description": "Glances an Eye on your system. A top/htop alternative.",
+  "homepage": "https://github.com/nicolargo/glances"
+ },
+ {
+  "name": "Goaccess",
+  "bin": "goaccess",
+  "category": "Dashboards",
+  "description": "GoAccess is a real-time web log analyzer and interactive viewer that runs in a terminal in nix systems or through your browser.",
+  "homepage": "https://github.com/allinurl/goaccess"
+ },
+ {
+  "name": "gobang",
+  "bin": "gobang",
+  "category": "Dashboards",
+  "description": "A cross-platform TUI database management tool written in Rust",
+  "homepage": "https://github.com/TaKO8Ki/gobang"
+ },
+ {
+  "name": "gonzo",
+  "bin": "gonzo",
+  "category": "Dashboards",
+  "description": "A powerful, real-time log analysis terminal UI inspired by k9s.",
+  "homepage": "https://github.com/control-theory/gonzo"
+ },
+ {
+  "name": "gotop",
+  "bin": "gotop",
+  "category": "Dashboards",
+  "description": "A terminal based graphical activity monitor inspired by gtop and vtop",
+  "homepage": "https://github.com/xxxserxxx/gotop"
+ },
+ {
+  "name": "gping",
+  "bin": "gping",
+  "category": "Dashboards",
+  "description": "Ping, but with a graph",
+  "homepage": "https://github.com/orf/gping"
+ },
+ {
+  "name": "Grafterm",
+  "bin": "grafterm",
+  "category": "Dashboards",
+  "description": "Metrics dashboards on terminal, a Grafana inspired terminal version",
+  "homepage": "https://github.com/slok/grafterm"
+ },
+ {
+  "name": "htop",
+  "bin": "htop",
+  "category": "Dashboards",
+  "description": "Interactive text-mode process viewer for Unix systems. It aims to be a better 'top'",
+  "homepage": "https://github.com/htop-dev/htop"
+ },
+ {
+  "name": "htui",
+  "bin": "htui",
+  "category": "Dashboards",
+  "description": "Heroku Terminal User Interface",
+  "homepage": "https://github.com/PierreKieffer/htui"
+ },
+ {
+  "name": "hwinfo-tui",
+  "bin": "hwinfo-tui",
+  "category": "Dashboards",
+  "description": "A gping-inspired terminal visualization tool for monitoring real-time hardware sensor data from HWInfo",
+  "homepage": "https://github.com/JuanjoFuchs/hwinfo-tui"
+ },
+ {
+  "name": "ID-Spoofer",
+  "bin": "id-spoofer",
+  "category": "Dashboards",
+  "description": "A cross-platform cybersecurity toolkit for fingerprint and traffic obfuscation.",
+  "homepage": "https://github.com/NubleX/ID-Spoofer"
+ },
+ {
+  "name": "kaskade",
+  "bin": "kaskade",
+  "category": "Dashboards",
+  "description": "TUI for kafka, which allows you to interact and consume topics from your terminal in style!",
+  "homepage": "https://github.com/sauljabin/kaskade"
+ },
+ {
+  "name": "kmon",
+  "bin": "kmon",
+  "category": "Dashboards",
+  "description": "Linux Kernel Manager and Activity Monitor",
+  "homepage": "https://github.com/orhun/kmon"
+ },
+ {
+  "name": "Kyanos",
+  "bin": "kyanos",
+  "category": "Dashboards",
+  "description": "Linux network analysis tool based on eBPF",
+  "homepage": "https://github.com/hengyoush/kyanos"
+ },
+ {
+  "name": "ls-horizons",
+  "bin": "ls-horizons",
+  "category": "Dashboards",
+  "description": "Terminal UI for visualizing NASA's Deep Space Network in real-time",
+  "homepage": "https://github.com/litescript/ls-horizons"
+ },
+ {
+  "name": "macmon",
+  "bin": "macmon",
+  "category": "Dashboards",
+  "description": "Sudoless performance monitoring for Apple Silicon processors written in Rust",
+  "homepage": "https://github.com/vladkens/macmon"
+ },
+ {
+  "name": "nerdlog",
+  "bin": "nerdlog",
+  "category": "Dashboards",
+  "description": "fast, remote-first, multi-host TUI log viewer",
+  "homepage": "https://github.com/dimonomid/nerdlog"
+ },
+ {
+  "name": "nethogs",
+  "bin": "nethogs",
+  "category": "Dashboards",
+  "description": "'net top' tool",
+  "homepage": "https://github.com/raboof/nethogs"
+ },
+ {
+  "name": "netscanner",
+  "bin": "netscanner",
+  "category": "Dashboards",
+  "description": "Network scanner",
+  "homepage": "https://github.com/Chleba/netscanner"
+ },
+ {
+  "name": "nvtop",
+  "bin": "nvtop",
+  "category": "Dashboards",
+  "description": "GPUs process monitoring for AMD, Intel and NVIDIA",
+  "homepage": "https://github.com/Syllo/nvtop"
+ },
+ {
+  "name": "oryx",
+  "bin": "oryx",
+  "category": "Dashboards",
+  "description": "A TUI for sniffing network traffic using eBPF",
+  "homepage": "https://github.com/pythops/oryx"
+ },
+ {
+  "name": "otel-tui",
+  "bin": "otel-tui",
+  "category": "Dashboards",
+  "description": "A terminal OpenTelemetry viewer",
+  "homepage": "https://github.com/ymtdzzz/otel-tui"
+ },
+ {
+  "name": "Planor",
+  "bin": "planor",
+  "category": "Dashboards",
+  "description": "The Cloud Aviator, dashboard for AWS, Vultr, Heroku, ...",
+  "homepage": "https://github.com/mrusme/planor"
+ },
+ {
+  "name": "process-compose",
+  "bin": "process-compose",
+  "category": "Dashboards",
+  "description": "TUI for running apps and processes",
+  "homepage": "https://github.com/F1bonacc1/process-compose"
+ },
+ {
+  "name": "psmux",
+  "bin": "psmux",
+  "category": "Dashboards",
+  "description": "tmux-compatible terminal multiplexer for Windows built in Rust with ratatui.",
+  "homepage": "https://github.com/marlocarlo/psmux"
+ },
+ {
+  "name": "psnet",
+  "bin": "psnet",
+  "category": "Dashboards",
+  "description": "Real-time TUI network monitor for Windows with speed graphs, DNS resolution, and packet inspection.",
+  "homepage": "https://github.com/marlocarlo/psnet"
+ },
+ {
+  "name": "pstop",
+  "bin": "pstop",
+  "category": "Dashboards",
+  "description": "htop-style system monitor for Windows with per-core CPU bars, tree view, and 7 color schemes.",
+  "homepage": "https://github.com/marlocarlo/pstop"
+ },
+ {
+  "name": "Puffin",
+  "bin": "puffin",
+  "category": "Dashboards",
+  "description": "A beautiful terminal dashboard for hledger",
+  "homepage": "https://github.com/siddhantac/puffin"
+ },
+ {
+  "name": "Raijin",
+  "bin": "raijin",
+  "category": "Dashboards",
+  "description": "A free, simple weather TUI that pulls data without the need for an API key, account, or subscription",
+  "homepage": "https://github.com/MasonStooksbury/Raijin"
+ },
+ {
+  "name": "rustnet",
+  "bin": "rustnet",
+  "category": "Dashboards",
+  "description": "A cross-platform network monitoring tool with deep packet inspection",
+  "homepage": "https://github.com/domcyrus/rustnet"
+ },
+ {
+  "name": "s-tui",
+  "bin": "s-tui",
+  "category": "Dashboards",
+  "description": "CPU stress and monitoring utility",
+  "homepage": "https://github.com/amanusk/s-tui"
+ },
+ {
+  "name": "sacha",
+  "bin": "sacha",
+  "category": "Dashboards",
+  "description": "A two-pane AWS TUI for browsing, searching, and managing resources across seven services including CloudWatch Logs, S3, DynamoDB, Lambda, SSM, SQS, and EC2.",
+  "homepage": "https://github.com/Sachamama/sacha"
+ },
+ {
+  "name": "ServerHub",
+  "bin": "serverhub",
+  "category": "Dashboards",
+  "description": "A TUI server monitoring dashboard for Linux with real-time metrics, scriptable widgets, and remote management",
+  "homepage": "https://github.com/nickprotop/ServerHub"
+ },
+ {
+  "name": "sockttop",
+  "bin": "sockttop",
+  "category": "Dashboards",
+  "description": "socktop is a remote system monitor with a rich TUI, inspired by top/btop, talking to a lightweight agent over WebSockets.",
+  "homepage": "https://github.com/jasonwitty/socktop"
+ },
+ {
+  "name": "sysz",
+  "bin": "sysz",
+  "category": "Dashboards",
+  "description": "An fzf terminal UI for systemctl",
+  "homepage": "https://github.com/joehillen/sysz"
+ },
+ {
+  "name": "talos linux",
+  "bin": "taloslinux",
+  "category": "Dashboards",
+  "description": "A Linux distro with a TUI dashboard for local and remote usage",
+  "homepage": "https://github.com/siderolabs/talos"
+ },
+ {
+  "name": "tdash",
+  "bin": "tdash",
+  "category": "Dashboards",
+  "description": "A terminal dashboard with stats from Google Analytics, GitHub, Travis CI, and Jenkins. Very much built specific to me",
+  "homepage": "https://github.com/jessfraz/tdash"
+ },
+ {
+  "name": "tegratop",
+  "bin": "tegratop",
+  "category": "Dashboards",
+  "description": "Monitoring tool (top like) for Nvidia jetson boards",
+  "homepage": "https://github.com/pythops/tegratop"
+ },
+ {
+  "name": "TermUI",
+  "bin": "termui",
+  "category": "Dashboards",
+  "description": "Golang terminal dashboard",
+  "homepage": "https://github.com/gizak/termui"
+ },
+ {
+  "name": "ticker",
+  "bin": "ticker",
+  "category": "Dashboards",
+  "description": "Track stocks, crypto, and derivatives prices and positions in real time from your terminal",
+  "homepage": "https://github.com/achannarasappa/ticker"
+ },
+ {
+  "name": "tmd-top",
+  "bin": "tmd-top",
+  "category": "Dashboards",
+  "description": "Used to monitor the process tcp traffic of the linux system, detailed to each IP connection",
+  "homepage": "https://github.com/CDWEN0526/tmd-top"
+ },
+ {
+  "name": "trek",
+  "bin": "trek",
+  "category": "Dashboards",
+  "description": "ncurses explorer for Hashicorp Nomad clusters",
+  "homepage": "https://github.com/franckverrot/trek"
+ },
+ {
+  "name": "trippy",
+  "bin": "trip",
+  "category": "Dashboards",
+  "description": "A network diagnostic tool that includes functionality like mtr and more",
+  "homepage": "https://github.com/fujiapple852/trippy"
+ },
+ {
+  "name": "ttop",
+  "bin": "ttop",
+  "category": "Dashboards",
+  "description": "System monitoring tool with historical data service, triggers and top-like TUI",
+  "homepage": "https://github.com/inv2004/ttop"
+ },
+ {
+  "name": "tufw",
+  "bin": "tufw",
+  "category": "Dashboards",
+  "description": "Terminal UI for ufw",
+  "homepage": "https://github.com/peltho/tufw"
+ },
+ {
+  "name": "tuicamp",
+  "bin": "tuicamp",
+  "category": "Dashboards",
+  "description": "Unofficial TimeCamp TUI",
+  "homepage": "https://github.com/AbeEstrada/tuicamp"
+ },
+ {
+  "name": "updo",
+  "bin": "updo",
+  "category": "Dashboards",
+  "description": "Website monitoring tool with uptime tracking, response time metrics, and SSL certificate monitoring.",
+  "homepage": "https://github.com/Owloops/updo"
+ },
+ {
+  "name": "wander",
+  "bin": "wander",
+  "category": "Dashboards",
+  "description": "HashiCorp Nomad terminal client",
+  "homepage": "https://github.com/robinovitch61/wander"
+ },
+ {
+  "name": "WTF",
+  "bin": "wtf",
+  "category": "Dashboards",
+  "description": "The personal information dashboard for your terminal.",
+  "homepage": "https://github.com/senorprogrammer/wtf"
+ },
+ {
+  "name": "Yozefu",
+  "bin": "yozefu",
+  "category": "Dashboards",
+  "description": "A TUI for exploring data of a kafka cluster.",
+  "homepage": "https://github.com/MAIF/yozefu"
+ },
+ {
+  "name": "zenith",
+  "bin": "zenith",
+  "category": "Dashboards",
+  "description": "In terminal graphical metrics for your \\*nix system written in Rust",
+  "homepage": "https://github.com/bvaisvil/zenith"
+ },
+ {
+  "name": "act3",
+  "bin": "act3",
+  "category": "Development",
+  "description": "Glance at the last 3 runs of your Github Actions",
+  "homepage": "https://github.com/dhth/act3"
+ },
+ {
+  "name": "amtui",
+  "bin": "amtui",
+  "category": "Development",
+  "description": "Alertmanager TUI - Your Terminal Companion for Alertmanager",
+  "homepage": "https://github.com/pehlicd/amtui/"
+ },
+ {
+  "name": "amux",
+  "bin": "amux",
+  "category": "Development",
+  "description": "Easily run parallel coding agents",
+  "homepage": "https://github.com/andyrewlee/amux"
+ },
+ {
+  "name": "ATAC",
+  "bin": "atac",
+  "category": "Development",
+  "description": "A feature-full TUI API client made in Rust. ATAC is free, open-source, offline and account-less.",
+  "homepage": "https://github.com/Julien-cpsn/ATAC"
+ },
+ {
+  "name": "austin-tui",
+  "bin": "austin-tui",
+  "category": "Development",
+  "description": "The top-like text-based user interface for Austin",
+  "homepage": "https://github.com/P403n1x87/austin-tui"
+ },
+ {
+  "name": "blinkenlights",
+  "bin": "blinkenlights",
+  "category": "Development",
+  "description": "TUI that may be used for debugging x86_64-linux or i8086 programs across platforms",
+  "homepage": "https://github.com/jart/blink"
+ },
+ {
+  "name": "brows",
+  "bin": "brows",
+  "category": "Development",
+  "description": "CLI GitHub release browser",
+  "homepage": "https://github.com/rubysolo/brows"
+ },
+ {
+  "name": "burf",
+  "bin": "burf",
+  "category": "Development",
+  "description": "TUI for Google Cloud Storage (GCS)",
+  "homepage": "https://github.com/razeghi71/burf"
+ },
+ {
+  "name": "cargo-seek",
+  "bin": "cargo-seek",
+  "category": "Development",
+  "description": "A TUI for searching, adding and installing cargo crates",
+  "homepage": "https://github.com/tareqimbasher/cargo-seek"
+ },
+ {
+  "name": "catalyst",
+  "bin": "catalyst",
+  "category": "Development",
+  "description": "Elegant TUI for triggering GitHub Actions workflows with matrix configurations.",
+  "homepage": "https://github.com/PraveenGongada/catalyst"
+ },
+ {
+  "name": "chiko",
+  "bin": "chiko",
+  "category": "Development",
+  "description": "The Ultimate Beauty TUI gRPC Client",
+  "homepage": "https://github.com/felangga/chiko"
+ },
+ {
+  "name": "Claude Code Bridge",
+  "bin": "claudecodebridge",
+  "category": "Development",
+  "description": "Real-time multi-AI collaboration between Claude, Codex and Gemini in terminal",
+  "homepage": "https://github.com/bfly123/claude_code_bridge"
+ },
+ {
+  "name": "Close Mongo Ops Manager",
+  "bin": "closemongoopsmanager",
+  "category": "Development",
+  "description": "Monitor and kill MongoDB operations",
+  "homepage": "https://github.com/closeio/close-mongo-ops-manager"
+ },
+ {
+  "name": "Cloud Code Usage Monitor",
+  "bin": "cloudcodeusagemonitor",
+  "category": "Development",
+  "description": "Monitor Claude token usage",
+  "homepage": "https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor"
+ },
+ {
+  "name": "cnTUI",
+  "bin": "cntui",
+  "category": "Development",
+  "description": "Replay chrome requests from your terminal using curl",
+  "homepage": "https://github.com/fipso/cntui"
+ },
+ {
+  "name": "codex",
+  "bin": "codex",
+  "category": "Development",
+  "description": "Lightweight coding agent that runs in your terminal",
+  "homepage": "https://github.com/openai/codex"
+ },
+ {
+  "name": "crush",
+  "bin": "crush",
+  "category": "Development",
+  "description": "The glamourous AI coding agent",
+  "homepage": "https://github.com/charmbracelet/crush"
+ },
+ {
+  "name": "csope",
+  "bin": "csope",
+  "category": "Development",
+  "description": "C source code browser based on cscope",
+  "homepage": "https://github.com/agvxov/csope"
+ },
+ {
+  "name": "CuTE",
+  "bin": "cute",
+  "category": "Development",
+  "description": "TUI to help build, execute and save curl commands, recursively download from remote sources, test your API endpoints, and mange your keys",
+  "homepage": "https://github.com/PThorpe92/CuTE"
+ },
+ {
+  "name": "dbee",
+  "bin": "dbee",
+  "category": "Development",
+  "description": "Fast & Minimalistic Database Browser",
+  "homepage": "https://github.com/murat-cileli/dbee"
+ },
+ {
+  "name": "dblab",
+  "bin": "dblab",
+  "category": "Development",
+  "description": "The database client every command line junkie deserves",
+  "homepage": "https://github.com/danvergara/dblab"
+ },
+ {
+  "name": "ddqa",
+  "bin": "ddqa",
+  "category": "Development",
+  "description": "Jira TUI to help with software releases",
+  "homepage": "https://github.com/DataDog/ddqa"
+ },
+ {
+  "name": "ddv",
+  "bin": "ddv",
+  "category": "Development",
+  "description": "Terminal DynamoDB viewer",
+  "homepage": "https://github.com/lusingander/ddv"
+ },
+ {
+  "name": "delta",
+  "bin": "delta",
+  "category": "Development",
+  "description": "A syntax-highlighting pager for git, diff, and grep output",
+  "homepage": "https://github.com/dandavison/delta"
+ },
+ {
+  "name": "deputui",
+  "bin": "deputui",
+  "category": "Development",
+  "description": "Review and install NPM package updates",
+  "homepage": "https://github.com/twiddler/deputui"
+ },
+ {
+  "name": "differ",
+  "bin": "differ",
+  "category": "Development",
+  "description": "A TUI git diff viewer",
+  "homepage": "https://github.com/JanSmrcka/differ"
+ },
+ {
+  "name": "ec",
+  "bin": "ec",
+  "category": "Development",
+  "description": "A TUI native Git mergetool with 3 panes",
+  "homepage": "https://github.com/chojs23/ec"
+ },
+ {
+  "name": "euporie",
+  "bin": "euporie",
+  "category": "Development",
+  "description": "Jupyter notebooks in the terminal",
+  "homepage": "https://github.com/joouha/euporie"
+ },
+ {
+  "name": "fast-resume",
+  "bin": "fast-resume",
+  "category": "Development",
+  "description": "Index and fuzzy search coding agent sessions",
+  "homepage": "https://github.com/angristan/fast-resume"
+ },
+ {
+  "name": "Feluda",
+  "bin": "feluda",
+  "category": "Development",
+  "description": "Detect restrictive and incompatible licesenses in all dependencies of your project.",
+  "homepage": "https://github.com/anistark/feluda"
+ },
+ {
+  "name": "Froggit",
+  "bin": "froggit",
+  "category": "Development",
+  "description": "Minimalist Git TUI with GitHub CLI integration",
+  "homepage": "https://github.com/thewizardshell/froggit"
+ },
+ {
+  "name": "fx",
+  "bin": "fx",
+  "category": "Development",
+  "description": "Terminal JSON viewer & processor",
+  "homepage": "https://github.com/antonmedv/fx"
+ },
+ {
+  "name": "ggc",
+  "bin": "ggc",
+  "category": "Development",
+  "description": "A terminal-based Git CLI tool written in Go",
+  "homepage": "https://github.com/bmf-san/ggc"
+ },
+ {
+  "name": "git-crecord",
+  "bin": "git-crecord",
+  "category": "Development",
+  "description": "interactive selective commit tool",
+  "homepage": "https://github.com/andrewshadura/git-crecord"
+ },
+ {
+  "name": "git-scope",
+  "bin": "git-scope",
+  "category": "Development",
+  "description": "Terminal UI dashboard for inspecting multiple local Git repositories.",
+  "homepage": "https://github.com/Bharath-code/git-scope"
+ },
+ {
+  "name": "gitui",
+  "bin": "gitui",
+  "category": "Development",
+  "description": "blazing fast terminal-ui for git written in rust",
+  "homepage": "https://github.com/extrawurst/gitui"
+ },
+ {
+  "name": "gitv",
+  "bin": "gitv",
+  "category": "Development",
+  "description": ": A beautiful, feature-rich and performant terminal client for GitHub issues.",
+  "homepage": "https://github.com/jayanaxhf/gitv"
+ },
+ {
+  "name": "grv",
+  "bin": "grv",
+  "category": "Development",
+  "description": "Terminal interface for viewing git repositories",
+  "homepage": "https://github.com/rgburke/grv"
+ },
+ {
+  "name": "harlequin",
+  "bin": "harlequin",
+  "category": "Development",
+  "description": "The SQL IDE for Your Terminal",
+  "homepage": "https://github.com/tconbeer/harlequin"
+ },
+ {
+  "name": "heretek",
+  "bin": "heretek",
+  "category": "Development",
+  "description": "GDB TUI Dashboard",
+  "homepage": "https://github.com/wcampbell0x2a/heretek"
+ },
+ {
+  "name": "jqp",
+  "bin": "jqp",
+  "category": "Development",
+  "description": "A TUI playground to experiment with jq",
+  "homepage": "https://github.com/noahgorstein/jqp"
+ },
+ {
+  "name": "kagan",
+  "bin": "kagan",
+  "category": "Development",
+  "description": "AI-powered Kanban TUI for autonomous development workflows",
+  "homepage": "https://github.com/kagan-sh/kagan"
+ },
+ {
+  "name": "lazygit",
+  "bin": "lazygit",
+  "category": "Development",
+  "description": "Simple terminal UI for git commands",
+  "homepage": "https://github.com/jesseduffield/lazygit"
+ },
+ {
+  "name": "lazyjournal",
+  "bin": "lazyjournal",
+  "category": "Development",
+  "description": "TUI for journalctl, file system logs, as well Docker and Podman containers for quick viewing and filtering",
+  "homepage": "https://github.com/Lifailon/lazyjournal"
+ },
+ {
+  "name": "lazymake",
+  "bin": "lazymake",
+  "category": "Development",
+  "description": "Modern TUI for Makefiles with interactive target selection, dependency visualization, and command safety analysis.",
+  "homepage": "https://github.com/rshelekhov/lazymake"
+ },
+ {
+  "name": "lazysql",
+  "bin": "lazysql",
+  "category": "Development",
+  "description": "A cross-platform TUI database management tool written in Go.",
+  "homepage": "https://github.com/jorgerojas26/lazysql"
+ },
+ {
+  "name": "lean-tui",
+  "bin": "lean-tui",
+  "category": "Development",
+  "description": "Interactive visualization of proofs and programs written in the Lean4 proof-assistant",
+  "homepage": "https://codeberg.org/wvhulle/lean-tui"
+ },
+ {
+  "name": "LogLens",
+  "bin": "loglens",
+  "category": "Development",
+  "description": "A structured log viewer and query engine for the terminal.",
+  "homepage": "https://github.com/Caelrith/loglens-core"
+ },
+ {
+  "name": "logradar",
+  "bin": "logradar",
+  "category": "Development",
+  "description": "A fast Rust TUI for interactive log filtering and highlighting.",
+  "homepage": "https://github.com/nanook72/logradar"
+ },
+ {
+  "name": "logshark",
+  "bin": "logshark",
+  "category": "Development",
+  "description": "A debugger CLI for JSON logs written in Go",
+  "homepage": "https://github.com/ugosan/logshark"
+ },
+ {
+  "name": "mitmproxy",
+  "bin": "mitmproxy",
+  "category": "Development",
+  "description": "A free and open source interactive HTTPS proxy",
+  "homepage": "https://www.mitmproxy.org"
+ },
+ {
+  "name": "models",
+  "bin": "models",
+  "category": "Development",
+  "description": "TUI for browsing AI models and coding agents",
+  "homepage": "https://github.com/arimxyer/models"
+ },
+ {
+  "name": "nap",
+  "bin": "nap",
+  "category": "Development",
+  "description": "Code snippets in your terminal",
+  "homepage": "https://github.com/maaslalani/nap"
+ },
+ {
+  "name": "nodebro",
+  "bin": "nodebro",
+  "category": "Development",
+  "description": "Easily view most recent Github releases/tags and release notes from the terminal",
+  "homepage": "https://github.com/jonaburg/nodebro"
+ },
+ {
+  "name": "opcilloscope",
+  "bin": "opcilloscope",
+  "category": "Development",
+  "description": "OPC UA client TUI with real-time oscilloscope view for industrial automation",
+  "homepage": "https://github.com/SquareWaveSystems/opcilloscope"
+ },
+ {
+  "name": "opencode",
+  "bin": "opencode",
+  "category": "Development",
+  "description": "AI coding agent, built for the terminal",
+  "homepage": "https://github.com/sst/opencode"
+ },
+ {
+  "name": "play",
+  "bin": "play",
+  "category": "Development",
+  "description": "A TUI playground to experiment with your favorite programs, such as grep, sed, awk, jq and yq",
+  "homepage": "https://github.com/paololazzari/play"
+ },
+ {
+  "name": "posting",
+  "bin": "posting",
+  "category": "Development",
+  "description": "A powerful HTTP client that lives in your terminal",
+  "homepage": "https://github.com/darrenburns/posting"
+ },
+ {
+  "name": "pproftui",
+  "bin": "pproftui",
+  "category": "Development",
+  "description": "A terminal-based UI for Go's pprof that makes profiling interactive",
+  "homepage": "https://github.com/Oloruntobi1/pproftui"
+ },
+ {
+  "name": "proxymock",
+  "bin": "proxymock",
+  "category": "Development",
+  "description": "A network recorder that shows API payloads in a TUI and automatically generates tests and mocks from what it observes.",
+  "homepage": "https://proxymock.io"
+ },
+ {
+  "name": "prs",
+  "bin": "prs",
+  "category": "Development",
+  "description": "Stay updated on PRs without leaving the terminal",
+  "homepage": "https://github.com/dhth/prs"
+ },
+ {
+  "name": "pudb",
+  "bin": "pudb",
+  "category": "Development",
+  "description": "A console-based visual debugger for Python",
+  "homepage": "https://github.com/inducer/pudb"
+ },
+ {
+  "name": "pyautogit",
+  "bin": "pyautogit",
+  "category": "Development",
+  "description": "A terminal UI for managing git repositories, written using py_cui",
+  "homepage": "https://github.com/jwlodek/pyautogit"
+ },
+ {
+  "name": "qo",
+  "bin": "qo",
+  "category": "Development",
+  "description": "Interactive SQL filter for JSON, CSV, TSV and other streams.",
+  "homepage": "https://github.com/kiki-ki/go-qo"
+ },
+ {
+  "name": "qrypad",
+  "bin": "qrypad",
+  "category": "Development",
+  "description": "A terminal SQL client for Postgres, MySQL and SQLite.",
+  "homepage": "https://github.com/wheelibin/qrypad"
+ },
+ {
+  "name": "Quorum",
+  "bin": "quorum",
+  "category": "Development",
+  "description": "Multi-agent AI discussion system for structured debates between LLMs",
+  "homepage": "https://github.com/Detrol/quorum-cli"
+ },
+ {
+  "name": "rainfrog",
+  "bin": "rainfrog",
+  "category": "Development",
+  "description": "A database management TUI for Postgres, MySQL, and SQLite written in Rust",
+  "homepage": "https://github.com/achristmascarl/rainfrog"
+ },
+ {
+  "name": "regex-tui",
+  "bin": "regex-tui",
+  "category": "Development",
+  "description": "A simple TUI to visualize and test regular expressions",
+  "homepage": "https://github.com/vitor-mariano/regex-tui"
+ },
+ {
+  "name": "resterm",
+  "bin": "resterm",
+  "category": "Development",
+  "description": "A terminal client for HTTP/GraphQL/gRPC with support for WebSockets, SSE, workflows, profiling, OpenAPI and response diffs.",
+  "homepage": "https://github.com/unkn0wn-root/resterm"
+ },
+ {
+  "name": "runme",
+  "bin": "runme",
+  "category": "Development",
+  "description": "Discover and run code snippets directly from your README.md or other markdowns",
+  "homepage": "https://github.com/stateful/runme"
+ },
+ {
+  "name": "serie",
+  "bin": "serie",
+  "category": "Development",
+  "description": "A rich git commit graph",
+  "homepage": "https://github.com/lusingander/serie"
+ },
+ {
+  "name": "sls-dev-tools",
+  "bin": "sls-dev-tools",
+  "category": "Development",
+  "description": "Dev Tools for the Serverless World",
+  "homepage": "https://github.com/Theodo-UK/sls-dev-tools"
+ },
+ {
+  "name": "snips.sh",
+  "bin": "snips.sh",
+  "category": "Development",
+  "description": "✂️ passwordless, anonymous SSH-powered pastebin with a human-friendly TUI and web UI",
+  "homepage": "https://github.com/robherley/snips.sh"
+ },
+ {
+  "name": "soft-serve",
+  "bin": "soft-serve",
+  "category": "Development",
+  "description": "A tasty, self-hostable Git server for the command lineicecream",
+  "homepage": "https://github.com/charmbracelet/soft-serve"
+ },
+ {
+  "name": "sot",
+  "bin": "sot",
+  "category": "Development",
+  "description": "A top like system observability tool written in python",
+  "homepage": "https://github.com/anistark/sot"
+ },
+ {
+  "name": "sq",
+  "bin": "sq",
+  "category": "Development",
+  "description": "A database client specially made for vim users",
+  "homepage": "https://github.com/sheenazien8/sq"
+ },
+ {
+  "name": "sqlit",
+  "bin": "sqlit",
+  "category": "Development",
+  "description": "A lightweight TUI for SQL databases inspired by lazygit",
+  "homepage": "https://github.com/Maxteabag/sqlit"
+ },
+ {
+  "name": "stu",
+  "bin": "stu",
+  "category": "Development",
+  "description": "A TUI for Amazon S3",
+  "homepage": "https://github.com/lusingander/stu"
+ },
+ {
+  "name": "termdbms",
+  "bin": "termdbms",
+  "category": "Development",
+  "description": "A TUI for viewing and editing database files.",
+  "homepage": "https://github.com/mathaou/termdbms"
+ },
+ {
+  "name": "terraform-tui",
+  "bin": "terraform-tui",
+  "category": "Development",
+  "description": "view and interact with Terraform state",
+  "homepage": "https://github.com/idoavrah/terraform-tui"
+ },
+ {
+  "name": "tig",
+  "bin": "tig",
+  "category": "Development",
+  "description": "Text-mode interface for git",
+  "homepage": "https://github.com/jonas/tig"
+ },
+ {
+  "name": "Toad",
+  "bin": "toad",
+  "category": "Development",
+  "description": "A unified interface for AI",
+  "homepage": "https://github.com/batrachianai/toad"
+ },
+ {
+  "name": "tokui",
+  "bin": "tokui",
+  "category": "Development",
+  "description": "An interactive TUI for visualizing code statistics from tokei.",
+  "homepage": "https://github.com/zdyxry/tokui"
+ },
+ {
+  "name": "toolui",
+  "bin": "toolui",
+  "category": "Development",
+  "description": "Dotnet core application to manage installed nuget tools",
+  "homepage": "https://github.com/jinek/ToolUI"
+ },
+ {
+  "name": "turbostream",
+  "bin": "turbostream",
+  "category": "Development",
+  "description": "Tool to extract key signals from high-velocity streaming data using AI Agents",
+  "homepage": "https://github.com/turboline-ai/turbostream"
+ },
+ {
+  "name": "Twig",
+  "bin": "twig",
+  "category": "Development",
+  "description": "Terminal UI for interactively exploring JSON and YAML files.",
+  "homepage": "https://github.com/workdone0/twig"
+ },
+ {
+  "name": "vctui",
+  "bin": "vctui",
+  "category": "Development",
+  "description": "Console interface for vCenter",
+  "homepage": "https://github.com/thebsdbox/vctui"
+ },
+ {
+  "name": "violet",
+  "bin": "violet",
+  "category": "Development",
+  "description": "Colorful TUI frontend to run Vagrant commands",
+  "homepage": "https://github.com/braheezy/violet"
+ },
+ {
+  "name": "VT Code",
+  "bin": "vtcode",
+  "category": "Development",
+  "description": "VT Code - Semantic Coding Agent",
+  "homepage": "https://github.com/vinhnx/vtcode"
+ },
+ {
+  "name": "Wikit",
+  "bin": "wikit",
+  "category": "Development",
+  "description": "TUI for managing Wiki.js instances",
+  "homepage": "https://github.com/BryanCE/wikit"
+ },
+ {
+  "name": "Argonaut",
+  "bin": "argonaut",
+  "category": "Docker/LXC/K8s",
+  "description": "ArgoCD TUI",
+  "homepage": "https://github.com/darksworm/argonaut"
+ },
+ {
+  "name": "cruise",
+  "bin": "cruise",
+  "category": "Docker/LXC/K8s",
+  "description": "A container management TUI",
+  "homepage": "https://github.com/cruise-org/cruise"
+ },
+ {
+  "name": "ctop",
+  "bin": "ctop",
+  "category": "Docker/LXC/K8s",
+  "description": "Top-like interface for container metrics",
+  "homepage": "https://github.com/bcicen/ctop"
+ },
+ {
+  "name": "d4s",
+  "bin": "d4s",
+  "category": "Docker/LXC/K8s",
+  "description": "A fast, keyboard-driven terminal UI to manage Docker containers, Compose stacks, and Swarm services with the ergonomics of K9s",
+  "homepage": "https://github.com/jr-k/d4s"
+ },
+ {
+  "name": "dive",
+  "bin": "dive",
+  "category": "Docker/LXC/K8s",
+  "description": "A tool for exploring each layer in a docker image",
+  "homepage": "https://github.com/wagoodman/dive"
+ },
+ {
+  "name": "docker-dash",
+  "bin": "docker-dash",
+  "category": "Docker/LXC/K8s",
+  "description": "A full TUI managemnet tool for Docker",
+  "homepage": "https://github.com/GustavoCaso/docker-dash"
+ },
+ {
+  "name": "dockly",
+  "bin": "dockly",
+  "category": "Docker/LXC/K8s",
+  "description": "Immersive terminal interface for managing docker containers and services",
+  "homepage": "https://github.com/lirantal/dockly"
+ },
+ {
+  "name": "DockMate",
+  "bin": "dockmate",
+  "category": "Docker/LXC/K8s",
+  "description": "A lightweight TUI manager for Docker and Podman",
+  "homepage": "https://github.com/shubh-io/dockmate"
+ },
+ {
+  "name": "dprs",
+  "bin": "dprs",
+  "category": "Docker/LXC/K8s",
+  "description": "A TUI for managing Docker containers with real-time monitoring and log streaming",
+  "homepage": "https://github.com/durableprogramming/dprs"
+ },
+ {
+  "name": "dry",
+  "bin": "dry",
+  "category": "Docker/LXC/K8s",
+  "description": "A Docker manager for the terminal",
+  "homepage": "https://github.com/moncho/dry"
+ },
+ {
+  "name": "dtop",
+  "bin": "dtop",
+  "category": "Docker/LXC/K8s",
+  "description": "Terminal dashboard for Docker monitoring across multiple hosts",
+  "homepage": "https://github.com/amir20/dtop"
+ },
+ {
+  "name": "ducker",
+  "bin": "ducker",
+  "category": "Docker/LXC/K8s",
+  "description": "A slightly quackers Docker TUI based on k9s",
+  "homepage": "https://github.com/robertpsoane/ducker"
+ },
+ {
+  "name": "e1s",
+  "bin": "e1s",
+  "category": "Docker/LXC/K8s",
+  "description": "TUI for managing AWS ECS resources",
+  "homepage": "https://github.com/keidarcy/e1s"
+ },
+ {
+  "name": "eks-node-viewer",
+  "bin": "eks-node-viewer",
+  "category": "Docker/LXC/K8s",
+  "description": "visualizing dynamic node usage within a kubernetes cluster",
+  "homepage": "https://github.com/awslabs/eks-node-viewer/"
+ },
+ {
+  "name": "etcd-walker",
+  "bin": "etcd-walker",
+  "category": "Docker/LXC/K8s",
+  "description": "Opensource TUI tool for managing etcd keys",
+  "homepage": "https://github.com/nexusriot/etcd-walker/"
+ },
+ {
+  "name": "k8s-tui",
+  "bin": "k8s-tui",
+  "category": "Docker/LXC/K8s",
+  "description": "TUI Kubernetes resource manager with multi-cluster support",
+  "homepage": "https://github.com/otavioCosta2110/k8s-tui"
+ },
+ {
+  "name": "k9s",
+  "bin": "k9s",
+  "category": "Docker/LXC/K8s",
+  "description": "TUI for managing a Kubernetes cluster",
+  "homepage": "https://github.com/derailed/k9s"
+ },
+ {
+  "name": "kdash",
+  "bin": "kdash",
+  "category": "Docker/LXC/K8s",
+  "description": "A simple and fast dashboard for Kubernetes",
+  "homepage": "https://github.com/kdash-rs/kdash"
+ },
+ {
+  "name": "kftui",
+  "bin": "kftui",
+  "category": "Docker/LXC/K8s",
+  "description": "A TUI to manage multiple kubectl port-forward commands, with support for UDP and K8s proxy.",
+  "homepage": "https://github.com/hcavarsan/kftray"
+ },
+ {
+  "name": "ktop",
+  "bin": "ktop",
+  "category": "Docker/LXC/K8s",
+  "description": "A top-like tool for your Kubernetes clusters",
+  "homepage": "https://github.com/vladimirvivien/ktop"
+ },
+ {
+  "name": "kubetui",
+  "bin": "kubetui",
+  "category": "Docker/LXC/K8s",
+  "description": "A TUI tool designed for monitoring Kubernetes resources.",
+  "homepage": "https://github.com/sarub0b0/kubetui"
+ },
+ {
+  "name": "lazycontainer",
+  "bin": "lazycontainer",
+  "category": "Docker/LXC/K8s",
+  "description": "TUI for managing Apple containers",
+  "homepage": "https://github.com/andreybleme/lazycontainer"
+ },
+ {
+  "name": "lazydocker",
+  "bin": "lazydocker",
+  "category": "Docker/LXC/K8s",
+  "description": "The lazier way to manage everything docker",
+  "homepage": "https://github.com/jesseduffield/lazydocker"
+ },
+ {
+  "name": "lazytrivy",
+  "bin": "lazytrivy",
+  "category": "Docker/LXC/K8s",
+  "description": "The lazier way to scan images, k8s and the filesytem with Trivy",
+  "homepage": "https://github.com/owenrumney/lazytrivy"
+ },
+ {
+  "name": "oxker",
+  "bin": "oxker",
+  "category": "Docker/LXC/K8s",
+  "description": "A simple tui to view & control docker containers",
+  "homepage": "https://github.com/mrjackwills/oxker"
+ },
+ {
+  "name": "Pocker",
+  "bin": "pocker",
+  "category": "Docker/LXC/K8s",
+  "description": "TUI based application for docker related tasks.",
+  "homepage": "https://github.com/pommee/Pocker"
+ },
+ {
+  "name": "Podman-tui",
+  "bin": "podman-tui",
+  "category": "Docker/LXC/K8s",
+  "description": "TUI for Podman containers",
+  "homepage": "https://github.com/containers/podman-tui"
+ },
+ {
+  "name": "sen",
+  "bin": "sen",
+  "category": "Docker/LXC/K8s",
+  "description": "Terminal User Interface for docker engine",
+  "homepage": "https://github.com/TomasTomecek/sen"
+ },
+ {
+  "name": "talos-pilot",
+  "bin": "talos-pilot",
+  "category": "Docker/LXC/K8s",
+  "description": "TUI for Talos Linux providing real-time node monitoring, log streaming, and various diagnostics",
+  "homepage": "https://github.com/handfish/talos-pilot"
+ },
+ {
+  "name": "amp",
+  "bin": "amp",
+  "category": "Editors",
+  "description": "A complete text editor for your terminal",
+  "homepage": "https://github.com/jmacdonald/amp"
+ },
+ {
+  "name": "C-Edit",
+  "bin": "c-edit",
+  "category": "Editors",
+  "description": "A text editor with drop down menus in the style of MS-DOS Editor",
+  "homepage": "https://github.com/velorek1/c-edit"
+ },
+ {
+  "name": "Durdraw",
+  "bin": "durdraw",
+  "category": "Editors",
+  "description": "An ASCII, Unicode and ANSI art editor",
+  "homepage": "https://github.com/cmang/durdraw"
+ },
+ {
+  "name": "Edit",
+  "bin": "edit",
+  "category": "Editors",
+  "description": "A simple text editor. Pays homage to the classic MS-DOS Editor.",
+  "homepage": "https://github.com/microsoft/edit"
+ },
+ {
+  "name": "Fresh",
+  "bin": "fresh",
+  "category": "Editors",
+  "description": "An easy-to-use, powerful and fast terminal-based text editor.",
+  "homepage": "https://github.com/sinelaw/fresh"
+ },
+ {
+  "name": "frogmouth",
+  "bin": "frogmouth",
+  "category": "Editors",
+  "description": "A Markdown browser for your terminal",
+  "homepage": "https://github.com/Textualize/frogmouth"
+ },
+ {
+  "name": "helix",
+  "bin": "hx",
+  "category": "Editors",
+  "description": "A post-modern text editor.",
+  "homepage": "https://helix-editor.com/"
+ },
+ {
+  "name": "kakoune",
+  "bin": "kakoune",
+  "category": "Editors",
+  "description": "A modern, modal text editor with focus on interactivity and efficiency",
+  "homepage": "http://kakoune.org/"
+ },
+ {
+  "name": "kilo",
+  "bin": "kilo",
+  "category": "Editors",
+  "description": "A minimal but complete editor in ~1000 lines of C code.",
+  "homepage": "https://github.com/antirez/kilo"
+ },
+ {
+  "name": "maki",
+  "bin": "maki",
+  "category": "Editors",
+  "description": "A simple tabbed text editor with file navigation and an emphasis on preserving battery life",
+  "homepage": "https://sr.ht/~bscit/maki/"
+ },
+ {
+  "name": "markln",
+  "bin": "markln",
+  "category": "Editors",
+  "description": "A terminal-based markdown editor built with Textual.",
+  "homepage": "https://github.com/xqtr/markln"
+ },
+ {
+  "name": "micro",
+  "bin": "micro",
+  "category": "Editors",
+  "description": "A modern and intuitive terminal-based text editor",
+  "homepage": "https://github.com/zyedidia/micro"
+ },
+ {
+  "name": "nino",
+  "bin": "nino",
+  "category": "Editors",
+  "description": "A small terminal-based text editor written in C.",
+  "homepage": "https://github.com/evanlin96069/nino"
+ },
+ {
+  "name": "orbiton",
+  "bin": "orbiton",
+  "category": "Editors",
+  "description": "Text editor limited by VT100, suitable for programming, writing git commit messages and editing Markdown",
+  "homepage": "https://github.com/xyproto/orbiton"
+ },
+ {
+  "name": "slap",
+  "bin": "slap",
+  "category": "Editors",
+  "description": "Sublime-like terminal-based text editor",
+  "homepage": "https://github.com/slap-editor/slap"
+ },
+ {
+  "name": "thymus",
+  "bin": "thymus",
+  "category": "Editors",
+  "description": "An interactive browser & editor for network configuration files.",
+  "homepage": "https://github.com/blademd/thymus"
+ },
+ {
+  "name": "tilde",
+  "bin": "tilde",
+  "category": "Editors",
+  "description": "Intuitive text editor for the terminal",
+  "homepage": "https://github.com/gphalkes/tilde"
+ },
+ {
+  "name": "treemd",
+  "bin": "treemd",
+  "category": "Editors",
+  "description": "A markdown navigator with tree-based structural navigation",
+  "homepage": "https://github.com/Epistates/treemd"
+ },
+ {
+  "name": "turbo",
+  "bin": "turbo",
+  "category": "Editors",
+  "description": "An experimental text editor for the terminal, based on Scintilla and Turbo Vision",
+  "homepage": "https://github.com/magiblot/turbo"
+ },
+ {
+  "name": "vis",
+  "bin": "vis",
+  "category": "Editors",
+  "description": "A vi-like editor based on Plan 9's structural regular expressions",
+  "homepage": "https://github.com/martanne/vis"
+ },
+ {
+  "name": "zee",
+  "bin": "zee",
+  "category": "Editors",
+  "description": "A modern text editor for the terminal written in Rust",
+  "homepage": "https://github.com/zee-editor/zee"
+ },
+ {
+  "name": "adbtuifm",
+  "bin": "adbtuifm",
+  "category": "File Managers",
+  "description": "A TUI file manager for Android, based on the Android Debug Bridge(ADB).",
+  "homepage": "https://github.com/darkhz/adbtuifm"
+ },
+ {
+  "name": "broot",
+  "bin": "broot",
+  "category": "File Managers",
+  "description": "A new way to see and navigate directory trees",
+  "homepage": "https://github.com/Canop/broot"
+ },
+ {
+  "name": "deletor",
+  "bin": "deletor",
+  "category": "File Managers",
+  "description": "Manage and delete files efficiently with an interactive TUI and scriptable CLI.",
+  "homepage": "https://github.com/pashkov256/deletor"
+ },
+ {
+  "name": "far2l",
+  "bin": "far2l",
+  "category": "File Managers",
+  "description": "Linux port of Far v2 file manager",
+  "homepage": "https://github.com/elfmz/far2l"
+ },
+ {
+  "name": "fml",
+  "bin": "fml",
+  "category": "File Managers",
+  "description": ":file_folder: A stupid simple, fast file manager written in BASH v4.2+.",
+  "homepage": "https://github.com/wick3dr0se/fml"
+ },
+ {
+  "name": "goful",
+  "bin": "goful",
+  "category": "File Managers",
+  "description": "a powerful TUI file manager written in Go.",
+  "homepage": "https://github.com/anmitsu/goful"
+ },
+ {
+  "name": "lf",
+  "bin": "lf",
+  "category": "File Managers",
+  "description": "A terminal file manager written in Go with heavy inspiration from ranger file manager.",
+  "homepage": "https://github.com/gokcehan/lf"
+ },
+ {
+  "name": "mc",
+  "bin": "mc",
+  "category": "File Managers",
+  "description": "GNU Midnight Commander. A free cross-platform orthodox file manager.",
+  "homepage": "https://github.com/MidnightCommander/mc"
+ },
+ {
+  "name": "nnn",
+  "bin": "nnn",
+  "category": "File Managers",
+  "description": "n³ The unorthodox terminal file manager.",
+  "homepage": "https://github.com/jarun/nnn"
+ },
+ {
+  "name": "ntc",
+  "bin": "ntc",
+  "category": "File Managers",
+  "description": "Ncurses Tabbed file Chooser.",
+  "homepage": "https://codeberg.org/ItsZariep/ntc"
+ },
+ {
+  "name": "ranger",
+  "bin": "ranger",
+  "category": "File Managers",
+  "description": "A VIM-inspired file manager for the console.",
+  "homepage": "https://github.com/ranger/ranger"
+ },
+ {
+  "name": "rovr",
+  "bin": "rovr",
+  "category": "File Managers",
+  "description": "A post-modern terminal file manager.",
+  "homepage": "https://github.com/NSPC911/rovr"
+ },
+ {
+  "name": "s3duck-tui",
+  "bin": "s3duck-tui",
+  "category": "File Managers",
+  "description": "A TUI S3 client.",
+  "homepage": "https://github.com/nexusriot/s3duck-tui"
+ },
+ {
+  "name": "sfm",
+  "bin": "sfm",
+  "category": "File Managers",
+  "description": "Simple file manager.",
+  "homepage": "https://github.com/afify/sfm"
+ },
+ {
+  "name": "superfile",
+  "bin": "spf",
+  "category": "File Managers",
+  "description": "Pretty fancy and modern terminal file manager.",
+  "homepage": "https://github.com/MHNightCat/superfile"
+ },
+ {
+  "name": "TUIFIManager",
+  "bin": "tuifimanager",
+  "category": "File Managers",
+  "description": "A cross-platform terminal-based file manager _(supports termux)_.",
+  "homepage": "https://github.com/GiorgosXou/TUIFIManager"
+ },
+ {
+  "name": "Vifm",
+  "bin": "vifm",
+  "category": "File Managers",
+  "description": "A TUI file manager with vi-keybindings and other vim like behaviour.",
+  "homepage": "https://github.com/vifm/vifm"
+ },
+ {
+  "name": "yazi",
+  "bin": "yazi",
+  "category": "File Managers",
+  "description": "Blazing fast terminal file manager written in Rust, based on async I/O.",
+  "homepage": "https://github.com/sxyazi/yazi"
+ },
+ {
+  "name": "awkaster",
+  "bin": "awkaster",
+  "category": "Games",
+  "description": "Pseudo-3D shooter written completely in gawk using raycasting technique",
+  "homepage": "https://github.com/TheMozg/awk-raycaster"
+ },
+ {
+  "name": "balatrotui",
+  "bin": "balatrotui",
+  "category": "Games",
+  "description": "A TUI clone of Balatro",
+  "homepage": "https://github.com/Passeriform/BalatroTUI"
+ },
+ {
+  "name": "bastet",
+  "bin": "bastet",
+  "category": "Games",
+  "description": "Evil falling block game",
+  "homepage": "https://github.com/fph/bastet"
+ },
+ {
+  "name": "botany",
+  "bin": "botany",
+  "category": "Games",
+  "description": "Virtual plant buddy",
+  "homepage": "https://github.com/jifunks/botany/"
+ },
+ {
+  "name": "brickgame-4bit",
+  "bin": "brickgame-4bit",
+  "category": "Games",
+  "description": "Brick Game emulator (4-bit Holtek chip)",
+  "homepage": "https://github.com/ilyakurdyukov/brickgame-4bit"
+ },
+ {
+  "name": "BrogueCE",
+  "bin": "broguece",
+  "category": "Games",
+  "description": "Beautiful roguelike dungeon crawler",
+  "homepage": "https://github.com/tmewett/BrogueCE"
+ },
+ {
+  "name": "cbonsai",
+  "bin": "cbonsai",
+  "category": "Games",
+  "description": "A bonsai tree generator",
+  "homepage": "https://gitlab.com/jallbrit/cbonsai"
+ },
+ {
+  "name": "chess-tui",
+  "bin": "chess-tui",
+  "category": "Games",
+  "description": "Play Chess in your terminal, built in rust",
+  "homepage": "https://github.com/thomas-mauran/chess-tui"
+ },
+ {
+  "name": "clidle",
+  "bin": "clidle",
+  "category": "Games",
+  "description": "Play Wordle in your terminal. Also works over SSH!",
+  "homepage": "https://github.com/ajeetdsouza/clidle"
+ },
+ {
+  "name": "csol",
+  "bin": "csol",
+  "category": "Games",
+  "description": "Collection of solitaire/patience games, such as Klondike, FreeCell, Spider, and Yukon",
+  "homepage": "https://github.com/nielssp/csol"
+ },
+ {
+  "name": "DOOM-ASCII",
+  "bin": "doom-ascii",
+  "category": "Games",
+  "description": "Text-based DOOM running in terminal.",
+  "homepage": "https://github.com/wojciech-graj/doom-ascii"
+ },
+ {
+  "name": "Gameboy Emulator",
+  "bin": "gameboyemulator",
+  "category": "Games",
+  "description": "A PHP Terminal GameBoy Emulator",
+  "homepage": "https://github.com/gabrielrcouto/php-terminal-gameboy-emulator"
+ },
+ {
+  "name": "GitType",
+  "bin": "gittype",
+  "category": "Games",
+  "description": "A CLI code-typing game that turns your source code into typing challenges",
+  "homepage": "https://github.com/unhappychoice/gittype"
+ },
+ {
+  "name": "go-life",
+  "bin": "go-life",
+  "category": "Games",
+  "description": "Terminal based Conway's Game of Life",
+  "homepage": "https://github.com/sachaos/go-life"
+ },
+ {
+  "name": "gokemon",
+  "bin": "gokemon",
+  "category": "Games",
+  "description": "A terminal based Pokemon battle simulator",
+  "homepage": "https://github.com/nathanieltooley/gokemon"
+ },
+ {
+  "name": "Greed",
+  "bin": "greed",
+  "category": "Games",
+  "description": "A game of consumption. Eat as much as you can before munching yourself into a corner!",
+  "homepage": "https://gitlab.com/esr/greed"
+ },
+ {
+  "name": "Maze",
+  "bin": "maze",
+  "category": "Games",
+  "description": "Simple maze game written in Go.",
+  "homepage": "https://github.com/itchyny/maze"
+ },
+ {
+  "name": "Maze TUI",
+  "bin": "mazetui",
+  "category": "Games",
+  "description": "Build mazes and solve them with various algorithms.",
+  "homepage": "https://github.com/agl-alexglopez/maze-tui"
+ },
+ {
+  "name": "Micro Snake",
+  "bin": "microsnake",
+  "category": "Games",
+  "description": "A small snake game, utilizing ANSI escape sequences to draw the board.",
+  "homepage": "https://github.com/troglobit/snake"
+ },
+ {
+  "name": "Micro Tetris",
+  "bin": "microtetris",
+  "category": "Games",
+  "description": "One of the smallest Tetris implementations in the world, utilizing only ANSI escape sequences to draw the board.",
+  "homepage": "https://github.com/troglobit/tetris"
+ },
+ {
+  "name": "minesweep-rs",
+  "bin": "minesweep-rs",
+  "category": "Games",
+  "description": "A mine sweeping game written in Rust using tui-rs.",
+  "homepage": "https://github.com/cpcloud/minesweep-rs"
+ },
+ {
+  "name": "minesweeper_4d_rs",
+  "bin": "minesweeper_4d_rs",
+  "category": "Games",
+  "description": "4D minesweeper written in Rust using Ratatui (can also be used for classic minesweeper)",
+  "homepage": "https://github.com/itabesamesa/minesweeper_4d_rs"
+ },
+ {
+  "name": "moon-buggy",
+  "bin": "moon-buggy",
+  "category": "Games",
+  "description": "Drive some car across the moon",
+  "homepage": "https://github.com/seehuhn/moon-buggy"
+ },
+ {
+  "name": "MyMan",
+  "bin": "myman",
+  "category": "Games",
+  "description": "MyMan is a video game for color and monochrome text terminals in the genre of Namco's Pac-Man",
+  "homepage": "https://sourceforge.net/projects/myman/"
+ },
+ {
+  "name": "nchess",
+  "bin": "nchess",
+  "category": "Games",
+  "description": "Chess in the terminal, written in C.",
+  "homepage": "https://github.com/billyvinning/nchess"
+ },
+ {
+  "name": "NetHack",
+  "bin": "nethack",
+  "category": "Games",
+  "description": "Dungeon exploration game",
+  "homepage": "https://github.com/NetHack/NetHack"
+ },
+ {
+  "name": "nInvaders",
+  "bin": "ninvaders",
+  "category": "Games",
+  "description": "Space Invaders",
+  "homepage": "http://ninvaders.sourceforge.net/"
+ },
+ {
+  "name": "nSnake",
+  "bin": "nsnake",
+  "category": "Games",
+  "description": "The classic snake game with textual interface",
+  "homepage": "https://github.com/alexdantas/nSnake"
+ },
+ {
+  "name": "nudoku",
+  "bin": "nudoku",
+  "category": "Games",
+  "description": "ncurses based sudoku game",
+  "homepage": "https://github.com/jubalh/nudoku"
+ },
+ {
+  "name": "onx",
+  "bin": "onx",
+  "category": "Games",
+  "description": "Noughts & Crosses client-server game with your partner. Based on textual and python.",
+  "homepage": "https://github.com/vyalovvldmr/onx"
+ },
+ {
+  "name": "pokete",
+  "bin": "pokete",
+  "category": "Games",
+  "description": "A terminal based Pokemon like game",
+  "homepage": "https://github.com/lxgr-linux/pokete"
+ },
+ {
+  "name": "Rebels in the sky",
+  "bin": "rebelsinthesky",
+  "category": "Games",
+  "description": "P2P terminal game about spacepirates playing basketball across the galaxy.",
+  "homepage": "https://github.com/ricott1/rebels-in-the-sky"
+ },
+ {
+  "name": "snake",
+  "bin": "snake",
+  "category": "Games",
+  "description": ":video_game: A super minimal TUI snake game written in pure BASH v5.1+",
+  "homepage": "https://github.com/wick3dr0se/snake"
+ },
+ {
+  "name": "Square Tic Tac Toe",
+  "bin": "squaretictactoe",
+  "category": "Games",
+  "description": "Like Tic Tac Toe, but form a square with 4 corners instead of a line",
+  "homepage": "https://github.com/learnbyexample/TUI-apps/tree/main/SquareTicTacToe"
+ },
+ {
+  "name": "ssHattrick",
+  "bin": "sshattrick",
+  "category": "Games",
+  "description": "Play Hattrick in your terminal over SSH.",
+  "homepage": "https://github.com/ricott1/sshattrick"
+ },
+ {
+  "name": "sshtron",
+  "bin": "sshtron",
+  "category": "Games",
+  "description": "multiplayer lightcycle game that runs through SSH",
+  "homepage": "https://github.com/zachlatta/sshtron"
+ },
+ {
+  "name": "sssnake",
+  "bin": "sssnake",
+  "category": "Games",
+  "description": "The classic snake game for the terminal that can play itself and be used like a screensaver.",
+  "homepage": "https://github.com/AngelJumbo/sssnake"
+ },
+ {
+  "name": "steam-tui",
+  "bin": "steam-tui",
+  "category": "Games",
+  "description": "Just a simple TUI client for steamcmd. Allows for the graphical launching, updating, and downloading of steam games through a simple terminal client.",
+  "homepage": "https://github.com/dmadisetti/steam-tui"
+ },
+ {
+  "name": "sudoku-rs",
+  "bin": "sudoku-rs",
+  "category": "Games",
+  "description": "Sudoku built with tui-rs",
+  "homepage": "https://github.com/MitchelPaulin/sudoku-rs"
+ },
+ {
+  "name": "sweeper",
+  "bin": "sweeper",
+  "category": "Games",
+  "description": "Minesweeper game using curtsies",
+  "homepage": "https://github.com/igor47/sweeper"
+ },
+ {
+  "name": "terminal-phase",
+  "bin": "terminal-phase",
+  "category": "Games",
+  "description": "Space shooter game that runs in your terminal!",
+  "homepage": "https://gitlab.com/dustyweb/terminal-phase"
+ },
+ {
+  "name": "terminal-pong",
+  "bin": "terminal-pong",
+  "category": "Games",
+  "description": "A simple, fun ping pong game playable entirely in your terminal.",
+  "homepage": "https://github.com/IshmamR/terminal.pong"
+ },
+ {
+  "name": "termrex",
+  "bin": "termrex",
+  "category": "Games",
+  "description": "A terminal-based endless runner game inspired by the Chrome Dino offline game.",
+  "homepage": "https://github.com/SATYADAHAL/termrex"
+ },
+ {
+  "name": "tetro-tui",
+  "bin": "tetro-tui",
+  "category": "Games",
+  "description": "A very configurable tetris-like, featuring ASCII particles, replays and more.",
+  "homepage": "https://github.com/Strophox/tetro-tui"
+ },
+ {
+  "name": "tinytetris",
+  "bin": "tinytetris",
+  "category": "Games",
+  "description": "80x23 terminal tetris!",
+  "homepage": "https://github.com/taylorconor/tinytetris"
+ },
+ {
+  "name": "tty-solitaire",
+  "bin": "tty-solitaire",
+  "category": "Games",
+  "description": "Solitaire runs in your terminal!",
+  "homepage": "https://github.com/mpereira/tty-solitaire"
+ },
+ {
+  "name": "tui-2048",
+  "bin": "tui-2048",
+  "category": "Games",
+  "description": "The game 2048 for your terminal",
+  "homepage": "https://github.com/ps06756/tui-2048"
+ },
+ {
+  "name": "typeinc",
+  "bin": "typeinc",
+  "category": "Games",
+  "description": "ncurses based typing speed test with various difficulty levels.",
+  "homepage": "https://github.com/AnirudhG07/Typeinc"
+ },
+ {
+  "name": "typing-game-cli",
+  "bin": "typing-game-cli",
+  "category": "Games",
+  "description": "Command line game to practice your typing speed by competing against typer-robot or against your best result",
+  "homepage": "https://github.com/akgondber/typing-game-cli"
+ },
+ {
+  "name": "UniPac",
+  "bin": "unipac",
+  "category": "Games",
+  "description": "Unicode-powered Pac-Man for the terminal, written in Rust.",
+  "homepage": "https://github.com/jesper-olsen/UniPac"
+ },
+ {
+  "name": "wocogo",
+  "bin": "wocogo",
+  "category": "Games",
+  "description": "Construct words from a list of given segments. A simple TUI game in Python, similar to the NY Times Combinations game.",
+  "homepage": "https://codeberg.org/kedlubnowski/wocogo"
+ },
+ {
+  "name": "Wordle",
+  "bin": "wordle",
+  "category": "Games",
+  "description": "Script and library for Wordle, written in Raku",
+  "homepage": "https://github.com/m-dango/raku-wordle/"
+ },
+ {
+  "name": "Zigtris",
+  "bin": "zigtris",
+  "category": "Games",
+  "description": "YA terminal tetris",
+  "homepage": "https://github.com/ringtailsoftware/zigtris"
+ },
+ {
+  "name": "Zoridor",
+  "bin": "zoridor",
+  "category": "Games",
+  "description": "Play Quoridor in the terminal",
+  "homepage": "https://github.com/ringtailsoftware/zoridor"
+ },
+ {
+  "name": "aerc",
+  "bin": "aerc",
+  "category": "Messaging",
+  "description": "Email client",
+  "homepage": "https://aerc-mail.org/"
+ },
+ {
+  "name": "alpine",
+  "bin": "alpine",
+  "category": "Messaging",
+  "description": "Email client",
+  "homepage": "https://alpineapp.email/"
+ },
+ {
+  "name": "basalt",
+  "bin": "basalt",
+  "category": "Messaging",
+  "description": "TUI Application to manage Obsidian vaults and notes directly from the terminal.",
+  "homepage": "https://github.com/erikjuhani/basalt"
+ },
+ {
+  "name": "Devzat",
+  "bin": "devzat",
+  "category": "Messaging",
+  "description": "Chat over SSH, written in Golang with self-hosting ability.",
+  "homepage": "https://github.com/quackduck/devzat"
+ },
+ {
+  "name": "discordo",
+  "bin": "discordo",
+  "category": "Messaging",
+  "description": "A lightweight, secure, and feature-rich Discord terminal client",
+  "homepage": "https://github.com/ayntgl/discordo"
+ },
+ {
+  "name": "endcord",
+  "bin": "endcord",
+  "category": "Messaging",
+  "description": "Feature rich Discord TUI client.",
+  "homepage": "https://github.com/mzivic7/endcord"
+ },
+ {
+  "name": "Gomphotherium",
+  "bin": "gomphotherium",
+  "category": "Messaging",
+  "description": "A command line Mastodon client.",
+  "homepage": "https://github.com/mrusme/gomphotherium"
+ },
+ {
+  "name": "gomuks",
+  "bin": "gomuks",
+  "category": "Messaging",
+  "description": "Matrix client",
+  "homepage": "https://github.com/tulir/gomuks"
+ },
+ {
+  "name": "gurk-rs",
+  "bin": "gurk-rs",
+  "category": "Messaging",
+  "description": "Signal Messenger client for terminal",
+  "homepage": "https://github.com/boxdot/gurk-rs"
+ },
+ {
+  "name": "iamb",
+  "bin": "iamb",
+  "category": "Messaging",
+  "description": "A Matrix client for Vim addicts written in Rust",
+  "homepage": "https://iamb.chat"
+ },
+ {
+  "name": "instagram-cli",
+  "bin": "instagram-cli",
+  "category": "Messaging",
+  "description": "Use Instagram from your terminal, the end of brainrot is here",
+  "homepage": "https://github.com/supreme-gg-gg/instagram-cli"
+ },
+ {
+  "name": "irssi",
+  "bin": "irssi",
+  "category": "Messaging",
+  "description": "An IRC terminal client",
+  "homepage": "https://irssi.org/"
+ },
+ {
+  "name": "mastui",
+  "bin": "mastui",
+  "category": "Messaging",
+  "description": "Mastodon TUI",
+  "homepage": "https://github.com/kimusan/mastui"
+ },
+ {
+  "name": "matcha",
+  "bin": "matcha",
+  "category": "Messaging",
+  "description": "Email client",
+  "homepage": "https://github.com/floatpane/matcha"
+ },
+ {
+  "name": "matterhorn",
+  "bin": "matterhorn",
+  "category": "Messaging",
+  "description": "A Mattermost terminal client.",
+  "homepage": "https://github.com/matterhorn-chat/matterhorn"
+ },
+ {
+  "name": "mcabber",
+  "bin": "mcabber",
+  "category": "Messaging",
+  "description": "XMPP (Jabber) client",
+  "homepage": "https://mcabber.com/"
+ },
+ {
+  "name": "meli",
+  "bin": "meli",
+  "category": "Messaging",
+  "description": "Email client",
+  "homepage": "https://meli.delivery/"
+ },
+ {
+  "name": "Mutt",
+  "bin": "mutt",
+  "category": "Messaging",
+  "description": "Email client",
+  "homepage": "https://gitlab.com/muttmua/mutt"
+ },
+ {
+  "name": "nchat",
+  "bin": "nchat",
+  "category": "Messaging",
+  "description": "Telegram/WhatsApp client",
+  "homepage": "https://github.com/d99kris/nchat"
+ },
+ {
+  "name": "nomadnet",
+  "bin": "nomadnet",
+  "category": "Messaging",
+  "description": "Secure messaging network built on Reticulum",
+  "homepage": "https://github.com/markqvist/NomadNet"
+ },
+ {
+  "name": "nostratui",
+  "bin": "nostratui",
+  "category": "Messaging",
+  "description": "A terminal user interface (TUI) for browsing Nostr posts, written in Rust.",
+  "homepage": "https://github.com/adamm-xyz/nostratui"
+ },
+ {
+  "name": "nostui",
+  "bin": "nostui",
+  "category": "Messaging",
+  "description": "Nostr client",
+  "homepage": "https://github.com/akiomik/nostui"
+ },
+ {
+  "name": "Profanity",
+  "bin": "profanity",
+  "category": "Messaging",
+  "description": "XMPP (Jabber) client",
+  "homepage": "https://profanity-im.github.io"
+ },
+ {
+  "name": "sclack",
+  "bin": "sclack",
+  "category": "Messaging",
+  "description": "Slack terminal client",
+  "homepage": "https://github.com/haskellcamargo/sclack"
+ },
+ {
+  "name": "scli",
+  "bin": "scli",
+  "category": "Messaging",
+  "description": "A simple terminal user interface for signal messenger",
+  "homepage": "https://github.com/isamert/scli/"
+ },
+ {
+  "name": "siggo",
+  "bin": "siggo",
+  "category": "Messaging",
+  "description": "A terminal ui for signal-cli, written in Go",
+  "homepage": "https://github.com/derricw/siggo"
+ },
+ {
+  "name": "Slack-term",
+  "bin": "slack-term",
+  "category": "Messaging",
+  "description": "Slack client for your terminal",
+  "homepage": "https://github.com/erroneousboat/slack-term"
+ },
+ {
+  "name": "sup",
+  "bin": "sup",
+  "category": "Messaging",
+  "description": "A curses threads-with-tags style email client",
+  "homepage": "https://github.com/sup-heliotrope/sup"
+ },
+ {
+  "name": "SuperChat",
+  "bin": "superchat",
+  "category": "Messaging",
+  "description": "Terminal-based threaded chat application with a custom binary protocol.",
+  "homepage": "https://github.com/serialexp/superchat"
+ },
+ {
+  "name": "Superhighway84",
+  "bin": "superhighway84",
+  "category": "Messaging",
+  "description": "USENET-inspired decentralized internet discussion system",
+  "homepage": "https://github.com/mrusme/superhighway84"
+ },
+ {
+  "name": "tgt",
+  "bin": "tgt",
+  "category": "Messaging",
+  "description": "A TUI for Telegram written in Rust",
+  "homepage": "https://github.com/FedericoBruzzone/tgt"
+ },
+ {
+  "name": "toot",
+  "bin": "toot",
+  "category": "Messaging",
+  "description": "Mastodon CLI & TUI",
+  "homepage": "https://github.com/ihabunek/toot"
+ },
+ {
+  "name": "tuisky",
+  "bin": "tuisky",
+  "category": "Messaging",
+  "description": "TUI client for BlueSky",
+  "homepage": "https://github.com/sugyan/tuisky"
+ },
+ {
+  "name": "tuix",
+  "bin": "tuix",
+  "category": "Messaging",
+  "description": "TUI for managing screens",
+  "homepage": "https://github.com/pythops/tuix"
+ },
+ {
+  "name": "tut",
+  "bin": "tut",
+  "category": "Messaging",
+  "description": "Mastodon TUI client",
+  "homepage": "https://github.com/RasmusLindroth/tut"
+ },
+ {
+  "name": "twitch-tui",
+  "bin": "twitch-tui",
+  "category": "Messaging",
+  "description": "Twitch chat in the terminal",
+  "homepage": "https://github.com/Xithrius/twitch-tui"
+ },
+ {
+  "name": "Weechat",
+  "bin": "weechat",
+  "category": "Messaging",
+  "description": "Extensible chat client",
+  "homepage": "https://weechat.org/"
+ },
+ {
+  "name": "zulip-terminal",
+  "bin": "zulip-terminal",
+  "category": "Messaging",
+  "description": "Official Zulip terminal client (similar to matterhorn)",
+  "homepage": "https://github.com/zulip/zulip-terminal"
+ },
+ {
+  "name": "arttime",
+  "bin": "arttime",
+  "category": "Miscellaneous",
+  "description": "An app that brings beauty of text-art together with functionality of clock, timer, and pattern-based time manager.",
+  "homepage": "https://github.com/reportaman/arttime"
+ },
+ {
+  "name": "asciiMol",
+  "bin": "asciimol",
+  "category": "Miscellaneous",
+  "description": "Curses based ASCII molecule viewer for linux terminals.",
+  "homepage": "https://github.com/dewberryants/asciiMol"
+ },
+ {
+  "name": "bluetui",
+  "bin": "bluetui",
+  "category": "Miscellaneous",
+  "description": "A TUI for managing bluetooth devices.",
+  "homepage": "https://github.com/pythops/bluetui"
+ },
+ {
+  "name": "bluetuith",
+  "bin": "bluetuith",
+  "category": "Miscellaneous",
+  "description": "A TUI-based bluetooth connection manager, which can interact with bluetooth adapters and devices.",
+  "homepage": "https://github.com/darkhz/bluetuith"
+ },
+ {
+  "name": "Caligula",
+  "bin": "caligula",
+  "category": "Miscellaneous",
+  "description": "A user-friendly, lightweight TUI for imaging disks.",
+  "homepage": "https://github.com/ifd3f/caligula"
+ },
+ {
+  "name": "Captain's log",
+  "bin": "captainslog",
+  "category": "Miscellaneous",
+  "description": "A small TUI journaling tool",
+  "homepage": "https://github.com/NikolaDucak/caps-log"
+ },
+ {
+  "name": "cava",
+  "bin": "cava",
+  "category": "Miscellaneous",
+  "description": "Cross-platform Audio Visualizer",
+  "homepage": "https://github.com/karlstav/cava"
+ },
+ {
+  "name": "cfdisk",
+  "bin": "cfdisk",
+  "category": "Miscellaneous",
+  "description": "TUI partition editor included in util-linux",
+  "homepage": "https://github.com/util-linux/util-linux"
+ },
+ {
+  "name": "cgdisk",
+  "bin": "cgdisk",
+  "category": "Miscellaneous",
+  "description": "TUI partition editor for manipulating GUID partition tables, and modeled after cfdisk",
+  "homepage": "https://www.rodsbooks.com/gdisk/cgdisk-walkthrough.html"
+ },
+ {
+  "name": "CrunchyCleaner",
+  "bin": "crunchycleaner",
+  "category": "Miscellaneous",
+  "description": "A lightweight, software cache cleanup tool for Windows & Linux.",
+  "homepage": "https://github.com/knuspii/crunchycleaner"
+ },
+ {
+  "name": "csvlens",
+  "bin": "csvlens",
+  "category": "Miscellaneous",
+  "description": "TUI CSV file viewer. It is like less but made for CSV.",
+  "homepage": "https://github.com/YS-L/csvlens"
+ },
+ {
+  "name": "diary",
+  "bin": "diary",
+  "category": "Miscellaneous",
+  "description": "A diary app written in Rust that encrypts both text and file data, and can decrypt and build a rich HTML representation of your diary when required.",
+  "homepage": "https://github.com/actuday6418/Diary"
+ },
+ {
+  "name": "DigiSurf",
+  "bin": "digisurf",
+  "category": "Miscellaneous",
+  "description": "A TUI signal waveform viewer",
+  "homepage": "https://github.com/SeanMcLoughlin/digisurf"
+ },
+ {
+  "name": "diskonaut",
+  "bin": "diskonaut",
+  "category": "Miscellaneous",
+  "description": "Terminal disk space navigator",
+  "homepage": "https://github.com/imsnif/diskonaut"
+ },
+ {
+  "name": "distrobox-tui",
+  "bin": "distrobox-tui",
+  "category": "Miscellaneous",
+  "description": "TUI for managing distrobox containers",
+  "homepage": "https://github.com/phanirithvij/distrobox-tui"
+ },
+ {
+  "name": "ec2-instance-selector",
+  "bin": "ec2-instance-selector",
+  "category": "Miscellaneous",
+  "description": "A CLI tool and go library which recommends instance types based on resource criteria like vcpus and memory",
+  "homepage": "https://github.com/aws/amazon-ec2-instance-selector"
+ },
+ {
+  "name": "emu2",
+  "bin": "emu2",
+  "category": "Miscellaneous",
+  "description": "A simple DOS emulator for the Linux text console, supporting basic DOS system calls and console I/O.",
+  "homepage": "https://github.com/dmsc/emu2"
+ },
+ {
+  "name": "flawz",
+  "bin": "flawz",
+  "category": "Miscellaneous",
+  "description": "A Terminal UI for browsing security vulnerabilities (CVEs)",
+  "homepage": "https://github.com/orhun/flawz"
+ },
+ {
+  "name": "fnf",
+  "bin": "fnf",
+  "category": "Miscellaneous",
+  "description": "An interactive fuzzy finder for the terminal",
+  "homepage": "https://github.com/leo-arch/fnf"
+ },
+ {
+  "name": "fzf",
+  "bin": "fzf",
+  "category": "Miscellaneous",
+  "description": "A general-purpose command-line fuzzy finder",
+  "homepage": "https://github.com/junegunn/fzf"
+ },
+ {
+  "name": "gdu",
+  "bin": "gdu",
+  "category": "Miscellaneous",
+  "description": "Fast disk usage analyzer with console interface written in Go",
+  "homepage": "https://github.com/dundee/gdu"
+ },
+ {
+  "name": "gif-for-cli",
+  "bin": "gif-for-cli",
+  "category": "Miscellaneous",
+  "description": "Convert a gif into ASCII",
+  "homepage": "https://github.com/google/gif-for-cli"
+ },
+ {
+  "name": "godap",
+  "bin": "godap",
+  "category": "Miscellaneous",
+  "description": "A complete TUI for LDAP written in Golang",
+  "homepage": "https://github.com/Macmod/godap"
+ },
+ {
+  "name": "golazo",
+  "bin": "golazo",
+  "category": "Miscellaneous",
+  "description": "Get soccer minute-by-minute updates and finished match stats in your terminal",
+  "homepage": "https://github.com/0xjuanma/golazo"
+ },
+ {
+  "name": "gpg-tui",
+  "bin": "gpg-tui",
+  "category": "Miscellaneous",
+  "description": "A terminal user interface for GnuPG",
+  "homepage": "https://github.com/orhun/gpg-tui"
+ },
+ {
+  "name": "HumBLE Explorer",
+  "bin": "humbleexplorer",
+  "category": "Miscellaneous",
+  "description": "A cross-platform, command-line and human-friendly Bluetooth Low Energy scanner",
+  "homepage": "https://github.com/koenvervloesem/humble-explorer"
+ },
+ {
+  "name": "IconicFonts",
+  "bin": "iconicfonts",
+  "category": "Miscellaneous",
+  "description": "A collection of patched fonts featuring over 60,000 icons, tailored specifically for TUIs.",
+  "homepage": "https://github.com/iconicFonts/iconic-fonts"
+ },
+ {
+  "name": "impala",
+  "bin": "impala",
+  "category": "Miscellaneous",
+  "description": "TUI for managing wifi",
+  "homepage": "https://github.com/pythops/impala"
+ },
+ {
+  "name": "isw",
+  "bin": "isw",
+  "category": "Miscellaneous",
+  "description": "A simple terminal stopwatch application for pomodoro etc.",
+  "homepage": "https://gitlab.com/thom-cameron/isw"
+ },
+ {
+  "name": "jrnl",
+  "bin": "jrnl",
+  "category": "Miscellaneous",
+  "description": "Collect your thoughts and notes without leaving the command line. human-friendly. future-proof. secure.",
+  "homepage": "https://jrnl.sh/"
+ },
+ {
+  "name": "keydex",
+  "bin": "keydex",
+  "category": "Miscellaneous",
+  "description": "TUI password manager for KeePass databases.",
+  "homepage": "https://github.com/shikaan/keydex"
+ },
+ {
+  "name": "lazynginx",
+  "bin": "lazynginx",
+  "category": "Miscellaneous",
+  "description": "Simple TUI for nginx management.",
+  "homepage": "https://github.com/giacomomasseron/lazynginx"
+ },
+ {
+  "name": "LearnByExample",
+  "bin": "learnbyexample",
+  "category": "Miscellaneous",
+  "description": "A TUI with tutorials and +300 exercises on python, grep, awk, sed & general terminal usage.",
+  "homepage": "https://github.com/learnbyexample/TUI-apps"
+ },
+ {
+  "name": "lnav",
+  "bin": "lnav",
+  "category": "Miscellaneous",
+  "description": "An advanced log file viewer for the small-scale",
+  "homepage": "https://lnav.org/"
+ },
+ {
+  "name": "mac-cleanup-go",
+  "bin": "mac-cleanup-go",
+  "category": "Miscellaneous",
+  "description": "macOS disk cleanup TUI: scan cache/dev artifacts, preview, exclude, and move items to Trash.",
+  "homepage": "https://github.com/2ykwang/mac-cleanup-go"
+ },
+ {
+  "name": "mapscii",
+  "bin": "mapscii",
+  "category": "Miscellaneous",
+  "description": "Braille & ASCII world map renderer for your console",
+  "homepage": "https://github.com/rastapasta/mapscii"
+ },
+ {
+  "name": "moc",
+  "bin": "moc",
+  "category": "Miscellaneous",
+  "description": "console audio player",
+  "homepage": "https://moc.daper.net/download"
+ },
+ {
+  "name": "moribito",
+  "bin": "moribito",
+  "category": "Miscellaneous",
+  "description": "Browse LDAP directory trees, viewing records, and executing custom queries.",
+  "homepage": "https://github.com/ericschmar/moribito"
+ },
+ {
+  "name": "mqttui",
+  "bin": "mqttui",
+  "category": "Miscellaneous",
+  "description": "MQTT Client written in rust",
+  "homepage": "https://github.com/EdJoPaTo/mqttui"
+ },
+ {
+  "name": "NanoCore",
+  "bin": "nanocore",
+  "category": "Miscellaneous",
+  "description": "An 8-bit CPU emulator TUI written in Rust with an assembler and a custom ISA.",
+  "homepage": "https://github.com/AfaanBilal/NanoCore"
+ },
+ {
+  "name": "ncdu",
+  "bin": "ncdu",
+  "category": "Miscellaneous",
+  "description": "disk usage analyzer with an ncurses interface",
+  "homepage": "https://dev.yorhel.nl/ncdu"
+ },
+ {
+  "name": "nemu",
+  "bin": "nemu",
+  "category": "Miscellaneous",
+  "description": "A TUI for QEMU",
+  "homepage": "https://github.com/nemuTUI/nemu"
+ },
+ {
+  "name": "neoss",
+  "bin": "neoss",
+  "category": "Miscellaneous",
+  "description": "Socket statistics visualization and explanation tool for Unix systems.",
+  "homepage": "https://github.com/PabloLec/neoss"
+ },
+ {
+  "name": "nmtui",
+  "bin": "nmtui",
+  "category": "Miscellaneous",
+  "description": "ncurses network manager",
+  "homepage": "https://developer.gnome.org/NetworkManager/stable/nmtui.html"
+ },
+ {
+  "name": "oha",
+  "bin": "oha",
+  "category": "Miscellaneous",
+  "description": "HTTP load generator",
+  "homepage": "https://github.com/hatoo/oha"
+ },
+ {
+  "name": "packemon",
+  "bin": "packemon",
+  "category": "Miscellaneous",
+  "description": "Packet generator and monitor.",
+  "homepage": "https://github.com/ddddddO/packemon"
+ },
+ {
+  "name": "pass-cli",
+  "bin": "pass-cli",
+  "category": "Miscellaneous",
+  "description": "A TUI and CLI password manager with rclone cloud syncing support",
+  "homepage": "https://github.com/arimxyer/pass-cli"
+ },
+ {
+  "name": "PesterExplorer",
+  "bin": "pesterexplorer",
+  "category": "Miscellaneous",
+  "description": "A TUI to explore Pester results.",
+  "homepage": "https://github.com/HeyItsGilbert/PesterExplorer"
+ },
+ {
+  "name": "physics-TUI",
+  "bin": "physics-tui",
+  "category": "Miscellaneous",
+  "description": "Physics TUI application for undergraduate study",
+  "homepage": "https://github.com/ClaudioRMalvino/physics_TUI"
+ },
+ {
+  "name": "pug",
+  "bin": "pug",
+  "category": "Miscellaneous",
+  "description": "terraform and tofu module and infrastructure management.",
+  "homepage": "https://github.com/leg100/pug"
+ },
+ {
+  "name": "recoverpy",
+  "bin": "recoverpy",
+  "category": "Miscellaneous",
+  "description": "A TUI to recover overwritten or deleted data.",
+  "homepage": "https://github.com/PabloLec/recoverpy"
+ },
+ {
+  "name": "redu",
+  "bin": "redu",
+  "category": "Miscellaneous",
+  "description": "ncdu for your restic repository that manages exclusion lists to prune files from existing repos and skip new ones",
+  "homepage": "https://github.com/drdo/redu"
+ },
+ {
+  "name": "rocket.term",
+  "bin": "rocket.term",
+  "category": "Miscellaneous",
+  "description": "Text based chat client for the Rocket.chat messaging solution.",
+  "homepage": "https://github.com/gerstner-hub/rocket.term"
+ },
+ {
+  "name": "smassh",
+  "bin": "smassh",
+  "category": "Miscellaneous",
+  "description": "A TUI based typing test application inspired by MonkeyType.",
+  "homepage": "https://github.com/kraanzu/smassh"
+ },
+ {
+  "name": "steam_friends_list_tui",
+  "bin": "steam_friends_list_tui",
+  "category": "Miscellaneous",
+  "description": "The steam friends list in the commandline",
+  "homepage": "https://github.com/AdamWHY2K/steam_friends_list_tui"
+ },
+ {
+  "name": "Systemd-manager-tui",
+  "bin": "systemd-manager-tui",
+  "category": "Miscellaneous",
+  "description": "A program for managing systemd services through a TUI.",
+  "homepage": "https://github.com/matheus-git/systemd-manager-tui"
+ },
+ {
+  "name": "tab-pal",
+  "bin": "tab-pal",
+  "category": "Miscellaneous",
+  "description": "Add and edit custom colour palettes in Tableau from the command-line.",
+  "homepage": "https://github.com/ben-n93/tab-pal"
+ },
+ {
+  "name": "tcpterm",
+  "bin": "tcpterm",
+  "category": "Miscellaneous",
+  "description": "tcpterm is a packet visualizer in TUI.",
+  "homepage": "https://github.com/sachaos/tcpterm"
+ },
+ {
+  "name": "term.everything",
+  "bin": "term.everything",
+  "category": "Miscellaneous",
+  "description": "Run any GUI app in the terminal",
+  "homepage": "https://github.com/mmulet/term.everything"
+ },
+ {
+  "name": "terminalperiodictable",
+  "bin": "terminalperiodictable",
+  "category": "Miscellaneous",
+  "description": "A beautiful TUI periodic table for Unix systems coded in C.",
+  "homepage": "https://github.com/velorek1/terminalperiodictable"
+ },
+ {
+  "name": "termshark",
+  "bin": "termshark",
+  "category": "Miscellaneous",
+  "description": "Terminal UI for tshark",
+  "homepage": "https://github.com/gcla/termshark"
+ },
+ {
+  "name": "thokr",
+  "bin": "thokr",
+  "category": "Miscellaneous",
+  "description": "a sleek typing tui written in rust",
+  "homepage": "https://github.com/coloradocolby/thokr"
+ },
+ {
+  "name": "tlock",
+  "bin": "tlock",
+  "category": "Miscellaneous",
+  "description": "Two-Factor Authentication Tokens Manager in Terminal",
+  "homepage": "https://github.com/eklairs/tlock"
+ },
+ {
+  "name": "tray-tui",
+  "bin": "tray-tui",
+  "category": "Miscellaneous",
+  "description": "System tray in your terminal",
+  "homepage": "https://github.com/Levizor/tray-tui"
+ },
+ {
+  "name": "try-rs",
+  "bin": "try-rs",
+  "category": "Miscellaneous",
+  "description": "A lightning-fast TUI to manage temporary projects. Create, explore, and clone repositories instantly without cluttering your system.",
+  "homepage": "https://github.com/tassiovirginio/try-rs/"
+ },
+ {
+  "name": "tttui",
+  "bin": "tttui",
+  "category": "Miscellaneous",
+  "description": "A Monkeytype-inspired typing test that runs entirely in your terminal",
+  "homepage": "https://github.com/reidoboss/tttui"
+ },
+ {
+  "name": "ttyper",
+  "bin": "ttyper",
+  "category": "Miscellaneous",
+  "description": "Terminal-based typing test",
+  "homepage": "https://github.com/max-niederman/ttyper"
+ },
+ {
+  "name": "tui-shop",
+  "bin": "tui-shop",
+  "category": "Miscellaneous",
+  "description": "Something between a CLI and a GUI way of downloading TUIs/CLIs",
+  "homepage": "https://github.com/Gcat101/tui-shop"
+ },
+ {
+  "name": "tweakcc",
+  "bin": "tweakcc",
+  "category": "Miscellaneous",
+  "description": "TUI to customize your Claude Code themes, thinking verbs, and more.",
+  "homepage": "https://github.com/Piebald-AI/tweakcc"
+ },
+ {
+  "name": "typtea",
+  "bin": "typtea",
+  "category": "Miscellaneous",
+  "description": "Minimal terminal-based typing speed tester with support for dozens of programming languages.",
+  "homepage": "https://github.com/ashish0kumar/typtea"
+ },
+ {
+  "name": "vortix",
+  "bin": "vortix",
+  "category": "Miscellaneous",
+  "description": "Terminal UI for WireGuard and OpenVPN with real-time telemetry, leak detection, and kill switch.",
+  "homepage": "https://github.com/Harry-kp/vortix"
+ },
+ {
+  "name": "wavemon",
+  "bin": "wavemon",
+  "category": "Miscellaneous",
+  "description": "A wireless device monitoring application",
+  "homepage": "https://github.com/uoaerg/wavemon"
+ },
+ {
+  "name": "wb",
+  "bin": "wb",
+  "category": "Miscellaneous",
+  "description": "A TUI vocabulary notebook app for Linux based devices.",
+  "homepage": "https://github.com/MertGunduz/wb"
+ },
+ {
+  "name": "wego",
+  "bin": "wego",
+  "category": "Miscellaneous",
+  "description": "Weather app",
+  "homepage": "https://github.com/schachmat/wego"
+ },
+ {
+  "name": "WG Commander",
+  "bin": "wgcommander",
+  "category": "Miscellaneous",
+  "description": "A TUI for a simple WireGuard VPN setup: peer management, QR codes, setup wizard.",
+  "homepage": "https://github.com/andrianbdn/wg-cmd"
+ },
+ {
+  "name": "wifitui",
+  "bin": "wifitui",
+  "category": "Miscellaneous",
+  "description": "Fast featureful friendly wifi terminal UI, supports NetworkManager and iwd over dbus.",
+  "homepage": "https://github.com/shazow/wifitui"
+ },
+ {
+  "name": "WifUI",
+  "bin": "wifui",
+  "category": "Miscellaneous",
+  "description": "TUI for managing Wi-Fi connections on Windows natively (Rust)",
+  "homepage": "https://github.com/sohamw03/wifui"
+ },
+ {
+  "name": "WireGuard Monitor",
+  "bin": "wireguardmonitor",
+  "category": "Miscellaneous",
+  "description": "Simple TUI written in Rust to display the status of WireGuard connections on a host.",
+  "homepage": "https://codeberg.org/anthonymills/Wireguard_Monitor"
+ },
+ {
+  "name": "wttr.in",
+  "bin": "wttr.in",
+  "category": "Miscellaneous",
+  "description": "The right way to check the weather",
+  "homepage": "https://github.com/chubin/wttr.in"
+ },
+ {
+  "name": "x-cmd",
+  "bin": "x-cmd",
+  "category": "Miscellaneous",
+  "description": "A vast and interesting collection of tools that can then bootstrap lots of other programs / functions in a consistent and structured way.",
+  "homepage": "https://github.com/x-cmd/x-cmd"
+ },
+ {
+  "name": "xplr",
+  "bin": "xplr",
+  "category": "Miscellaneous",
+  "description": "A hackable, minimal, fast TUI file explorer, stealing ideas from nnn and fzf.",
+  "homepage": "https://github.com/sayanarijit/xplr"
+ },
+ {
+  "name": "ani-l",
+  "bin": "ani-l",
+  "category": "Multimedia",
+  "description": "Rust-based anime browsing and streaming all without leaving the terminal",
+  "homepage": "https://github.com/komposer-aml/ani-l"
+ },
+ {
+  "name": "asak",
+  "bin": "asak",
+  "category": "Multimedia",
+  "description": "A cross-platform audio recording/playback TUI",
+  "homepage": "https://github.com/chaosprint/asak"
+ },
+ {
+  "name": "bookokrat",
+  "bin": "bookokrat",
+  "category": "Multimedia",
+  "description": "Full-featured EPUB books reader with Vim keybindings.",
+  "homepage": "https://github.com/bugzmanov/bookokrat"
+ },
+ {
+  "name": "chafa",
+  "bin": "chafa",
+  "category": "Multimedia",
+  "description": "A powerful utility that converts image data, including animated GIFs, into graphics formats or ANSI/Unicode character art suitable for display in a terminal.",
+  "homepage": "https://hpjansson.org/chafa/"
+ },
+ {
+  "name": "cmdpxl",
+  "bin": "cmdpxl",
+  "category": "Multimedia",
+  "description": "Totally practical command-line image editor",
+  "homepage": "https://github.com/knosmos/cmdpxl"
+ },
+ {
+  "name": "cmus",
+  "bin": "cmus",
+  "category": "Multimedia",
+  "description": "A small, fast and powerful console music player for Unix-like operating systems.",
+  "homepage": "https://cmus.github.io/"
+ },
+ {
+  "name": "ctune",
+  "bin": "ctune",
+  "category": "Multimedia",
+  "description": "ncurses based internet radio player for Linux.",
+  "homepage": "https://github.com/An7ar35/ctune"
+ },
+ {
+  "name": "draw",
+  "bin": "draw",
+  "category": "Multimedia",
+  "description": "A simple drawing tool in the terminal.",
+  "homepage": "https://github.com/maaslalani/draw"
+ },
+ {
+  "name": "fancy-cat",
+  "bin": "fancy-cat",
+  "category": "Multimedia",
+  "description": "A Lightweight terminal-based PDF reader with Vim keybindings",
+  "homepage": "https://github.com/freref/fancy-cat"
+ },
+ {
+  "name": "favicon-editor",
+  "bin": "favicon-editor",
+  "category": "Multimedia",
+  "description": "Spartan grayscale favicon editor",
+  "homepage": "https://github.com/xyproto/favicon-editor"
+ },
+ {
+  "name": "gadacz",
+  "bin": "gadacz",
+  "category": "Multimedia",
+  "description": "Audiobook player",
+  "homepage": "https://github.com/rareitems/gadacz"
+ },
+ {
+  "name": "GopherTube",
+  "bin": "gophertube",
+  "category": "Multimedia",
+  "description": "A terminal-based YouTube client that scrapes YouTube search results and uses mpv for video playback",
+  "homepage": "https://github.com/krishnassh/gophertube"
+ },
+ {
+  "name": "Gorae",
+  "bin": "gorae",
+  "category": "Multimedia",
+  "description": "TUI librarian for PDFs and EPUBs with Vim-style navigation.",
+  "homepage": "https://github.com/Han8931/gorae"
+ },
+ {
+  "name": "image-sorter",
+  "bin": "image-sorter",
+  "category": "Multimedia",
+  "description": "Terminal user interface for sorting images using key bindings written in Rust",
+  "homepage": "https://github.com/jgalat/image-sorter"
+ },
+ {
+  "name": "invidtui",
+  "bin": "invidtui",
+  "category": "Multimedia",
+  "description": "A TUI Invidious client for Windows, Linux and MacOS, that fetches and plays audio/video from an invidious instance. Supports viewing and playing from playlists and channels as well.",
+  "homepage": "https://github.com/darkhz/invidtui"
+ },
+ {
+  "name": "jellyfin-tui",
+  "bin": "jellyfin-tui",
+  "category": "Multimedia",
+  "description": "Jellyfin client",
+  "homepage": "https://github.com/dhonus/jellyfin-tui"
+ },
+ {
+  "name": "kew",
+  "bin": "kew",
+  "category": "Multimedia",
+  "description": "A terminal music player for Linux",
+  "homepage": "https://github.com/ravachol/kew"
+ },
+ {
+  "name": "line",
+  "bin": "line",
+  "category": "Multimedia",
+  "description": "Tiny command-line midi sequencer and language for live coding",
+  "homepage": "https://github.com/pd3v/line"
+ },
+ {
+  "name": "MAL-Cli",
+  "bin": "mal-cli",
+  "category": "Multimedia",
+  "description": "A terminal interface for the official myanimelist api written in rust.",
+  "homepage": "https://github.com/L4z3x/mal-tui"
+ },
+ {
+  "name": "managarr",
+  "bin": "managarr",
+  "category": "Multimedia",
+  "description": "A TUI and CLI for managing your \\*arr servers",
+  "homepage": "https://github.com/Dark-Alex-17/managarr"
+ },
+ {
+  "name": "manga-tui",
+  "bin": "manga-tui",
+  "category": "Multimedia",
+  "description": "Terminal-based manga reader and downloader with image rendering support",
+  "homepage": "https://github.com/josueBarretogit/manga-tui"
+ },
+ {
+  "name": "marstui-audio",
+  "bin": "marstui-audio",
+  "category": "Multimedia",
+  "description": "A nice audio management Interface, similar to pavucontrol with the benefit of customizing everything",
+  "homepage": "https://github.com/schooldanlp6/marstui-rustio"
+ },
+ {
+  "name": "mps-youtube",
+  "bin": "mps-youtube",
+  "category": "Multimedia",
+  "description": "Terminal based YouTube player and downloader",
+  "homepage": "https://github.com/mps-youtube/mps-youtube"
+ },
+ {
+  "name": "mpvc",
+  "bin": "mpvc",
+  "category": "Multimedia",
+  "description": "A mpc-like control interface for mpv",
+  "homepage": "https://github.com/gmt4/mpvc"
+ },
+ {
+  "name": "ncspot",
+  "bin": "ncspot",
+  "category": "Multimedia",
+  "description": "Cross-platform ncurses Spotify client written in Rust",
+  "homepage": "https://github.com/hrkfdn/ncspot"
+ },
+ {
+  "name": "ostui",
+  "bin": "ostui",
+  "category": "Multimedia",
+  "description": "CLI client for Subsonic-API servers like gonic and Navidrome",
+  "homepage": "https://git.sr.ht/~ser/ostui"
+ },
+ {
+  "name": "pipe-viewer",
+  "bin": "pipe-viewer",
+  "category": "Multimedia",
+  "description": "A lightweight YouTube client for Linux, without requiring an API key.",
+  "homepage": "https://github.com/trizen/pipe-viewer"
+ },
+ {
+  "name": "pyradio",
+  "bin": "pyradio",
+  "category": "Multimedia",
+  "description": "TUI web radio player with thousands of stations from around the world",
+  "homepage": "https://github.com/coderholic/pyradio"
+ },
+ {
+  "name": "RadioGoGo",
+  "bin": "radiogogo",
+  "category": "Multimedia",
+  "description": "Go-powered CLI to surf global radio waves via a sleek TUI.",
+  "homepage": "https://github.com/Zi0P4tch0/RadioGoGo"
+ },
+ {
+  "name": "Relax-player",
+  "bin": "relax-player",
+  "category": "Multimedia",
+  "description": "A lightweight, distraction-free alternative to web-based ambient players.",
+  "homepage": "https://github.com/ebithril/relax-player"
+ },
+ {
+  "name": "rmpc",
+  "bin": "rmpc",
+  "category": "Multimedia",
+  "description": "A configurable MPD client inspired by ncmpcpp and ranger with album art support via various graphics protocols.",
+  "homepage": "https://mierak.github.io/rmpc/"
+ },
+ {
+  "name": "roku-cli",
+  "bin": "roku-cli",
+  "category": "Multimedia",
+  "description": "A command line TUI remote for Roku",
+  "homepage": "https://github.com/winsbe01/roku-cli"
+ },
+ {
+  "name": "rusty-pipes",
+  "bin": "rusty-pipes",
+  "category": "Multimedia",
+  "description": "A sample-based, MIDI-controlled virtual pipe organ instrument compatible with GrandOrgue and Hauptwerk sample sets.",
+  "homepage": "https://github.com/dividebysandwich/rusty-pipes"
+ },
+ {
+  "name": "sonicradio",
+  "bin": "sonicradio",
+  "category": "Multimedia",
+  "description": "A stylish TUI radio player making use of Radio Browser API and Bubbletea.",
+  "homepage": "https://github.com/dancnb/sonicradio"
+ },
+ {
+  "name": "soundcloud2000",
+  "bin": "soundcloud2000",
+  "category": "Multimedia",
+  "description": "A terminal client for soundcloud",
+  "homepage": "https://github.com/grobie/soundcloud2000"
+ },
+ {
+  "name": "spotatui",
+  "bin": "spotatui",
+  "category": "Multimedia",
+  "description": "Spotify client with native streaming, synced lyrics, and real-time audio visualization",
+  "homepage": "https://github.com/LargeModGames/spotatui"
+ },
+ {
+  "name": "spotify-player",
+  "bin": "spotify_player",
+  "category": "Multimedia",
+  "description": "A Spotify player in the terminal with full feature parity",
+  "homepage": "https://github.com/aome510/spotify-player"
+ },
+ {
+  "name": "spotui",
+  "bin": "spotui",
+  "category": "Multimedia",
+  "description": "Spotify client written in Python",
+  "homepage": "https://github.com/ceuk/spotui"
+ },
+ {
+  "name": "tdf",
+  "bin": "tdf",
+  "category": "Multimedia",
+  "description": "A tui-based PDF viewer",
+  "homepage": "https://github.com/itsjunetime/tdf"
+ },
+ {
+  "name": "terminal-yt",
+  "bin": "terminal-yt",
+  "category": "Multimedia",
+  "description": "A small newsboat-inspired terminal youtube manager",
+  "homepage": "https://github.com/jooooscha/terminal-yt"
+ },
+ {
+  "name": "termusic",
+  "bin": "termusic",
+  "category": "Multimedia",
+  "description": "Music Player TUI written in Rust",
+  "homepage": "https://github.com/tramhao/termusic"
+ },
+ {
+  "name": "textual-paint",
+  "bin": "textual-paint",
+  "category": "Multimedia",
+  "description": "MS Paint in your terminal",
+  "homepage": "https://github.com/1j01/textual-paint"
+ },
+ {
+  "name": "timg",
+  "bin": "timg",
+  "category": "Multimedia",
+  "description": "A terminal image viewer",
+  "homepage": "https://github.com/hzeller/timg"
+ },
+ {
+  "name": "tizonia-openmax-il",
+  "bin": "tizonia-openmax-il",
+  "category": "Multimedia",
+  "description": "Command-line cloud music player for Linux with support for Spotify, Google Play Music, YouTube, SoundCloud, Dirble, Plex servers and Chromecast devices",
+  "homepage": "https://github.com/tizonia/tizonia-openmax-il"
+ },
+ {
+  "name": "tortuise",
+  "bin": "tortuise",
+  "category": "Multimedia",
+  "description": "Gaussian Splatting 3D viewer in your terminal. 6 render modes, CPU-only via crossterm + rayon",
+  "homepage": "https://github.com/buildoak/tortuise"
+ },
+ {
+  "name": "Toutui",
+  "bin": "toutui",
+  "category": "Multimedia",
+  "description": "A TUI Audiobookshelf Client for Linux",
+  "homepage": "https://github.com/AlbanDAVID/Toutui"
+ },
+ {
+  "name": "Trophy",
+  "bin": "trophy",
+  "category": "Multimedia",
+  "description": "A TUI 3D Model Viewer for OBJ and GLB files",
+  "homepage": "https://github.com/taigrr/trophy"
+ },
+ {
+  "name": "upiano",
+  "bin": "upiano",
+  "category": "Multimedia",
+  "description": "A Piano in your terminal",
+  "homepage": "https://github.com/eliasdorneles/upiano"
+ },
+ {
+  "name": "valveFM",
+  "bin": "valvefm",
+  "category": "Multimedia",
+  "description": "Vintage FM radio TUI for streaming stations from radio-browser.info",
+  "homepage": "https://github.com/zorig/valvefm"
+ },
+ {
+  "name": "viu",
+  "bin": "viu",
+  "category": "Multimedia",
+  "description": "Your browser anime experience from the terminal",
+  "homepage": "https://github.com/viu-media/viu"
+ },
+ {
+  "name": "vlc",
+  "bin": "vlc",
+  "category": "Multimedia",
+  "description": "VLC includes an ncurses interface, `vlc --intf ncurses`",
+  "homepage": "https://github.com/videolan/vlc"
+ },
+ {
+  "name": "vv",
+  "bin": "vv",
+  "category": "Multimedia",
+  "description": "A terminal image viewer, supporting an extensive range of modern image formats",
+  "homepage": "https://github.com/wolfpld/vv"
+ },
+ {
+  "name": "waves",
+  "bin": "waves",
+  "category": "Multimedia",
+  "description": "Terminal music player with vim-style navigation and radio mode that plays similar artists from your library",
+  "homepage": "https://github.com/llehouerou/waves"
+ },
+ {
+  "name": "wiremix",
+  "bin": "wiremix",
+  "category": "Multimedia",
+  "description": "TUI audio mixer for PipeWire similar to pavucontrol to adjust volumes, change input/output devices and their profiles",
+  "homepage": "https://github.com/tsowell/wiremix"
+ },
+ {
+  "name": "xytz",
+  "bin": "xytz",
+  "category": "Multimedia",
+  "description": "Beautiful TUI for downloading YouTube videos/playlists/channels.",
+  "homepage": "https://github.com/xdagiz/xytz"
+ },
+ {
+  "name": "ytdl-tui",
+  "bin": "ytdl-tui",
+  "category": "Multimedia",
+  "description": "TUI for downloading Youtube videos",
+  "homepage": "https://github.com/darky/ytdl-tui"
+ },
+ {
+  "name": "ytfzf",
+  "bin": "ytfzf",
+  "category": "Multimedia",
+  "description": "A POSIX script that helps you find Youtube videos (without API) or Peertube videos and opens/downloads them using mpv/youtube-dl",
+  "homepage": "https://github.com/pystardust/ytfzf"
+ },
+ {
+  "name": "ytui-music",
+  "bin": "ytui-music",
+  "category": "Multimedia",
+  "description": "Listen to music from youtube. Configurable, minimal, lightweight, private & beautiful music client.",
+  "homepage": "https://github.com/sudipghimire533/ytui-music"
+ },
+ {
+  "name": "abook",
+  "bin": "abook",
+  "category": "Productivity",
+  "description": "TUI addressbook with [mutt](http://www.mutt.org/) integration",
+  "homepage": "https://abook.sourceforge.io/"
+ },
+ {
+  "name": "agent-deck",
+  "bin": "agent-deck",
+  "category": "Productivity",
+  "description": "Terminal dashboard for managing multiple AI coding agent sessions",
+  "homepage": "https://github.com/asheshgoplani/agent-deck"
+ },
+ {
+  "name": "awsui",
+  "bin": "awsui",
+  "category": "Productivity",
+  "description": "A powerful, user-friendly terminal interface for AWS Profile and SSO management.",
+  "homepage": "https://github.com/junminhong/awsui"
+ },
+ {
+  "name": "Bagels",
+  "bin": "bagels",
+  "category": "Productivity",
+  "description": "TUI expense tracker",
+  "homepage": "https://github.com/EnhancedJax/Bagels"
+ },
+ {
+  "name": "Brief",
+  "bin": "brief",
+  "category": "Productivity",
+  "description": "Terminal-first OpenAI chat client with slash-command palette and local tool execution.",
+  "homepage": "https://github.com/WilliamAGH/brief"
+ },
+ {
+  "name": "calcure",
+  "bin": "calcure",
+  "category": "Productivity",
+  "description": "Modern TUI calendar and task manager with minimal and customizable UI.",
+  "homepage": "https://github.com/anufrievroman/calcure"
+ },
+ {
+  "name": "calcurse",
+  "bin": "calcurse",
+  "category": "Productivity",
+  "description": "calendar and scheduling application for the command line",
+  "homepage": "https://calcurse.org/"
+ },
+ {
+  "name": "Chronos",
+  "bin": "chronos",
+  "category": "Productivity",
+  "description": "A Vimlike Calendar TUI",
+  "homepage": "https://github.com/samuelstranges/chronos"
+ },
+ {
+  "name": "clipse",
+  "bin": "clipse",
+  "category": "Productivity",
+  "description": "TUI-based clipboard manager application",
+  "homepage": "https://github.com/savedra1/clipse"
+ },
+ {
+  "name": "Desktop-TUI",
+  "bin": "desktop-tui",
+  "category": "Productivity",
+  "description": "A desktop environment without graphics",
+  "homepage": "https://github.com/Julien-cpsn/desktop-tui"
+ },
+ {
+  "name": "doxx",
+  "bin": "doxx",
+  "category": "Productivity",
+  "description": "A TUI document viewer for Microsoft Word files",
+  "homepage": "https://github.com/bgreenwell/doxx"
+ },
+ {
+  "name": "drako",
+  "bin": "drako",
+  "category": "Productivity",
+  "description": "A grid-based, customizable and extendable command- and TUI-Deck launcher",
+  "homepage": "https://github.com/lucky7xz/drako"
+ },
+ {
+  "name": "dvtm",
+  "bin": "dvtm",
+  "category": "Productivity",
+  "description": "A terminal multiplexer with dwm like window management",
+  "homepage": "https://github.com/martanne/dvtm"
+ },
+ {
+  "name": "ekphos",
+  "bin": "ekphos",
+  "category": "Productivity",
+  "description": "A fast, lightweight, markdown research tool written in rust",
+  "homepage": "https://github.com/hanebox/ekphos"
+ },
+ {
+  "name": "elia",
+  "bin": "elia",
+  "category": "Productivity",
+  "description": "A terminal ChatGPT client build with Textual",
+  "homepage": "https://github.com/darrenburns/elia"
+ },
+ {
+  "name": "fjira",
+  "bin": "fjira",
+  "category": "Productivity",
+  "description": "TUI application for Atlassian Jira",
+  "homepage": "https://github.com/mk-5/fjira"
+ },
+ {
+  "name": "GeekCalendar",
+  "bin": "geekcalendar",
+  "category": "Productivity",
+  "description": "TUI calendar with vim key bindings, which can import from calcure or calcurse.",
+  "homepage": "https://github.com/fearlessgeekmedia/GeekCalendar"
+ },
+ {
+  "name": "Glow",
+  "bin": "glow",
+  "category": "Productivity",
+  "description": "A markdown reader, designed from the ground up to showcase the elegance and capabilities of TUI.",
+  "homepage": "https://github.com/charmbracelet/glow"
+ },
+ {
+  "name": "gocheat",
+  "bin": "gocheat",
+  "category": "Productivity",
+  "description": "A beautiful TUI cheatsheet for keybindings,hotkeys,gestures and aliases",
+  "homepage": "https://github.com/Achno/gocheat"
+ },
+ {
+  "name": "h-m-m",
+  "bin": "h-m-m",
+  "category": "Productivity",
+  "description": "Hackers Mind Map",
+  "homepage": "https://github.com/nadrad/h-m-m"
+ },
+ {
+  "name": "helm",
+  "bin": "helm",
+  "category": "Productivity",
+  "description": "A minimalistic & customizable pomodoro-like timer for your terminal",
+  "homepage": "https://github.com/0xjuanma/helm"
+ },
+ {
+  "name": "hledger-ui",
+  "bin": "hledger-ui",
+  "category": "Productivity",
+  "description": "A fast TUI for browsing double entry bookkeeping data",
+  "homepage": "https://github.com/simonmichael/hledger"
+ },
+ {
+  "name": "hnjobs",
+  "bin": "hnjobs",
+  "category": "Productivity",
+  "description": "Find your next job on Who's Hiring",
+  "homepage": "https://github.com/mwinters0/hnjobs"
+ },
+ {
+  "name": "HydroFetch",
+  "bin": "hydrofetch",
+  "category": "Productivity",
+  "description": "A fast, beautiful, and lightweight system information tool written exclusively for the Fish shell.",
+  "homepage": "https://github.com/Henriquehnnm/hydrofetch"
+ },
+ {
+  "name": "HydroToDo",
+  "bin": "hydrotodo",
+  "category": "Productivity",
+  "description": "A simple and beautiful TUI to-do list",
+  "homepage": "https://github.com/Henriquehnnm/hydrotodo"
+ },
+ {
+  "name": "hygg",
+  "bin": "hygg",
+  "category": "Productivity",
+  "description": "📚 Simplifying the way you read. Minimalistic Vim-like TUI document reader.",
+  "homepage": "https://github.com/kruserr/hygg"
+ },
+ {
+  "name": "intelli-shell",
+  "bin": "intelli-shell",
+  "category": "Productivity",
+  "description": "Manage command templates/snippets with dynamic completions and AI integration",
+  "homepage": "https://github.com/lasantosr/intelli-shell"
+ },
+ {
+  "name": "jiratui",
+  "bin": "jiratui",
+  "category": "Productivity",
+  "description": "A TUI for interacting with Atlassian Jira directly from your shell",
+  "homepage": "https://github.com/whyisdifficult/jiratui"
+ },
+ {
+  "name": "Judo",
+  "bin": "judo",
+  "category": "Productivity",
+  "description": "A multi-database TUI for ToDo lists, using Rust + Ratatui + SQLite",
+  "homepage": "https://github.com/giacomopiccinini/judo"
+ },
+ {
+  "name": "kabmat",
+  "bin": "kabmat",
+  "category": "Productivity",
+  "description": "TUI program for managing kanban boards with vim-like keybindings",
+  "homepage": "https://github.com/PlankCipher/kabmat"
+ },
+ {
+  "name": "kanban",
+  "bin": "kanban",
+  "category": "Productivity",
+  "description": "TUI kanban board for projects management with sprint tracking and task prioritization.",
+  "homepage": "https://github.com/fulsomenko/kanban"
+ },
+ {
+  "name": "kanban-python",
+  "bin": "kanban-python",
+  "category": "Productivity",
+  "description": "Kanban Terminal App written in Python",
+  "homepage": "https://github.com/Zaloog/kanban-python"
+ },
+ {
+  "name": "khal",
+  "bin": "khal",
+  "category": "Productivity",
+  "description": "A standards based CLI calendar program, able to synchronize with CalDAV servers",
+  "homepage": "https://github.com/pimutils/khal"
+ },
+ {
+  "name": "LazySSH",
+  "bin": "lazyssh",
+  "category": "Productivity",
+  "description": "TUI SSH manager to browse, connect, and manage servers from ssh config files.",
+  "homepage": "https://github.com/adembc/lazyssh"
+ },
+ {
+  "name": "levite",
+  "bin": "levite",
+  "category": "Productivity",
+  "description": "A TUI spreadsheet application that uses an RPN formulas and features a vi-friendly interface",
+  "homepage": "https://github.com/RauliL/levite"
+ },
+ {
+  "name": "longbridge-terminal",
+  "bin": "longbridge-terminal",
+  "category": "Productivity",
+  "description": "AI-native TUI for Longbridge Securities: real-time quotes, portfolio management, and trading for HK/US/A-share/SG markets.",
+  "homepage": "https://github.com/longbridge/longbridge-terminal"
+ },
+ {
+  "name": "mcfly",
+  "bin": "mcfly",
+  "category": "Productivity",
+  "description": "Intelligent context-aware search engine for your shell history",
+  "homepage": "https://github.com/cantino/mcfly"
+ },
+ {
+  "name": "multranslate",
+  "bin": "multranslate",
+  "category": "Productivity",
+  "description": "A TUI for translating text in multiple translators simultaneously, with support for translation history and language detection",
+  "homepage": "https://github.com/Lifailon/multranslate"
+ },
+ {
+  "name": "mynav",
+  "bin": "mynav",
+  "category": "Productivity",
+  "description": "Workspace and session management for terminal environments",
+  "homepage": "https://github.com/GianlucaP106/mynav"
+ },
+ {
+  "name": "nless",
+  "bin": "nless",
+  "category": "Productivity",
+  "description": "Terminal pager for exploring tabular data with vi keybindings and automatic delimiter inference",
+  "homepage": "https://github.com/mpryor/nothing-less"
+ },
+ {
+  "name": "numr",
+  "bin": "numr",
+  "category": "Productivity",
+  "description": "A natural language calculator with unit/currency conversions and vim-style keybindings",
+  "homepage": "https://github.com/nasedkinpv/numr"
+ },
+ {
+  "name": "openmux",
+  "bin": "openmux",
+  "category": "Productivity",
+  "description": "A terminal multiplexer with master-stack layout (Zellij-style)",
+  "homepage": "https://github.com/monotykamary/openmux"
+ },
+ {
+  "name": "pagerduty-tui",
+  "bin": "pagerduty-tui",
+  "category": "Productivity",
+  "description": "Minimalistic terminal UI to manage triggered incidents",
+  "homepage": "https://github.com/Mk555/pagerduty-tui"
+ },
+ {
+  "name": "patat",
+  "bin": "patat",
+  "category": "Productivity",
+  "description": "Terminal-based presentations using Pandoc",
+  "homepage": "https://github.com/jaspervdj/patat"
+ },
+ {
+  "name": "pdiary",
+  "bin": "pdiary",
+  "category": "Productivity",
+  "description": "A simple terminal diary journal application written in Python with encryption support",
+  "homepage": "https://github.com/manipuladordedados/pdiary"
+ },
+ {
+  "name": "pkm",
+  "bin": "pkm",
+  "category": "Productivity",
+  "description": "A super minimal TUI package manager wrapper written in BASH v4.2+",
+  "homepage": "https://github.com/wick3dr0se/pkm"
+ },
+ {
+  "name": "pomo",
+  "bin": "pomo",
+  "category": "Productivity",
+  "description": "A minimal, customizable TUI Pomodoro timer with ASCII art, progress bar, desktop notifications, and productivity statistics.",
+  "homepage": "https://github.com/Bahaaio/pomo"
+ },
+ {
+  "name": "portfolio_rs",
+  "bin": "portfolio_rs",
+  "category": "Productivity",
+  "description": "A command line tool for managing financial investment portfolios.",
+  "homepage": "https://github.com/MarkusZoppelt/portfolio_rs"
+ },
+ {
+  "name": "pream-team",
+  "bin": "pream-team",
+  "category": "Productivity",
+  "description": "a TUI utility that helps you keep track of your teams GitHub PRs across multiple repositories",
+  "homepage": "https://github.com/nikoladucak/pream-team/"
+ },
+ {
+  "name": "presenterm",
+  "bin": "presenterm",
+  "category": "Productivity",
+  "description": "A markdown terminal slideshow tool",
+  "homepage": "https://github.com/mfontanini/presenterm"
+ },
+ {
+  "name": "procmux",
+  "bin": "procmux",
+  "category": "Productivity",
+  "description": "a TUI for running multiple commands in parallel in easily switchable terminals",
+  "homepage": "https://github.com/napisani/procmux"
+ },
+ {
+  "name": "productivity-timer",
+  "bin": "productivity-timer",
+  "category": "Productivity",
+  "description": "A command line time tracker application with a sleek TUI.",
+  "homepage": "https://github.com/h-sifat/productivity-timer"
+ },
+ {
+  "name": "sc-im",
+  "bin": "sc-im",
+  "category": "Productivity",
+  "description": "An ncurses spreadsheet program for terminal. Reignited version of sc",
+  "homepage": "https://github.com/andmarti1424/sc-im"
+ },
+ {
+  "name": "SheetsUI",
+  "bin": "sheetsui",
+  "category": "Productivity",
+  "description": "A console based spreadsheet application",
+  "homepage": "https://github.com/zaphar/sheetsui"
+ },
+ {
+  "name": "slides",
+  "bin": "slides",
+  "category": "Productivity",
+  "description": "A terminal based presentation tool, supporting markdown syntax.",
+  "homepage": "https://github.com/maaslalani/slides"
+ },
+ {
+  "name": "ssh-slides",
+  "bin": "ssh-slides",
+  "category": "Productivity",
+  "description": "Terminal-based presentations over SSH",
+  "homepage": "https://github.com/ivantsepp/ssh-slides"
+ },
+ {
+  "name": "sshm",
+  "bin": "sshm",
+  "category": "Productivity",
+  "description": "SSH made easy and fast: browse, connect, and control from your terminal with a modern TUI",
+  "homepage": "https://github.com/gu1llaum-3/sshm"
+ },
+ {
+  "name": "Tabiew",
+  "bin": "tabiew",
+  "category": "Productivity",
+  "description": "A lightweight app to view and query tabular data files, such as CSV, TSV, and parquet.",
+  "homepage": "https://github.com/shshemi/tabiew"
+ },
+ {
+  "name": "taskline",
+  "bin": "taskline",
+  "category": "Productivity",
+  "description": "Tasks, boards & notes for the command-line habitat",
+  "homepage": "https://github.com/perryrh0dan/taskline"
+ },
+ {
+  "name": "taskwarrior-tui",
+  "bin": "taskwarrior-tui",
+  "category": "Productivity",
+  "description": "A Terminal User Interface for Taskwarrior",
+  "homepage": "https://github.com/kdheepak/taskwarrior-tui"
+ },
+ {
+  "name": "television",
+  "bin": "television",
+  "category": "Productivity",
+  "description": "A fast and versatile fuzzy finder TUI",
+  "homepage": "https://github.com/alexpasmantier/television"
+ },
+ {
+  "name": "tenere",
+  "bin": "tenere",
+  "category": "Productivity",
+  "description": "A TUI for ChatGPT written in Rust.",
+  "homepage": "https://github.com/pythops/tenere"
+ },
+ {
+  "name": "termscp",
+  "bin": "termscp",
+  "category": "Productivity",
+  "description": "A TUI file transfer and explorer, with support for SCP/SFTP/FTP/S3.",
+  "homepage": "https://github.com/veeso/termscp"
+ },
+ {
+  "name": "tiki",
+  "bin": "tiki",
+  "category": "Productivity",
+  "description": "Markdown-based git-versioned project and issue manager",
+  "homepage": "https://github.com/boolean-maybe/tiki"
+ },
+ {
+  "name": "tmux",
+  "bin": "tmux",
+  "category": "Productivity",
+  "description": "Terminal multiplexer",
+  "homepage": "https://github.com/tmux/tmux"
+ },
+ {
+  "name": "Tock",
+  "bin": "tock",
+  "category": "Productivity",
+  "description": "The powerful time tracking tool for the command line with a beautiful interactive TUI.",
+  "homepage": "https://github.com/kriuchkov/tock"
+ },
+ {
+  "name": "tododo",
+  "bin": "tododo",
+  "category": "Productivity",
+  "description": "A pretty TUI TODO.md manager for tasks and projects",
+  "homepage": "https://github.com/bmarse/tododo"
+ },
+ {
+  "name": "todoman",
+  "bin": "todoman",
+  "category": "Productivity",
+  "description": "A simple, standards-based (ics, DAV), cli task-manager",
+  "homepage": "https://github.com/pimutils/todoman"
+ },
+ {
+  "name": "Toney",
+  "bin": "toney",
+  "category": "Productivity",
+  "description": "a fast, lightweight, terminal-based note-taking app for the modern developer.",
+  "homepage": "https://github.com/SourcewareLab/Toney"
+ },
+ {
+  "name": "topydo",
+  "bin": "topydo",
+  "category": "Productivity",
+  "description": "A powerful todo list application using the todo.txt format",
+  "homepage": "https://github.com/topydo/topydo"
+ },
+ {
+  "name": "ttyplot",
+  "bin": "ttyplot",
+  "category": "Productivity",
+  "description": "A realtime plotting utility for terminals with data input from stdin/pipe.",
+  "homepage": "https://github.com/tenox7/ttyplot"
+ },
+ {
+  "name": "tui-deck",
+  "bin": "tui-deck",
+  "category": "Productivity",
+  "description": "A TUI frontend for Nextcloud Deck app written in GO",
+  "homepage": "https://github.com/mebitek/tui-deck"
+ },
+ {
+  "name": "tui-slides",
+  "bin": "tui-slides",
+  "category": "Productivity",
+  "description": "A terminal presentation tool capable of rendering images and many other widgets.",
+  "homepage": "https://github.com/Chleba/tui-slides"
+ },
+ {
+  "name": "TUI_ProjectManager",
+  "bin": "tui_projectmanager",
+  "category": "Productivity",
+  "description": "A simple project-based todo list written in Rust",
+  "homepage": "https://github.com/NicoDblc/TUI_ProjectManager"
+ },
+ {
+  "name": "tuidict",
+  "bin": "tuidict",
+  "category": "Productivity",
+  "description": "Fast offline dictionary with in-app downloads and multi-language support from FreeDict",
+  "homepage": "https://github.com/404Simon/tuidict"
+ },
+ {
+  "name": "tuihub",
+  "bin": "tuihub",
+  "category": "Productivity",
+  "description": "A utility hub/dashboard for personal use",
+  "homepage": "https://github.com/ashis0013/tuihub"
+ },
+ {
+  "name": "TUIOS",
+  "bin": "tuios",
+  "category": "Productivity",
+  "description": "A TUI window manager for managing multiple terminal sessions",
+  "homepage": "https://github.com/Gaurav-Gosain/tuios"
+ },
+ {
+  "name": "tvterm",
+  "bin": "tvterm",
+  "category": "Productivity",
+  "description": "A terminal emulator that runs in your terminal",
+  "homepage": "https://github.com/magiblot/tvterm"
+ },
+ {
+  "name": "Visidata",
+  "bin": "visidata",
+  "category": "Productivity",
+  "description": "A terminal spreadsheet multitool for discovering and arranging data",
+  "homepage": "https://github.com/saulpw/visidata"
+ },
+ {
+  "name": "zeit",
+  "bin": "zeit",
+  "category": "Productivity",
+  "description": "A command line tool for tracking time spent on activities.",
+  "homepage": "https://github.com/mrusme/zeit"
+ },
+ {
+  "name": "zellij",
+  "bin": "zellij",
+  "category": "Productivity",
+  "description": "A terminal workspace with batteries included",
+  "homepage": "https://github.com/zellij-org/zellij"
+ },
+ {
+  "name": "astroterm",
+  "bin": "astroterm",
+  "category": "Screensavers",
+  "description": "A planetarium for your terminal! Explore stars, planets, constellations, and more",
+  "homepage": "https://github.com/da-luce/astroterm"
+ },
+ {
+  "name": "gitlogue",
+  "bin": "gitlogue",
+  "category": "Screensavers",
+  "description": "A TUI screensaver that visualizes Git commit history in your terminal",
+  "homepage": "https://github.com/unhappychoice/gitlogue"
+ },
+ {
+  "name": "neo",
+  "bin": "neo",
+  "category": "Screensavers",
+  "description": "Simulates the digital rain from \"The Matrix\"",
+  "homepage": "https://github.com/st3w/neo"
+ },
+ {
+  "name": "pond",
+  "bin": "pond",
+  "category": "Screensavers",
+  "description": "A soothing in-terminal idle screen that simulates a little pond.",
+  "homepage": "https://gitlab.com/alice-lefebvre/pond"
+ },
+ {
+  "name": "rxpipes",
+  "bin": "rxpipes",
+  "category": "Screensavers",
+  "description": "2D recreation of the ancient Pipes screensaver for terminals.",
+  "homepage": "https://github.com/inunix3/rxpipes"
+ },
+ {
+  "name": "weathr",
+  "bin": "weathr",
+  "category": "Screensavers",
+  "description": "A terminal weather app with ASCII animations for weather visualization",
+  "homepage": "https://github.com/veirt/weathr"
+ },
+ {
+  "name": "bombadillo",
+  "bin": "bombadillo",
+  "category": "Web",
+  "description": "A TUI browser for the non-web: Gopher, Gemini, Finger",
+  "homepage": "https://bombadillo.colorfield.space/"
+ },
+ {
+  "name": "browsh",
+  "bin": "browsh",
+  "category": "Web",
+  "description": "A fully-modern text-based browser, rendering to TTY and browsers",
+  "homepage": "https://github.com/browsh-org/browsh"
+ },
+ {
+  "name": "bulletty",
+  "bin": "bulletty",
+  "category": "Web",
+  "description": "A pretty feed reader (ATOM/RSS) that stores articles in Markdown files",
+  "homepage": "https://github.com/CrociDB/bulletty"
+ },
+ {
+  "name": "Canard",
+  "bin": "canard",
+  "category": "Web",
+  "description": "A command line TUI client for the [Journalist](https://github.com/mrusme/journalist) RSS aggregator.",
+  "homepage": "https://github.com/mrusme/canard"
+ },
+ {
+  "name": "carbonyl",
+  "bin": "carbonyl",
+  "category": "Web",
+  "description": "Chromium running inside your terminal",
+  "homepage": "https://github.com/fathyb/carbonyl"
+ },
+ {
+  "name": "castero",
+  "bin": "castero",
+  "category": "Web",
+  "description": "A TUI app to listen to podcast",
+  "homepage": "https://github.com/xgi/castero"
+ },
+ {
+  "name": "CatenaVetus",
+  "bin": "catenavetus",
+  "category": "Web",
+  "description": "A TUI for reading the Church Fathers",
+  "homepage": "https://github.com/jimbob88/CatenaVetus"
+ },
+ {
+  "name": "Chawan",
+  "bin": "chawan",
+  "category": "Web",
+  "description": "A TUI web (and (S)FTP, Gopher, Gemini) browser with CSS, inline image and JavaScript support.",
+  "homepage": "https://chawan.net"
+ },
+ {
+  "name": "cloudflare-speed-cli",
+  "bin": "cloudflare-speed-cli",
+  "category": "Web",
+  "description": "Internet speed test via Cloudflare",
+  "homepage": "https://github.com/kavehtehrani/cloudflare-speed-cli"
+ },
+ {
+  "name": "eilmeldung",
+  "bin": "eilmeldung",
+  "category": "Web",
+  "description": "RSS reader, supporting many RSS providers, bulk-operations and configuration options.",
+  "homepage": "https://github.com/christo-auer/eilmeldung"
+ },
+ {
+  "name": "elinks",
+  "bin": "elinks",
+  "category": "Web",
+  "description": "ELinks (HTTP/FTP/..) brower with mujs javascript support.",
+  "homepage": "https://github.com/rkd77/elinks"
+ },
+ {
+  "name": "hackernews-TUI",
+  "bin": "hackernews-tui",
+  "category": "Web",
+  "description": "A Terminal UI to browse Hacker News",
+  "homepage": "https://github.com/aome510/hackernews-TUI"
+ },
+ {
+  "name": "haxor-news",
+  "bin": "haxor-news",
+  "category": "Web",
+  "description": "Browse Hacker News like a haxor: A Hacker News command line interface (CLI)",
+  "homepage": "https://github.com/donnemartin/haxor-news"
+ },
+ {
+  "name": "Lagrange",
+  "bin": "lagrange",
+  "category": "Web",
+  "description": "Lagrange is a cross-platform client for browsing Geminispace",
+  "homepage": "https://gmi.skyjake.fi/lagrange"
+ },
+ {
+  "name": "LYNX",
+  "bin": "lynx",
+  "category": "Web",
+  "description": "A text based Terminal browser",
+  "homepage": "https://lynx.invisible-island.net/"
+ },
+ {
+  "name": "newsboat",
+  "bin": "newsboat",
+  "category": "Web",
+  "description": "An RSS/Atom feed reader for the text console",
+  "homepage": "https://github.com/newsboat/newsboat"
+ },
+ {
+  "name": "nyaa",
+  "bin": "nyaa",
+  "category": "Web",
+  "description": "A nyaa.si TUI for browsing and downloading torrents",
+  "homepage": "https://github.com/Beastwick18/nyaa"
+ },
+ {
+  "name": "omaro",
+  "bin": "omaro",
+  "category": "Web",
+  "description": "TUI to browse posts and comments on lobste.rs",
+  "homepage": "https://github.com/Rolv-Apneseth/omaro"
+ },
+ {
+  "name": "podliner",
+  "bin": "podliner",
+  "category": "Web",
+  "description": "A cross-platform podcast client",
+  "homepage": "https://github.com/timkicker/podliner"
+ },
+ {
+  "name": "rfc_reader",
+  "bin": "rfc_reader",
+  "category": "Web",
+  "description": "A tool to read RFCs (Request for Comments) with a TUI, allowing you to fetch, cache, and browse RFC documents.",
+  "homepage": "https://github.com/ozan2003/rfc_reader"
+ },
+ {
+  "name": "rtorrent",
+  "bin": "rtorrent",
+  "category": "Web",
+  "description": "A text-based BitTorrent client written in C++",
+  "homepage": "https://github.com/rakshasa/rtorrent"
+ },
+ {
+  "name": "rttt",
+  "bin": "rttt",
+  "category": "Web",
+  "description": "A Hackernews, RSS and Reddit reader for the terminal written in C++.",
+  "homepage": "https://gitlab.com/BlackEdder/rttt"
+ },
+ {
+  "name": "searxngr",
+  "bin": "searxngr",
+  "category": "Web",
+  "description": "Web search TUI for SearXNG",
+  "homepage": "https://github.com/scross01/searxngr"
+ },
+ {
+  "name": "Slumber",
+  "bin": "slumber",
+  "category": "Web",
+  "description": "Terminal-based HTTP/REST client",
+  "homepage": "https://github.com/LucasPickering/slumber"
+ },
+ {
+  "name": "stegodon",
+  "bin": "stegodon",
+  "category": "Web",
+  "description": "SSH-first federated microblog with ActivityPub, web UI, and RSS feeds",
+  "homepage": "https://github.com/deemkeen/stegodon"
+ },
+ {
+  "name": "surge",
+  "bin": "surge",
+  "category": "Web",
+  "description": "A blazing fast, beautiful TUI download manager built in Go.",
+  "homepage": "https://github.com/surge-downloader/surge"
+ },
+ {
+  "name": "tblogs",
+  "bin": "tblogs",
+  "category": "Web",
+  "description": "Read and browse development blogs from your terminal",
+  "homepage": "https://github.com/ezeoleaf/tblogs"
+ },
+ {
+  "name": "textual-web",
+  "bin": "textual-web",
+  "category": "Web",
+  "description": "Run TUIs and terminals in your browser",
+  "homepage": "https://github.com/Textualize/textual-web"
+ },
+ {
+  "name": "twterm",
+  "bin": "twterm",
+  "category": "Web",
+  "description": "A full-featured TUI Twitter client",
+  "homepage": "https://github.com/ryota-ka/twterm"
+ },
+ {
+  "name": "w3m",
+  "bin": "w3m",
+  "category": "Web",
+  "description": "A text-mode WWW browser",
+  "homepage": "https://github.com/tats/w3m"
+ }
+]
