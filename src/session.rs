@@ -395,7 +395,30 @@ impl SessionCore {
             ClientMsg::SettingsNextSection => { if let Some(s) = self.focused_settings_mut() { s.next_section(); } }
             ClientMsg::SettingsLeft => { if let Some(s) = self.focused_settings_mut() { s.left(); } self.sync_settings(); }
             ClientMsg::SettingsRight => { if let Some(s) = self.focused_settings_mut() { s.right(); } self.sync_settings(); }
-            ClientMsg::SettingsToggle => { if let Some(s) = self.focused_settings_mut() { s.toggle(); } self.sync_settings(); }
+            ClientMsg::SettingsToggle => {
+                if let Some(s) = self.focused_settings_mut() {
+                    s.toggle();
+                }
+                match self.focused_settings_mut().and_then(|s| s.take_action()) {
+                    Some(crate::settings::SettingsAction::CheckUpdates) => {
+                        let msg = check_for_updates();
+                        if let Some(s) = self.focused_settings_mut() {
+                            s.set_update_status(msg);
+                        }
+                    }
+                    Some(crate::settings::SettingsAction::InstallUpdate) => {
+                        let cmd = format!(
+                            "clear; echo 'Updating tuiui from {repo} …'; echo; \
+cargo install --git {repo} --force; echo; echo '────'; \
+echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"",
+                            repo = crate::REPO_URL,
+                        );
+                        self.launch("update tuiui".into(), "sh".into(), vec!["-lc".into(), cmd]);
+                    }
+                    None => {}
+                }
+                self.sync_settings();
+            }
             ClientMsg::SettingsClose => {
                 if let Some(id) = self.wm.focused() {
                     if matches!(self.contents.get(&id), Some(WinContent::Settings(_))) {
@@ -748,5 +771,38 @@ impl SessionCore {
             content.kill();
         }
         self.contents.clear();
+    }
+}
+
+/// Check the upstream repository for a newer commit than this build.
+///
+/// Uses `curl` against the GitHub API with a hard timeout so the call can never
+/// hang the desktop. Returns a short human-readable status string.
+fn check_for_updates() -> String {
+    let short = |s: &str| s.chars().take(7).collect::<String>();
+    let api = format!(
+        "https://api.github.com/repos/{}/commits/main",
+        crate::REPO_URL.trim_start_matches("https://github.com/")
+    );
+    let out = std::process::Command::new("curl")
+        .args(["-fsS", "--max-time", "6", "-H", "User-Agent: tuiui", &api])
+        .output();
+    let latest = out
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| serde_json::from_slice::<serde_json::Value>(&o.stdout).ok())
+        .and_then(|v| v.get("sha").and_then(|s| s.as_str()).map(str::to_string));
+    match latest {
+        Some(sha) => {
+            let cur = crate::GIT_SHA;
+            if cur == "unknown" {
+                format!("Latest is {} — reinstall to update", short(&sha))
+            } else if sha.starts_with(cur) || cur.starts_with(&short(&sha)) {
+                format!("Up to date ({})", short(cur))
+            } else {
+                format!("Update available: {} → {}", short(cur), short(&sha))
+            }
+        }
+        None => "Couldn't check (offline?)".to_string(),
     }
 }

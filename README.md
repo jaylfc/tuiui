@@ -35,6 +35,27 @@ Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button 
 
 Requires a [Rust toolchain](https://rustup.rs).
 
+### Install
+
+```bash
+cargo install --git https://github.com/jaylfc/tuiui
+```
+
+This builds and installs the `tuiui` binary to `~/.cargo/bin`, so you can then just run:
+
+```bash
+tuiui            # start the daemon (if needed) and attach
+```
+
+Update later from inside the app (**Settings → Updates → Check / Update**), or manually:
+
+```bash
+cargo install --git https://github.com/jaylfc/tuiui --force
+tuiui kill && tuiui     # restart the daemon onto the new build
+```
+
+### Run from a clone (for development)
+
 ```bash
 cargo run --release        # starts the daemon (if needed) and attaches a client
 ```

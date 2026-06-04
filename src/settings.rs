@@ -15,19 +15,41 @@ const ACCENT: Rgba = Rgba { r: 108, g: 182, b: 255, a: 255 };
 const GREEN: Rgba = Rgba { r: 126, g: 231, b: 135, a: 255 };
 
 const SIDEBAR_W: i32 = 18;
-const SECTIONS: &[&str] = &["Windows", "Appearance", "About"];
+const SECTIONS: &[&str] = &["Windows", "Appearance", "Updates", "About"];
+
+/// An action the session must perform on behalf of the settings panel
+/// (these touch the network / spawn processes, so the panel only requests them).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SettingsAction {
+    /// Check upstream for a newer commit.
+    CheckUpdates,
+    /// Install the latest version.
+    InstallUpdate,
+}
 
 /// Settings panel state (owns a working copy of the config).
 pub struct Settings {
     cfg: Config,
     section: usize,
     sel: usize,
+    action: Option<SettingsAction>,
+    update_status: String,
 }
 
 impl Settings {
     /// Create a settings panel editing a copy of `cfg`.
     pub fn new(cfg: Config) -> Self {
-        Self { cfg, section: 0, sel: 0 }
+        Self { cfg, section: 0, sel: 0, action: None, update_status: String::new() }
+    }
+
+    /// Take a pending action requested by the user (cleared on read).
+    pub fn take_action(&mut self) -> Option<SettingsAction> {
+        self.action.take()
+    }
+
+    /// Set the text shown under the Updates section after a check.
+    pub fn set_update_status(&mut self, s: String) {
+        self.update_status = s;
     }
 
     /// The live (edited) config.
@@ -40,6 +62,7 @@ impl Settings {
         match self.section {
             0 => 2, // snapping, threshold
             1 => 1, // shadows
+            2 => 2, // check, install
             _ => 0, // About
         }
     }
@@ -91,6 +114,9 @@ impl Settings {
                 };
             }
             (1, 0) => self.cfg.window_shadows = flip(self.cfg.window_shadows, dir),
+            // Updates section: Enter/Space (dir 0) requests an action from the session.
+            (2, 0) if dir == 0 => self.action = Some(SettingsAction::CheckUpdates),
+            (2, 1) if dir == 0 => self.action = Some(SettingsAction::InstallUpdate),
             _ => {}
         }
     }
@@ -144,6 +170,16 @@ impl Settings {
             1 => {
                 self.row(&mut buf, cx, 3, 0, "Window shadows", toggle_val(self.cfg.window_shadows));
                 buf.write_str(cx, 5, "Themes — coming soon", DIM, BG);
+            }
+            2 => {
+                self.row(&mut buf, cx, 3, 0, "Check for updates", String::new());
+                self.row(&mut buf, cx, 4, 1, "Update tuiui now", String::new());
+                let sha = &crate::GIT_SHA[..crate::GIT_SHA.len().min(7)];
+                buf.write_str(cx, 6, &format!("installed: v{} ({})", crate::VERSION, sha), DIM, BG);
+                if !self.update_status.is_empty() {
+                    let col = if self.update_status.contains("Update available") { GREEN } else { DIM };
+                    buf.write_str(cx, 7, &self.update_status, col, BG);
+                }
             }
             _ => {
                 buf.write_str(cx, 3, "tuiui — a desktop environment for the terminal", FG, BG);

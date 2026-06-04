@@ -14,6 +14,13 @@ pub mod launcher;
 pub mod input;
 pub mod session;
 pub mod config;
+
+/// The crate version (from Cargo.toml).
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The git commit this binary was built from (stamped by `build.rs`).
+pub const GIT_SHA: &str = env!("TUIUI_GIT_SHA");
+/// Upstream repository the in-app updater checks/installs from.
+pub const REPO_URL: &str = "https://github.com/jaylfc/tuiui";
 pub mod protocol;
 pub mod daemon;
 pub mod client;

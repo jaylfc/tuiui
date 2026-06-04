@@ -23,3 +23,20 @@ fn threshold_adjusts_within_bounds() {
     s.left();
     assert_eq!(s.config().snap_threshold, before - 1);
 }
+
+#[test]
+fn updates_section_requests_check_and_install() {
+    use tuiui::settings::SettingsAction;
+    let mut s = Settings::new(Config::default());
+    s.next_section(); // Appearance
+    s.next_section(); // Updates
+    s.toggle();       // row 0 -> Check
+    assert_eq!(s.take_action(), Some(SettingsAction::CheckUpdates));
+    s.move_down();    // row 1
+    s.toggle();       // -> Install
+    assert_eq!(s.take_action(), Some(SettingsAction::InstallUpdate));
+    // a plain settings toggle elsewhere requests nothing
+    let mut w = Settings::new(Config::default());
+    w.toggle();
+    assert_eq!(w.take_action(), None);
+}
