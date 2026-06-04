@@ -90,10 +90,10 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 ## Roadmap
 
 - **✅ Slice 1 — Shell:** compositor, window manager, PTY host, chrome, launcher.
+- **✅ Slice 3 — Store:** browse/search/install the full awesome-tuis catalog (mouse + keyboard; brew/cargo/go install).
+- **✅ Slice 4 — Settings:** sidebar settings panel writing `config.toml`.
 - **Slice 2 — Daemon & remote:** persistent sessions, attach/detach, SSH attach, capability negotiation.
-- **Slice 3 — Store:** browse/search/install the catalog (in progress).
-- **Slice 4 — Settings:** sidebar settings panel writing `config.toml`.
-- **Slice 5 — Theming.**
+- **Slice 5 — Theming** (make the palette/shadows fully configurable from Settings → Appearance).
 - **Slice 6 — GUI/Wayland mode** (host real GUI apps via the Kitty graphics protocol).
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 
