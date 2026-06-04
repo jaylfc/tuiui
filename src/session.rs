@@ -103,6 +103,12 @@ pub enum ClientMsg {
     MinimizeFocused,
     /// Snap the focused window to a screen half (keyboard command).
     SnapFocused(SnapZone),
+    /// Tile all windows into the configured grid (one-shot).
+    TileAll,
+    /// Toggle auto-tile mode.
+    ToggleAutoTile,
+    /// Send the focused window to grid cell N (1-based, row-major).
+    SendToCell(u8),
     /// Open/close the launcher dropdown menu (keyboard command).
     ToggleMenu,
     /// Open/close the Spotlight search overlay (keyboard command).
@@ -406,6 +412,30 @@ impl SessionCore {
                 if let Some(id) = self.wm.focused() {
                     self.wm.snap(id, zone);
                     self.sync_app_size(id);
+                }
+            }
+            ClientMsg::TileAll => {
+                let grid = self.grid();
+                self.wm.tile_all(grid, self.cfg.tile_gap);
+                self.sync_all_app_sizes();
+            }
+            ClientMsg::ToggleAutoTile => {
+                self.cfg.auto_tile = !self.cfg.auto_tile;
+                let _ = self.cfg.save();
+                if self.cfg.auto_tile {
+                    let grid = self.grid();
+                    self.wm.tile_all(grid, self.cfg.tile_gap);
+                    self.sync_all_app_sizes();
+                }
+            }
+            ClientMsg::SendToCell(n) => {
+                let grid = self.grid();
+                if n >= 1 && n <= grid.cells() {
+                    if let Some(id) = self.wm.focused() {
+                        let (row, col) = grid.row_col(n - 1);
+                        self.wm.send_to_cell(id, grid, row, col, self.cfg.tile_gap);
+                        self.sync_app_size(id);
+                    }
                 }
             }
             ClientMsg::ToggleMenu => self.launcher.toggle_menu(),
@@ -762,6 +792,23 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 self.drag = None;
             }
             Action::None => {}
+        }
+    }
+
+    /// The configured tiling grid (clamped to 1..=6 on each axis).
+    fn grid(&self) -> crate::geometry::Grid {
+        crate::geometry::Grid {
+            rows: self.cfg.grid_rows.clamp(1, 6),
+            cols: self.cfg.grid_cols.clamp(1, 6),
+        }
+    }
+
+    /// Resize every window's hosted app to its current content rect (after a
+    /// bulk re-tile).
+    fn sync_all_app_sizes(&mut self) {
+        let ids: Vec<WindowId> = self.wm.z_ordered().iter().map(|w| w.id).collect();
+        for id in ids {
+            self.sync_app_size(id);
         }
     }
 
