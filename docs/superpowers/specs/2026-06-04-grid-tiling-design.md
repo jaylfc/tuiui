@@ -75,7 +75,7 @@ keep the window floating, so free placement still works. This generalises
 Windows-style edge/corner snapping: corners → corner cells, edges → edge cells.
 
 ### 2. Auto-tile mode
-When `auto_tile` is on (config toggle or `leader → g`), all non-minimized windows
+When `auto_tile` is on (config toggle or `leader → T`, Shift+T), all non-minimized windows
 are arranged into the grid in z-order (oldest→newest), row-major. Triggered on
 open/close/resize. **Overflow:** windows beyond `rows*cols` stay floating above
 the grid (with the dock as the switcher); documented, not silently hidden.
@@ -108,8 +108,9 @@ Each placement sets `Tiled{row,col}` + the cell rect; the session then calls
 ## Session / input wiring
 
 - New `ClientMsg`: `TileAll`, `ToggleAutoTile`, `SendToCell(u8)`.
-- `client.rs` leader map gains `t` → `TileAll`, `g` → `ToggleAutoTile`,
-  `1..9` → `SendToCell(n)`.
+- `client.rs` leader map gains `t` → `TileAll`, `T` (Shift+T) → `ToggleAutoTile`,
+  `1..9` → `SendToCell(n)`. (Distinct lower/upper case follows the existing
+  `q` detach / `Q` shutdown precedent.)
 - Drag handling: during `MouseDrag`, when the edge-trigger condition holds,
   the session records the candidate cell and `build_frame` adds the preview
   layer; `EndDrag` snaps to that cell instead of the old left/right zones.
