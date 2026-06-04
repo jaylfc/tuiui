@@ -72,6 +72,7 @@ fn main() -> std::io::Result<()> {
                             KeyCode::Char('[') | KeyCode::Left => core.apply(ClientMsg::SnapFocused(SnapZone::Left)),
                             KeyCode::Char(']') | KeyCode::Right => core.apply(ClientMsg::SnapFocused(SnapZone::Right)),
                             KeyCode::Char('s') | KeyCode::Char('S') => core.apply(ClientMsg::OpenStore),
+                            KeyCode::Char(',') => core.apply(ClientMsg::OpenSettings),
                             KeyCode::Char('q') | KeyCode::Char('Q') => break 'outer,
                             _ => {} // Esc / anything else cancels the chord
                         }
@@ -101,6 +102,17 @@ fn main() -> std::io::Result<()> {
                             KeyCode::Right => core.apply(ClientMsg::StoreNextCategory),
                             KeyCode::Backspace => core.apply(ClientMsg::StoreBackspace),
                             KeyCode::Char(c) if !ctrl => core.apply(ClientMsg::StoreChar(c)),
+                            _ => {}
+                        }
+                    } else if core.focused_is_settings() {
+                        // The focused settings panel captures keyboard navigation.
+                        match k.code {
+                            KeyCode::Esc => core.apply(ClientMsg::SettingsClose),
+                            KeyCode::Up => core.apply(ClientMsg::SettingsUp),
+                            KeyCode::Down => core.apply(ClientMsg::SettingsDown),
+                            KeyCode::Left => core.apply(ClientMsg::SettingsLeft),
+                            KeyCode::Right => core.apply(ClientMsg::SettingsRight),
+                            KeyCode::Enter | KeyCode::Char(' ') => core.apply(ClientMsg::SettingsToggle),
                             _ => {}
                         }
                     } else if ctrl_alt {

@@ -23,3 +23,20 @@ command = "bash"
     assert_eq!(c.apps.len(), 1);
     assert_eq!(c.apps[0].command, "bash");
 }
+
+#[test]
+fn save_and_load_roundtrip() {
+    let dir = std::env::temp_dir().join(format!("tuiui-cfg-{}", std::process::id()));
+    std::env::set_var("XDG_CONFIG_HOME", &dir);
+    let mut c = Config::default();
+    c.snapping_enabled = false;
+    c.window_shadows = false;
+    c.snap_threshold = 7;
+    c.save().unwrap();
+    let loaded = Config::load();
+    assert!(!loaded.snapping_enabled);
+    assert!(!loaded.window_shadows);
+    assert_eq!(loaded.snap_threshold, 7);
+    std::env::remove_var("XDG_CONFIG_HOME");
+    let _ = std::fs::remove_dir_all(&dir);
+}

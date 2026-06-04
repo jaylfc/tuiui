@@ -1,18 +1,18 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A single application entry in the config file.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AppEntry {
     /// Human-readable name shown in the dock.
     pub name: String,
     /// Executable to launch (resolved via `$PATH`).
     pub command: String,
     /// Optional extra arguments passed to the executable.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub args: Vec<String>,
     /// Optional launcher category (e.g. "System", "Git"). Apps without one are
     /// grouped under "Apps".
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
 }
 
@@ -20,18 +20,20 @@ pub struct AppEntry {
 ///
 /// All fields have sensible defaults; missing keys in the TOML file
 /// fall back to [`Default::default`].
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Config {
     /// Whether dragging a window to a screen edge snaps it.
     pub snapping_enabled: bool,
     /// Distance in cells from the screen edge that triggers snapping.
     pub snap_threshold: i32,
+    /// Whether windows draw drop shadows.
+    pub window_shadows: bool,
     /// Ordered list of apps auto-started at launch (and shown in the dock).
     pub apps: Vec<AppEntry>,
     /// Apps offered in the launcher menu / spotlight. Falls back to `apps`
     /// (via [`Config::launcher_apps`]) when left empty.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub launcher: Vec<AppEntry>,
 }
 
@@ -52,6 +54,7 @@ impl Default for Config {
         Config {
             snapping_enabled: true,
             snap_threshold: 3,
+            window_shadows: true,
             apps: vec![
                 AppEntry { name: "shell".into(), command: default_shell(), args: vec![], category: Some("Shell".into()) },
             ],
@@ -92,6 +95,21 @@ impl Config {
             }
         }
         Config::default()
+    }
+
+    /// Write the config back to `$XDG_CONFIG_HOME/tuiui/config.toml` (or
+    /// `~/.config/tuiui/config.toml`), creating the directory if needed.
+    ///
+    /// Note: this serialises the live config, so any hand-written comments in the
+    /// file are not preserved.
+    pub fn save(&self) -> std::io::Result<()> {
+        let path = config_file_path(std::env::var_os("XDG_CONFIG_HOME"), dirs::home_dir())
+            .ok_or_else(|| std::io::Error::other("no config directory"))?;
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let toml = toml::to_string_pretty(self).map_err(std::io::Error::other)?;
+        std::fs::write(path, toml)
     }
 }
 

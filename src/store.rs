@@ -160,13 +160,12 @@ impl Store {
             }
             buf.write_str(dx + 1, 3, truncate(&app.name, dw as usize - 2), ACCENT, PANEL);
             buf.write_str(dx + 1, 4, truncate(&app.category, dw as usize - 2), DIM, PANEL);
-            let mut y = 6;
-            for line in wrap(&app.description, dw as usize - 2) {
+            for (i, line) in wrap(&app.description, dw as usize - 2).into_iter().enumerate() {
+                let y = 6 + i as i32;
                 if y >= h - 4 {
                     break;
                 }
                 buf.write_str(dx + 1, y, &line, FG, PANEL);
-                y += 1;
             }
             buf.write_str(dx + 1, h - 4, truncate(&app.homepage, dw as usize - 2), DIM, PANEL);
             // Action hint.

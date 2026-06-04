@@ -19,6 +19,7 @@ use crate::geometry::{Point, Rect, SnapZone, snap_zone};
 use crate::input::{route_mouse, MouseKind, Hit, Action};
 use crate::launcher::Launcher;
 use crate::ptyhost::AppInstance;
+use crate::settings::Settings;
 use crate::store::{self, Store};
 use crate::window::WindowId;
 use crate::wm::{WindowManager, render_window};
@@ -33,6 +34,8 @@ enum WinContent {
     App(AppInstance),
     /// The native app store browser.
     Store(Store),
+    /// The native settings panel.
+    Settings(Settings),
 }
 
 impl WinContent {
@@ -40,6 +43,7 @@ impl WinContent {
         match self {
             WinContent::App(a) => a.snapshot(),
             WinContent::Store(s) => s.render(w, h),
+            WinContent::Settings(s) => s.render(w, h),
         }
     }
     fn resize(&mut self, w: i32, h: i32) {
@@ -55,7 +59,7 @@ impl WinContent {
     fn is_alive(&mut self) -> bool {
         match self {
             WinContent::App(a) => a.is_alive(),
-            WinContent::Store(_) => true,
+            WinContent::Store(_) | WinContent::Settings(_) => true,
         }
     }
     fn kill(&mut self) {
@@ -130,6 +134,20 @@ pub enum ClientMsg {
     StoreActivate,
     /// Store: close the store window (Escape).
     StoreClose,
+    /// Open the settings window (or focus it if already open).
+    OpenSettings,
+    /// Settings: move selection up / down.
+    SettingsUp,
+    SettingsDown,
+    /// Settings: previous / next section.
+    SettingsPrevSection,
+    SettingsNextSection,
+    /// Settings: decrease / increase / toggle the selected setting.
+    SettingsLeft,
+    SettingsRight,
+    SettingsToggle,
+    /// Settings: close the settings window (Escape).
+    SettingsClose,
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -163,6 +181,8 @@ pub struct SessionCore {
     contents: HashMap<WindowId, WinContent>,
     /// The store window's id, if open (so it can be re-focused, not re-opened).
     store_win: Option<WindowId>,
+    /// The settings window's id, if open.
+    settings_win: Option<WindowId>,
     /// Dock-ordered list of (id, display-name) pairs.
     titles: Vec<(WindowId, String)>,
     cfg: Config,
@@ -188,6 +208,7 @@ impl SessionCore {
             wm: WindowManager::new(work),
             contents: HashMap::new(),
             store_win: None,
+            settings_win: None,
             titles: Vec::new(),
             cfg,
             w,
@@ -349,6 +370,68 @@ impl SessionCore {
                     }
                 }
             }
+            ClientMsg::OpenSettings => self.open_settings(),
+            ClientMsg::SettingsUp => { if let Some(s) = self.focused_settings_mut() { s.move_up(); } }
+            ClientMsg::SettingsDown => { if let Some(s) = self.focused_settings_mut() { s.move_down(); } }
+            ClientMsg::SettingsPrevSection => { if let Some(s) = self.focused_settings_mut() { s.prev_section(); } }
+            ClientMsg::SettingsNextSection => { if let Some(s) = self.focused_settings_mut() { s.next_section(); } }
+            ClientMsg::SettingsLeft => { if let Some(s) = self.focused_settings_mut() { s.left(); } self.sync_settings(); }
+            ClientMsg::SettingsRight => { if let Some(s) = self.focused_settings_mut() { s.right(); } self.sync_settings(); }
+            ClientMsg::SettingsToggle => { if let Some(s) = self.focused_settings_mut() { s.toggle(); } self.sync_settings(); }
+            ClientMsg::SettingsClose => {
+                if let Some(id) = self.wm.focused() {
+                    if matches!(self.contents.get(&id), Some(WinContent::Settings(_))) {
+                        self.close(id);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Open the settings window, or focus it if it's already open.
+    fn open_settings(&mut self) {
+        if let Some(id) = self.settings_win {
+            if self.contents.contains_key(&id) {
+                self.wm.unminimize(id);
+                return;
+            }
+        }
+        let w = 60.min((self.w - 4).max(40));
+        let h = 16.min((self.h - 4).max(10));
+        let rect = Rect::new((self.w - w) / 2, 3, w, h);
+        let id = self.wm.add_window("Settings".into(), rect);
+        self.contents.insert(id, WinContent::Settings(Settings::new(self.cfg.clone())));
+        self.titles.push((id, "Settings".into()));
+        self.settings_win = Some(id);
+    }
+
+    /// `true` when the focused window hosts the settings panel.
+    pub fn focused_is_settings(&self) -> bool {
+        self.wm
+            .focused()
+            .and_then(|id| self.contents.get(&id))
+            .map(|c| matches!(c, WinContent::Settings(_)))
+            .unwrap_or(false)
+    }
+
+    fn focused_settings_mut(&mut self) -> Option<&mut Settings> {
+        let id = self.wm.focused()?;
+        match self.contents.get_mut(&id)? {
+            WinContent::Settings(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// Copy the focused settings panel's edited config into the live config and
+    /// persist it to disk. Changes (snapping, shadows) then take effect next frame.
+    fn sync_settings(&mut self) {
+        let cfg = match self.wm.focused().and_then(|id| self.contents.get(&id)) {
+            Some(WinContent::Settings(s)) => Some(s.config().clone()),
+            _ => None,
+        };
+        if let Some(cfg) = cfg {
+            self.cfg = cfg;
+            let _ = self.cfg.save();
         }
     }
 
@@ -519,14 +602,20 @@ impl SessionCore {
                 // The store handles content clicks (category/row/install); PTY apps
                 // are keyboard-first for now, so raising is enough for them.
                 let cr = self.wm.get(id).map(|w| w.content_rect());
-                let mut activate = false;
+                let mut store_activate = false;
+                let mut settings_changed = false;
                 if let Some(cr) = cr {
-                    if let Some(WinContent::Store(s)) = self.contents.get_mut(&id) {
-                        activate = s.handle_click(local, cr.w, cr.h);
+                    match self.contents.get_mut(&id) {
+                        Some(WinContent::Store(s)) => store_activate = s.handle_click(local, cr.w, cr.h),
+                        Some(WinContent::Settings(s)) => settings_changed = s.handle_click(local, cr.w, cr.h),
+                        _ => {}
                     }
                 }
-                if activate {
+                if store_activate {
                     self.store_activate();
+                }
+                if settings_changed {
+                    self.sync_settings();
                 }
             }
             Action::EndDrag => {
@@ -564,6 +653,9 @@ impl SessionCore {
         if self.store_win == Some(id) {
             self.store_win = None;
         }
+        if self.settings_win == Some(id) {
+            self.settings_win = None;
+        }
         self.titles.retain(|(i, _)| *i != id);
         self.wm.close(id);
     }
@@ -590,7 +682,7 @@ impl SessionCore {
             let content = self.contents.get(&w.id)
                 .map(|c| c.render(cr.w, cr.h))
                 .unwrap_or_else(|| crate::buffer::CellBuffer::new(cr.w, cr.h));
-            layers.extend(render_window(w, &content, Some(w.id) == focused));
+            layers.extend(render_window(w, &content, Some(w.id) == focused, self.cfg.window_shadows));
         }
 
         let app_name = focused

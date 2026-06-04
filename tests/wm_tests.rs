@@ -93,7 +93,7 @@ fn render_window_draws_title_and_content() {
     let id = m.add_window("btop".into(), Rect::new(0, 1, 24, 5));
     let mut content = CellBuffer::new(10, 3);
     content.write_str(0, 0, "hello", tuiui::cell::Rgba::rgb(255, 255, 255), tuiui::cell::Rgba::TRANSPARENT);
-    let layers = render_window(m.get(id).unwrap(), &content, true);
+    let layers = render_window(m.get(id).unwrap(), &content, true, true);
     // shadow layer + window layer
     assert!(!layers.is_empty());
     let win_layer = layers.last().unwrap();

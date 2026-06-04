@@ -228,25 +228,27 @@ const CLOSE_FG:       Rgba = Rgba { r: 255, g: 107, b: 107, a: 255 };
 /// terminals, or any I/O.  Callers snapshot app content independently and
 /// pass it in; this keeps rendering and process-hosting cleanly separated.
 #[must_use]
-pub fn render_window(win: &Window, content: &CellBuffer, focused: bool) -> Vec<Layer> {
+pub fn render_window(win: &Window, content: &CellBuffer, focused: bool, shadows: bool) -> Vec<Layer> {
     let r = win.rect;
     let base_z = 10 + win.z * 2;
 
     // Shadow: a translucent block offset by (1, 1) behind the window.
-    let mut shadow = CellBuffer::new(r.w, r.h);
-    shadow.fill(Cell {
-        ch: ' ',
-        fg: Rgba::TRANSPARENT,
-        bg: SHADOW,
-        attrs: Default::default(),
+    let shadow_layer = shadows.then(|| {
+        let mut shadow = CellBuffer::new(r.w, r.h);
+        shadow.fill(Cell {
+            ch: ' ',
+            fg: Rgba::TRANSPARENT,
+            bg: SHADOW,
+            attrs: Default::default(),
+        });
+        Layer {
+            z: base_z,
+            origin: Point::new(r.x + 1, r.y + 1),
+            buf: shadow,
+            opacity: 1.0,
+            scissor: None,
+        }
     });
-    let shadow_layer = Layer {
-        z: base_z,
-        origin: Point::new(r.x + 1, r.y + 1),
-        buf: shadow,
-        opacity: 1.0,
-        scissor: None,
-    };
 
     // Window body.
     let mut buf = CellBuffer::new(r.w, r.h);
@@ -303,5 +305,8 @@ pub fn render_window(win: &Window, content: &CellBuffer, focused: bool) -> Vec<L
         scissor: None,
     };
 
-    vec![shadow_layer, win_layer]
+    match shadow_layer {
+        Some(shadow) => vec![shadow, win_layer],
+        None => vec![win_layer],
+    }
 }

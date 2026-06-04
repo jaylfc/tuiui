@@ -63,3 +63,14 @@ fn open_store_creates_focused_store_window() {
     assert!(!core.focused_is_store());
     core.shutdown();
 }
+
+#[test]
+fn open_settings_creates_focused_settings_window() {
+    let mut core = SessionCore::new(120, 40, Config::default());
+    assert!(!core.focused_is_settings());
+    core.apply(ClientMsg::OpenSettings);
+    assert!(core.focused_is_settings());
+    core.apply(ClientMsg::SettingsClose);
+    assert!(!core.focused_is_settings());
+    core.shutdown();
+}
