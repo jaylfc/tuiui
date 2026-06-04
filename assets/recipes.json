@@ -18,12 +18,42 @@
   ],
   "verified": true
  },
+ "Aider": {
+  "install": "pipx install aider-chat",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Amp": {
+  "install": "brew install ampcode/tap/ampcode",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "Argonaut": {
   "install": "brew tap darksworm/homebrew-tap && brew install darksworm/homebrew-tap/argonaut",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "Auggie": {
+  "install": "npm install -g @augmentcode/auggie",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -127,6 +157,16 @@
   ],
   "verified": true
  },
+ "Claude Code": {
+  "install": "curl -fsSL https://claude.ai/install.sh | bash",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "Claude Code Bridge": {
   "install": "pip install claude-code-bridge",
   "method": "pip",
@@ -156,6 +196,25 @@
   ],
   "verified": true
  },
+ "Codex": {
+  "install": "npm install -g @openai/codex",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Continue CLI": {
+  "install": "curl -fsSL https://raw.githubusercontent.com/continuedev/continue/main/extensions/cli/scripts/install.sh | bash",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "CoreFreq": {
   "install": "git clone https://github.com/cyring/CoreFreq.git && cd CoreFreq && make -j && make install",
   "method": "source",
@@ -168,6 +227,16 @@
   "install": "go install github.com/knuspii/crunchycleaner/v2@latest",
   "method": "go",
   "os": [
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Crush": {
+  "install": "brew install charmbracelet/tap/crush",
+  "method": "brew",
+  "os": [
+   "macos",
    "linux",
    "windows"
   ],
@@ -297,6 +366,16 @@
   ],
   "verified": true
  },
+ "Gemini CLI": {
+  "install": "npm install -g @google/gemini-cli",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "GitType": {
   "install": "brew install gittype",
   "method": "brew",
@@ -342,6 +421,16 @@
   ],
   "verified": true
  },
+ "Goose": {
+  "install": "brew install block-goose-cli",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "GopherTube": {
   "install": "curl -sSL https://raw.githubusercontent.com/KrishnaSSH/GopherTube/main/install.sh | bash",
   "method": "script",
@@ -374,6 +463,15 @@
  "Greed": {
   "install": "brew install greed",
   "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "Grok CLI": {
+  "install": "curl -fsSL https://raw.githubusercontent.com/superagent-ai/grok-cli/main/install.sh | bash",
+  "method": "script",
   "os": [
    "macos",
    "linux"
@@ -419,6 +517,16 @@
  "Judo": {
   "install": "cargo install judo",
   "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Kilo Code": {
+  "install": "npm install -g @kilocode/cli",
+  "method": "npm",
   "os": [
    "macos",
    "linux",
@@ -554,6 +662,16 @@
   ],
   "verified": true
  },
+ "OpenHands": {
+  "install": "uv tool install openhands --python 3.12",
+  "method": "uv",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "PesterExplorer": {
   "install": "Install-Module PesterExplorer -Scope CurrentUser",
   "method": "other",
@@ -561,6 +679,15 @@
    "macos",
    "linux",
    "windows"
+  ],
+  "verified": true
+ },
+ "Plandex": {
+  "install": "curl -sL https://plandex.ai/install.sh | bash",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
   ],
   "verified": true
  },
@@ -613,6 +740,16 @@
  "Quorum": {
   "install": "pipx install quorum-cli",
   "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "Qwen Code": {
+  "install": "npm install -g @qwen-code/qwen-code@latest",
+  "method": "npm",
   "os": [
    "macos",
    "linux",
@@ -994,15 +1131,6 @@
  },
  "alpine": {
   "install": "brew install alpine",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "amp": {
-  "install": "brew install amp",
   "method": "brew",
   "os": [
    "macos",
@@ -1543,16 +1671,6 @@
   ],
   "verified": true
  },
- "codex": {
-  "install": "brew install --cask codex",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux",
-   "windows"
-  ],
-  "verified": true
- },
  "cointop": {
   "install": "brew install cointop",
   "method": "brew",
@@ -1564,16 +1682,6 @@
  },
  "cruise": {
   "install": "brew tap cruise-org/homebrew-tap && brew install --cask cruise",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux",
-   "windows"
-  ],
-  "verified": true
- },
- "crush": {
-  "install": "brew install charmbracelet/tap/crush",
   "method": "brew",
   "os": [
    "macos",
@@ -2839,6 +2947,16 @@
   ],
   "verified": true
  },
+ "llm": {
+  "install": "pipx install llm",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "lnav": {
   "install": "brew install lnav",
   "method": "brew",
@@ -3432,11 +3550,12 @@
   "verified": true
  },
  "opencode": {
-  "install": "brew install opencode",
-  "method": "brew",
+  "install": "npm i -g opencode-ai",
+  "method": "npm",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
   "verified": true
  },

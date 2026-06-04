@@ -1,5 +1,117 @@
 [
  {
+  "name": "Aider",
+  "bin": "aider",
+  "category": "AI",
+  "description": "AI pair programming tool that lets you edit code in your terminal using LLMs like Claude and GPT-4.",
+  "homepage": "https://aider.chat"
+ },
+ {
+  "name": "Amp",
+  "bin": "amp",
+  "category": "AI",
+  "description": "An AI coding agent that runs in your terminal and lets you start, monitor, and drive agents from CLI, web, and mobile.",
+  "homepage": "https://ampcode.com"
+ },
+ {
+  "name": "Auggie",
+  "bin": "auggie",
+  "category": "AI",
+  "description": "Agentic AI coding assistant that runs in your terminal, understands your codebase, and makes code edits via natural language.",
+  "homepage": "https://github.com/augmentcode/auggie"
+ },
+ {
+  "name": "Claude Code",
+  "bin": "claude",
+  "category": "AI",
+  "description": "Anthropic's official AI coding assistant that runs as a terminal/TUI CLI for agentic coding tasks.",
+  "homepage": "https://code.claude.com"
+ },
+ {
+  "name": "Codex",
+  "bin": "codex",
+  "category": "AI",
+  "description": "Lightweight agentic coding assistant that runs in your terminal, powered by OpenAI models.",
+  "homepage": "https://github.com/openai/codex"
+ },
+ {
+  "name": "Continue CLI",
+  "bin": "cn",
+  "category": "AI",
+  "description": "Terminal AI coding agent that runs interactive chat and headless automation against your codebase via the cn command.",
+  "homepage": "https://continue.dev"
+ },
+ {
+  "name": "Crush",
+  "bin": "crush",
+  "category": "AI",
+  "description": "A terminal-based agentic AI coding assistant that wires LLMs into your tools, code, and workflows.",
+  "homepage": "https://github.com/charmbracelet/crush"
+ },
+ {
+  "name": "Gemini CLI",
+  "bin": "gemini",
+  "category": "AI",
+  "description": "An open-source AI agent that brings Gemini directly into your terminal for coding, file operations, and shell tasks.",
+  "homepage": "https://github.com/google-gemini/gemini-cli"
+ },
+ {
+  "name": "Goose",
+  "bin": "goose",
+  "category": "AI",
+  "description": "Open-source AI agent that runs in your terminal to automate coding, research, and engineering tasks across 15+ LLM providers.",
+  "homepage": "https://goose-docs.ai"
+ },
+ {
+  "name": "Grok CLI",
+  "bin": "grok",
+  "category": "AI",
+  "description": "Open-source terminal coding agent built on the xAI Grok API with a TUI, sub-agents, real-time web/X search, and media generation.",
+  "homepage": "https://github.com/superagent-ai/grok-cli"
+ },
+ {
+  "name": "Kilo Code",
+  "bin": "kilo",
+  "category": "AI",
+  "description": "Agentic AI coding assistant with a keyboard-driven TUI that orchestrates code generation, editing, and terminal commands from the command line.",
+  "homepage": "https://kilo.ai"
+ },
+ {
+  "name": "llm",
+  "bin": "llm",
+  "category": "AI",
+  "description": "Run prompts against large language models from the command line, with support for dozens of models via plugins.",
+  "homepage": "https://llm.datasette.io"
+ },
+ {
+  "name": "opencode",
+  "bin": "opencode",
+  "category": "AI",
+  "description": "Open-source AI coding agent built for the terminal with a TUI and support for 75+ LLM providers.",
+  "homepage": "https://opencode.ai"
+ },
+ {
+  "name": "OpenHands",
+  "bin": "openhands",
+  "category": "AI",
+  "description": "AI-driven software development agent that runs interactively in your terminal to write and execute code on your behalf.",
+  "homepage": "https://github.com/All-Hands-AI/OpenHands"
+ },
+ {
+  "name": "Plandex",
+  "bin": "plandex",
+  "category": "AI",
+  "description": "Open-source terminal AI coding agent designed for large projects and multi-file tasks.",
+  "homepage": "https://github.com/plandex-ai/plandex"
+ },
+ {
+  "name": "Qwen Code",
+  "bin": "qwen",
+  "category": "AI",
+  "description": "Open-source AI coding agent that runs in your terminal, optimized for Qwen series models.",
+  "homepage": "https://github.com/QwenLM/qwen-code"
+ },
+ {
   "name": "AdGuardian-Term",
   "bin": "adguardian-term",
   "category": "Dashboards",
@@ -630,20 +742,6 @@
   "homepage": "https://github.com/fipso/cntui"
  },
  {
-  "name": "codex",
-  "bin": "codex",
-  "category": "Development",
-  "description": "Lightweight coding agent that runs in your terminal",
-  "homepage": "https://github.com/openai/codex"
- },
- {
-  "name": "crush",
-  "bin": "crush",
-  "category": "Development",
-  "description": "The glamourous AI coding agent",
-  "homepage": "https://github.com/charmbracelet/crush"
- },
- {
   "name": "csope",
   "bin": "csope",
   "category": "Development",
@@ -908,13 +1006,6 @@
   "category": "Development",
   "description": "OPC UA client TUI with real-time oscilloscope view for industrial automation",
   "homepage": "https://github.com/SquareWaveSystems/opcilloscope"
- },
- {
-  "name": "opencode",
-  "bin": "opencode",
-  "category": "Development",
-  "description": "AI coding agent, built for the terminal",
-  "homepage": "https://github.com/sst/opencode"
  },
  {
   "name": "play",
@@ -1356,13 +1447,6 @@
   "category": "Docker/LXC/K8s",
   "description": "TUI for Talos Linux providing real-time node monitoring, log streaming, and various diagnostics",
   "homepage": "https://github.com/handfish/talos-pilot"
- },
- {
-  "name": "amp",
-  "bin": "amp",
-  "category": "Editors",
-  "description": "A complete text editor for your terminal",
-  "homepage": "https://github.com/jmacdonald/amp"
  },
  {
   "name": "C-Edit",
