@@ -12,6 +12,8 @@ impl Rect {
     pub fn new(x: i32, y: i32, w: i32, h: i32) -> Self { Self { x, y, w, h } }
     pub fn right(&self) -> i32 { self.x + self.w - 1 }
     pub fn bottom(&self) -> i32 { self.y + self.h - 1 }
+    /// Integer midpoint of the rect.
+    pub fn center(&self) -> Point { Point::new(self.x + self.w / 2, self.y + self.h / 2) }
     pub fn contains(&self, p: Point) -> bool {
         p.x >= self.x && p.x <= self.right() && p.y >= self.y && p.y <= self.bottom()
     }

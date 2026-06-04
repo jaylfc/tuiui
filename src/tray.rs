@@ -79,3 +79,230 @@ pub fn tray_segments(state: &SystemState, width: i32) -> Vec<Segment> {
     out.reverse();
     out
 }
+
+// ── Interactive tray: open popover state + rendering + hit-testing ─────────────
+
+use crate::buffer::CellBuffer;
+use crate::cell::Cell;
+use crate::compositor::Layer;
+use crate::geometry::Point;
+use crate::system::{ControlIntent, SystemState as St};
+
+/// A clickable hot-zone inside an open popover: its screen rect and the intent
+/// it produces when clicked.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PopoverHit {
+    pub rect: Rect,
+    pub intent: ControlIntent,
+}
+
+/// A rendered popover: compositor layers, clickable hits, and the popover's outer
+/// bounds (so the session can detect clicks outside it).
+#[derive(Default)]
+pub struct Rendered {
+    pub layers: Vec<Layer>,
+    pub hits: Vec<PopoverHit>,
+    pub bounds: Option<Rect>,
+}
+
+/// The interactive menubar tray: tracks which segment's popover is open (and the
+/// x it is anchored under), renders the popover, and maps clicks to intents.
+#[derive(Default)]
+pub struct Tray {
+    open: Option<(SegmentKind, i32)>,
+}
+
+impl Tray {
+    pub fn new() -> Self {
+        Self { open: None }
+    }
+
+    /// The kind whose popover is currently open, if any.
+    pub fn open(&self) -> Option<SegmentKind> {
+        self.open.map(|(k, _)| k)
+    }
+
+    /// Open `kind`'s popover at a default anchor (used by tests).
+    pub fn force_open(&mut self, kind: SegmentKind) {
+        self.open = Some((kind, 20));
+    }
+
+    /// Close any open popover.
+    pub fn close(&mut self) {
+        self.open = None;
+    }
+
+    /// Handle a click on the menubar row: toggle the popover of the clicked
+    /// segment. Returns `true` if the click hit a segment (handled).
+    pub fn on_menubar_click(&mut self, p: Point, segments: &[Segment]) -> bool {
+        if p.y != 0 {
+            return false;
+        }
+        if let Some(seg) = segments.iter().find(|s| s.rect.contains(p)) {
+            self.open = match self.open {
+                Some((k, _)) if k == seg.kind => None,
+                _ => Some((seg.kind, seg.rect.x)),
+            };
+            return true;
+        }
+        false
+    }
+
+    /// Map a click inside the open popover to a `ControlIntent`, if it landed on
+    /// a hot-zone.
+    pub fn on_popover_click(&self, p: Point, r: &Rendered) -> Option<ControlIntent> {
+        r.hits.iter().find(|h| h.rect.contains(p)).map(|h| h.intent.clone())
+    }
+
+    /// Render the open popover (if any) into layers + hits.
+    pub fn render(&self, w: i32, h: i32, state: &St) -> Rendered {
+        let Some((kind, anchor_x)) = self.open else { return Rendered::default() };
+        match kind {
+            SegmentKind::Volume => self.render_volume(w, h, anchor_x, state),
+            SegmentKind::Wifi => self.render_wifi(w, h, anchor_x, state),
+            SegmentKind::Bluetooth => self.render_bluetooth(w, h, anchor_x, state),
+            SegmentKind::Clock => self.render_lines(w, h, anchor_x, "Clock", &[
+                state.clock.date.clone(),
+                format!("up {}h", state.clock.uptime_secs / 3600),
+            ]),
+            SegmentKind::Cpu => self.render_lines(w, h, anchor_x, "CPU", &[
+                format!("{:.0}% load", state.cpu_pct),
+            ]),
+            SegmentKind::Mem => self.render_lines(w, h, anchor_x, "Memory", &[
+                format!("{}% used", mem_pct(state.mem.used, state.mem.total)),
+            ]),
+            SegmentKind::Battery => self.render_lines(w, h, anchor_x, "Battery", &[
+                state.battery.map(|b| format!("{}%{}", b.pct, if b.charging { " ⚡" } else { "" }))
+                    .unwrap_or_else(|| "no battery".into()),
+            ]),
+        }
+    }
+
+    fn box_origin(&self, w: i32, anchor_x: i32, box_w: i32) -> Point {
+        let x = anchor_x.min(w - box_w - 1).max(0);
+        Point::new(x, 1)
+    }
+
+    fn render_volume(&self, w: i32, _h: i32, anchor_x: i32, st: &St) -> Rendered {
+        let box_w = 24;
+        let box_h = 4;
+        let origin = self.box_origin(w, anchor_x, box_w);
+        let mut buf = CellBuffer::new(box_w, box_h);
+        fill_box(&mut buf, box_w, box_h);
+        let t = crate::theme::current();
+        let v = &st.volume;
+        buf.write_str(2, 1, &format!("Volume {}{}", v.level, if v.muted { " (muted)" } else { "" }), t.text, t.window_bg);
+        // Row 2: ◂  bar  ▸   speaker
+        let filled = (v.level as i32 * 6 / 100).clamp(0, 6) as usize;
+        let bar: String = (0..6).map(|i| if i < filled { '▮' } else { '▯' }).collect();
+        buf.write_str(2, 2, "◂", t.accent, t.window_bg);
+        buf.write_str(5, 2, &bar, t.text, t.window_bg);
+        buf.write_str(13, 2, "▸", t.accent, t.window_bg);
+        buf.write_str(17, 2, volume_glyph(v), t.text, t.window_bg);
+        let hit = |lx: i32, lw: i32, intent: ControlIntent| PopoverHit {
+            rect: Rect::new(origin.x + lx, origin.y + 2, lw, 1),
+            intent,
+        };
+        let hits = vec![
+            hit(2, 1, ControlIntent::VolumeDown),
+            hit(13, 1, ControlIntent::VolumeUp),
+            hit(17, 2, ControlIntent::ToggleMute),
+        ];
+        Rendered { layers: vec![layer(origin, buf)], hits, bounds: Some(Rect::new(origin.x, origin.y, box_w, box_h)) }
+    }
+
+    fn render_wifi(&self, w: i32, _h: i32, anchor_x: i32, st: &St) -> Rendered {
+        let t = crate::theme::current();
+        let enabled = st.wifi.as_ref().map(|x| x.enabled).unwrap_or(false);
+        let cur = st.wifi.as_ref().map(|x| x.ssid.clone()).unwrap_or_default();
+        let nets: Vec<String> = st.known_networks.iter().take(6).cloned().collect();
+        let box_w = 28;
+        let box_h = 3 + nets.len() as i32;
+        let origin = self.box_origin(w, anchor_x, box_w);
+        let mut buf = CellBuffer::new(box_w, box_h);
+        fill_box(&mut buf, box_w, box_h);
+        buf.write_str(2, 1, &format!("Wi-Fi  [{}]", if enabled { "on" } else { "off" }), t.accent, t.window_bg);
+        let mut hits = vec![PopoverHit {
+            rect: Rect::new(origin.x + 9, origin.y + 1, 4, 1),
+            intent: ControlIntent::WifiSetEnabled(!enabled),
+        }];
+        for (i, ssid) in nets.iter().enumerate() {
+            let y = 2 + i as i32;
+            let mark = if *ssid == cur { "●" } else { " " };
+            buf.write_str(2, y, &format!("{} {}", mark, ssid), t.text, t.window_bg);
+            hits.push(PopoverHit {
+                rect: Rect::new(origin.x + 1, origin.y + y, box_w - 2, 1),
+                intent: ControlIntent::WifiConnectKnown(ssid.clone()),
+            });
+        }
+        Rendered { layers: vec![layer(origin, buf)], hits, bounds: Some(Rect::new(origin.x, origin.y, box_w, box_h)) }
+    }
+
+    fn render_bluetooth(&self, w: i32, _h: i32, anchor_x: i32, st: &St) -> Rendered {
+        let t = crate::theme::current();
+        let bt = &st.bluetooth;
+        let devs: Vec<_> = bt.devices.iter().take(6).cloned().collect();
+        let box_w = 30;
+        let box_h = 3 + devs.len().max(1) as i32;
+        let origin = self.box_origin(w, anchor_x, box_w);
+        let mut buf = CellBuffer::new(box_w, box_h);
+        fill_box(&mut buf, box_w, box_h);
+        buf.write_str(2, 1, &format!("Bluetooth  [{}]", if bt.enabled { "on" } else { "off" }), t.accent, t.window_bg);
+        let mut hits = vec![PopoverHit {
+            rect: Rect::new(origin.x + 13, origin.y + 1, 4, 1),
+            intent: ControlIntent::BtSetEnabled(!bt.enabled),
+        }];
+        if devs.is_empty() && st.caps.bluetooth {
+            buf.write_str(2, 2, "(no paired devices)", t.dim, t.window_bg);
+        } else if !st.caps.bluetooth {
+            buf.write_str(2, 2, "install blueutil to control", t.dim, t.window_bg);
+        }
+        for (i, d) in devs.iter().enumerate() {
+            let y = 2 + i as i32;
+            let mark = if d.connected { "●" } else { "○" };
+            buf.write_str(2, y, &format!("{} {}", mark, d.name), t.text, t.window_bg);
+            hits.push(PopoverHit {
+                rect: Rect::new(origin.x + 1, origin.y + y, box_w - 2, 1),
+                intent: ControlIntent::BtConnect { addr: d.addr.clone(), connect: !d.connected },
+            });
+        }
+        Rendered { layers: vec![layer(origin, buf)], hits, bounds: Some(Rect::new(origin.x, origin.y, box_w, box_h)) }
+    }
+
+    fn render_lines(&self, w: i32, _h: i32, anchor_x: i32, title: &str, lines: &[String]) -> Rendered {
+        let t = crate::theme::current();
+        let box_w = 24;
+        let box_h = 2 + lines.len() as i32;
+        let origin = self.box_origin(w, anchor_x, box_w);
+        let mut buf = CellBuffer::new(box_w, box_h);
+        fill_box(&mut buf, box_w, box_h);
+        buf.write_str(2, 1, title, t.accent, t.window_bg);
+        for (i, l) in lines.iter().enumerate() {
+            buf.write_str(2, 2 + i as i32, l, t.text, t.window_bg);
+        }
+        Rendered { layers: vec![layer(origin, buf)], hits: Vec::new(), bounds: Some(Rect::new(origin.x, origin.y, box_w, box_h)) }
+    }
+}
+
+fn layer(origin: Point, buf: CellBuffer) -> Layer {
+    Layer { z: 5000, origin, buf, opacity: 1.0, scissor: None }
+}
+
+/// Fill a buffer with the window background and draw a rounded border.
+fn fill_box(buf: &mut CellBuffer, w: i32, h: i32) {
+    let t = crate::theme::current();
+    buf.fill(Cell { ch: ' ', fg: t.text, bg: t.window_bg, attrs: Default::default() });
+    let b = |ch: char| Cell { ch, fg: t.border, bg: t.window_bg, attrs: Default::default() };
+    for x in 0..w {
+        buf.set(x, 0, b('─'));
+        buf.set(x, h - 1, b('─'));
+    }
+    for y in 0..h {
+        buf.set(0, y, b('│'));
+        buf.set(w - 1, y, b('│'));
+    }
+    buf.set(0, 0, b('╭'));
+    buf.set(w - 1, 0, b('╮'));
+    buf.set(0, h - 1, b('╰'));
+    buf.set(w - 1, h - 1, b('╯'));
+}

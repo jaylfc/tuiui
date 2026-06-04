@@ -37,3 +37,38 @@ fn segments_do_not_overlap() {
         assert!(pair[0].rect.x + pair[0].rect.w <= pair[1].rect.x);
     }
 }
+
+use tuiui::geometry::Point;
+use tuiui::system::ControlIntent;
+use tuiui::tray::Tray;
+
+#[test]
+fn clicking_a_segment_opens_then_closes_its_popover() {
+    let mut tray = Tray::new();
+    let segs = tray_segments(&sample(), 100);
+    let vol = segs.iter().find(|s| s.kind == SegmentKind::Volume).unwrap();
+    assert!(tray.on_menubar_click(Point::new(vol.rect.x, 0), &segs));
+    assert_eq!(tray.open(), Some(SegmentKind::Volume));
+    // Clicking the same segment again closes it.
+    assert!(tray.on_menubar_click(Point::new(vol.rect.x, 0), &segs));
+    assert_eq!(tray.open(), None);
+}
+
+#[test]
+fn volume_popover_arrows_yield_intents() {
+    let mut tray = Tray::new();
+    tray.force_open(SegmentKind::Volume);
+    let r = tray.render(100, 30, &sample());
+    let up = r.hits.iter().find(|h| h.intent == ControlIntent::VolumeUp).unwrap();
+    assert_eq!(tray.on_popover_click(up.rect.center(), &r), Some(ControlIntent::VolumeUp));
+    let down = r.hits.iter().find(|h| h.intent == ControlIntent::VolumeDown).unwrap();
+    assert_eq!(tray.on_popover_click(down.rect.center(), &r), Some(ControlIntent::VolumeDown));
+}
+
+#[test]
+fn closed_tray_renders_nothing() {
+    let tray = Tray::new();
+    let r = tray.render(100, 30, &sample());
+    assert!(r.layers.is_empty());
+    assert!(r.bounds.is_none());
+}
