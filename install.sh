@@ -33,7 +33,11 @@ fi
 url="https://github.com/$REPO/releases/download/$tag/tuiui-$target.tar.gz"
 echo "tuiui: downloading $tag ($target)…"
 mkdir -p "$BIN_DIR"
-curl -fsSL "$url" | tar -xz -C "$BIN_DIR"
+if ! curl -fsSL "$url" | tar -xz -C "$BIN_DIR" 2>/dev/null || [ ! -f "$BIN_DIR/tuiui" ]; then
+  echo "tuiui: no prebuilt binary for $target in $tag."
+  echo "Install with Rust instead:  cargo install --git https://github.com/$REPO"
+  exit 1
+fi
 chmod +x "$BIN_DIR/tuiui"
 
 echo "tuiui: installed $tag -> $BIN_DIR/tuiui"
