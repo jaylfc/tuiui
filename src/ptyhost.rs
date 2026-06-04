@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 const DEFAULT_FG: Rgba = Rgba { r: 200, g: 208, b: 220, a: 255 };
 // Matches the window panel color (wm::WIN_BG) so an app's default-background
 // cells blend seamlessly into the window rather than showing a mismatched fill.
-const DEFAULT_BG: Rgba = Rgba { r: 13, g: 15, b: 22, a: 255 };
+const DEFAULT_BG: Rgba = Rgba { r: 17, g: 20, b: 29, a: 255 };
 
 /// No-op event listener — Tuiui polls the grid via [`AppInstance::snapshot`]
 /// rather than reacting to terminal events (bell, title changes, etc.) yet.
