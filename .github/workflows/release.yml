@@ -1,0 +1,42 @@
+name: Release
+
+# Builds standalone tuiui binaries and attaches them to the GitHub Release for a
+# pushed tag (e.g. v0.1.0), so users can install with the curl | sh installer
+# without a Rust toolchain.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14, target: aarch64-apple-darwin }
+          - { os: macos-13, target: x86_64-apple-darwin }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package
+        run: tar -C target/${{ matrix.target }}/release -czf tuiui-${{ matrix.target }}.tar.gz tuiui
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tuiui-${{ matrix.target }}.tar.gz

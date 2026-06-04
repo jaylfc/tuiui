@@ -37,11 +37,19 @@ Requires a [Rust toolchain](https://rustup.rs).
 
 ### Install
 
+**Prebuilt binary** (macOS arm64/x86_64, Linux x86_64 — no Rust needed):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jaylfc/tuiui/main/install.sh | sh
+```
+
+**Or build from source** with a [Rust toolchain](https://rustup.rs):
+
 ```bash
 cargo install --git https://github.com/jaylfc/tuiui
 ```
 
-This builds and installs the `tuiui` binary to `~/.cargo/bin`, so you can then just run:
+Either way the `tuiui` binary lands on your `PATH`, so you can just run:
 
 ```bash
 tuiui            # start the daemon (if needed) and attach
