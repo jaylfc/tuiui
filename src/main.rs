@@ -71,6 +71,7 @@ fn main() -> std::io::Result<()> {
                             KeyCode::Char('n') | KeyCode::Char('N') => core.apply(ClientMsg::MinimizeFocused),
                             KeyCode::Char('[') | KeyCode::Left => core.apply(ClientMsg::SnapFocused(SnapZone::Left)),
                             KeyCode::Char(']') | KeyCode::Right => core.apply(ClientMsg::SnapFocused(SnapZone::Right)),
+                            KeyCode::Char('s') | KeyCode::Char('S') => core.apply(ClientMsg::OpenStore),
                             KeyCode::Char('q') | KeyCode::Char('Q') => break 'outer,
                             _ => {} // Esc / anything else cancels the chord
                         }
@@ -89,6 +90,19 @@ fn main() -> std::io::Result<()> {
                         }
                     } else if is_leader {
                         leader = true;
+                    } else if core.focused_is_store() {
+                        // The focused store window captures keyboard navigation/search.
+                        match k.code {
+                            KeyCode::Esc => core.apply(ClientMsg::StoreClose),
+                            KeyCode::Enter => core.apply(ClientMsg::StoreActivate),
+                            KeyCode::Up => core.apply(ClientMsg::StoreUp),
+                            KeyCode::Down => core.apply(ClientMsg::StoreDown),
+                            KeyCode::Left => core.apply(ClientMsg::StorePrevCategory),
+                            KeyCode::Right => core.apply(ClientMsg::StoreNextCategory),
+                            KeyCode::Backspace => core.apply(ClientMsg::StoreBackspace),
+                            KeyCode::Char(c) if !ctrl => core.apply(ClientMsg::StoreChar(c)),
+                            _ => {}
+                        }
                     } else if ctrl_alt {
                         // Legacy Ctrl+Alt chords still work where Alt is delivered.
                         match k.code {

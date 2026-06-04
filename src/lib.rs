@@ -8,6 +8,7 @@ pub mod window;
 pub mod wm;
 pub mod chrome;
 pub mod catalog;
+pub mod store;
 pub mod launcher;
 pub mod input;
 pub mod session;

@@ -48,3 +48,18 @@ fn spotlight_launches_selected_app() {
     assert_eq!(core.window_count(), before + 1);
     core.shutdown();
 }
+
+#[test]
+fn open_store_creates_focused_store_window() {
+    let mut core = SessionCore::new(120, 40, Config::default());
+    assert!(!core.focused_is_store());
+    core.apply(ClientMsg::OpenStore);
+    assert!(core.focused_is_store());
+    let n = core.window_count();
+    // opening again focuses the same window, doesn't make a second
+    core.apply(ClientMsg::OpenStore);
+    assert_eq!(core.window_count(), n);
+    core.apply(ClientMsg::StoreClose);
+    assert!(!core.focused_is_store());
+    core.shutdown();
+}

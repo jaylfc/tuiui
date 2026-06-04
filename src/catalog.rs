@@ -42,9 +42,20 @@ pub fn category_for(name_or_bin: &str) -> Option<String> {
         .map(|c| c.category.clone())
 }
 
+/// Whether an executable `bin` is present on `$PATH` (cached per process).
+pub fn is_installed(bin: &str) -> bool {
+    path_bins().contains(&bin.to_lowercase())
+}
+
+/// The set of `$PATH` executable names, scanned once per process.
+fn path_bins() -> &'static HashSet<String> {
+    static BINS: OnceLock<HashSet<String>> = OnceLock::new();
+    BINS.get_or_init(path_executables)
+}
+
 /// Return catalog apps whose binary is present on the current `$PATH`.
 pub fn detect_installed() -> Vec<AppEntry> {
-    let bins = path_executables();
+    let bins = path_bins();
     catalog()
         .iter()
         .filter(|c| bins.contains(&c.bin) || bins.contains(&c.name.to_lowercase()))

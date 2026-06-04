@@ -19,9 +19,51 @@ use crate::geometry::{Point, Rect, SnapZone, snap_zone};
 use crate::input::{route_mouse, MouseKind, Hit, Action};
 use crate::launcher::Launcher;
 use crate::ptyhost::AppInstance;
+use crate::store::{self, Store};
 use crate::window::WindowId;
 use crate::wm::{WindowManager, render_window};
 use std::collections::HashMap;
+
+/// The content hosted by a window: a PTY-backed app or a native Tuiui widget.
+///
+/// This is the [`WindowContent`](../../docs) seam — the window manager, chrome,
+/// and input routing operate on windows uniformly, while the content type varies.
+enum WinContent {
+    /// A child process in a pseudo-terminal.
+    App(AppInstance),
+    /// The native app store browser.
+    Store(Store),
+}
+
+impl WinContent {
+    fn render(&self, w: i32, h: i32) -> crate::buffer::CellBuffer {
+        match self {
+            WinContent::App(a) => a.snapshot(),
+            WinContent::Store(s) => s.render(w, h),
+        }
+    }
+    fn resize(&mut self, w: i32, h: i32) {
+        if let WinContent::App(a) = self {
+            a.resize(w, h);
+        }
+    }
+    fn write_input(&mut self, bytes: &[u8]) {
+        if let WinContent::App(a) = self {
+            a.write_input(bytes);
+        }
+    }
+    fn is_alive(&mut self) -> bool {
+        match self {
+            WinContent::App(a) => a.is_alive(),
+            WinContent::Store(_) => true,
+        }
+    }
+    fn kill(&mut self) {
+        if let WinContent::App(a) = self {
+            a.kill();
+        }
+    }
+}
 
 // ── Public message type ───────────────────────────────────────────────────────
 
@@ -73,6 +115,21 @@ pub enum ClientMsg {
     LauncherEnter,
     /// Dismiss the launcher (Escape).
     LauncherEsc,
+    /// Open the store window (or focus it if already open).
+    OpenStore,
+    /// Store: move selection up / down.
+    StoreUp,
+    StoreDown,
+    /// Store: previous / next category.
+    StorePrevCategory,
+    StoreNextCategory,
+    /// Store: type into / edit the search query.
+    StoreChar(char),
+    StoreBackspace,
+    /// Store: install or launch the selected app (Enter).
+    StoreActivate,
+    /// Store: close the store window (Escape).
+    StoreClose,
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -103,7 +160,9 @@ pub struct Frame {
 /// server side.
 pub struct SessionCore {
     wm: WindowManager,
-    apps: HashMap<WindowId, AppInstance>,
+    contents: HashMap<WindowId, WinContent>,
+    /// The store window's id, if open (so it can be re-focused, not re-opened).
+    store_win: Option<WindowId>,
     /// Dock-ordered list of (id, display-name) pairs.
     titles: Vec<(WindowId, String)>,
     cfg: Config,
@@ -127,7 +186,8 @@ impl SessionCore {
         let launcher = Launcher::new(Self::build_launcher_apps(&cfg));
         Self {
             wm: WindowManager::new(work),
-            apps: HashMap::new(),
+            contents: HashMap::new(),
+            store_win: None,
             titles: Vec::new(),
             cfg,
             w,
@@ -174,7 +234,7 @@ impl SessionCore {
     pub fn quit_requested(&self) -> bool { self.quit }
 
     /// Return the number of live windows (app instances spawned successfully).
-    pub fn window_count(&self) -> usize { self.apps.len() }
+    pub fn window_count(&self) -> usize { self.contents.len() }
 
     /// Return the currently focused [`WindowId`], if any.
     pub fn focused(&self) -> Option<WindowId> { self.wm.focused() }
@@ -230,8 +290,8 @@ impl SessionCore {
             }
             ClientMsg::Key(bytes) => {
                 if let Some(id) = self.wm.focused() {
-                    if let Some(app) = self.apps.get_mut(&id) {
-                        app.write_input(&bytes);
+                    if let Some(c) = self.contents.get_mut(&id) {
+                        c.write_input(&bytes);
                     }
                 }
             }
@@ -274,6 +334,69 @@ impl SessionCore {
                 }
             }
             ClientMsg::LauncherEsc => self.launcher.close(),
+            ClientMsg::OpenStore => self.open_store(),
+            ClientMsg::StoreUp => { if let Some(s) = self.focused_store_mut() { s.move_up(); } }
+            ClientMsg::StoreDown => { if let Some(s) = self.focused_store_mut() { s.move_down(); } }
+            ClientMsg::StorePrevCategory => { if let Some(s) = self.focused_store_mut() { s.prev_category(); } }
+            ClientMsg::StoreNextCategory => { if let Some(s) = self.focused_store_mut() { s.next_category(); } }
+            ClientMsg::StoreChar(c) => { if let Some(s) = self.focused_store_mut() { s.type_char(c); } }
+            ClientMsg::StoreBackspace => { if let Some(s) = self.focused_store_mut() { s.backspace(); } }
+            ClientMsg::StoreActivate => self.store_activate(),
+            ClientMsg::StoreClose => {
+                if let Some(id) = self.wm.focused() {
+                    if matches!(self.contents.get(&id), Some(WinContent::Store(_))) {
+                        self.close(id);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Open the store window, or focus it if it's already open.
+    fn open_store(&mut self) {
+        if let Some(id) = self.store_win {
+            if self.contents.contains_key(&id) {
+                self.wm.unminimize(id);
+                return;
+            }
+        }
+        let w = 84.min((self.w - 4).max(40));
+        let h = 28.min((self.h - 4).max(12));
+        let rect = Rect::new((self.w - w) / 2, 2, w, h);
+        let id = self.wm.add_window("Store".into(), rect);
+        self.contents.insert(id, WinContent::Store(Store::new()));
+        self.titles.push((id, "Store".into()));
+        self.store_win = Some(id);
+    }
+
+    /// `true` when the focused window hosts the store browser (the front-end
+    /// routes keyboard input to the store in this case).
+    pub fn focused_is_store(&self) -> bool {
+        self.wm
+            .focused()
+            .and_then(|id| self.contents.get(&id))
+            .map(|c| matches!(c, WinContent::Store(_)))
+            .unwrap_or(false)
+    }
+
+    fn focused_store_mut(&mut self) -> Option<&mut Store> {
+        let id = self.wm.focused()?;
+        match self.contents.get_mut(&id)? {
+            WinContent::Store(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// Enter on a store row: launch the app if installed, else install it (the
+    /// install command runs visibly in a new shell window).
+    fn store_activate(&mut self) {
+        let app = self.focused_store_mut().and_then(|s| s.selected_app());
+        let Some(app) = app else { return };
+        if crate::catalog::is_installed(&app.bin) {
+            self.launch(app.name.clone(), app.bin.clone(), Vec::new());
+        } else {
+            let cmd = store::install_command(app);
+            self.launch(format!("install: {}", app.name), "sh".into(), vec!["-lc".into(), cmd]);
         }
     }
 
@@ -305,7 +428,7 @@ impl SessionCore {
         let content = self.wm.get(id).unwrap().content_rect();
         match AppInstance::spawn(&command, &args, content.w.max(1), content.h.max(1)) {
             Ok(app) => {
-                self.apps.insert(id, app);
+                self.contents.insert(id, WinContent::App(app));
                 self.titles.push((id, name));
             }
             Err(_) => {
@@ -417,16 +540,19 @@ impl SessionCore {
     fn sync_app_size(&mut self, id: WindowId) {
         if let Some(w) = self.wm.get(id) {
             let c = w.content_rect();
-            if let Some(app) = self.apps.get_mut(&id) {
-                app.resize(c.w.max(1), c.h.max(1));
+            if let Some(content) = self.contents.get_mut(&id) {
+                content.resize(c.w.max(1), c.h.max(1));
             }
         }
     }
 
-    /// Kill a window's PTY, remove its dock entry, and close the WM window.
+    /// Kill a window's content, remove its dock entry, and close the WM window.
     fn close(&mut self, id: WindowId) {
-        if let Some(mut app) = self.apps.remove(&id) {
-            app.kill();
+        if let Some(mut content) = self.contents.remove(&id) {
+            content.kill();
+        }
+        if self.store_win == Some(id) {
+            self.store_win = None;
         }
         self.titles.retain(|(i, _)| *i != id);
         self.wm.close(id);
@@ -450,12 +576,10 @@ impl SessionCore {
             if w.minimized {
                 continue; // hidden to the dock
             }
-            let content = self.apps.get(&w.id)
-                .map(|a| a.snapshot())
-                .unwrap_or_else(|| {
-                    let cr = w.content_rect();
-                    crate::buffer::CellBuffer::new(cr.w, cr.h)
-                });
+            let cr = w.content_rect();
+            let content = self.contents.get(&w.id)
+                .map(|c| c.render(cr.w, cr.h))
+                .unwrap_or_else(|| crate::buffer::CellBuffer::new(cr.w, cr.h));
             layers.extend(render_window(w, &content, Some(w.id) == focused));
         }
 
@@ -480,9 +604,9 @@ impl SessionCore {
     /// Call this once per render loop tick to keep the session consistent with
     /// process state.
     pub fn reap_dead(&mut self) {
-        let dead: Vec<WindowId> = self.apps
+        let dead: Vec<WindowId> = self.contents
             .iter_mut()
-            .filter_map(|(id, a)| if !a.is_alive() { Some(*id) } else { None })
+            .filter_map(|(id, c)| if !c.is_alive() { Some(*id) } else { None })
             .collect();
         for id in dead {
             self.close(id);
@@ -494,9 +618,9 @@ impl SessionCore {
     /// Must be called before dropping the session to ensure no child processes
     /// are orphaned.
     pub fn shutdown(&mut self) {
-        for (_, app) in self.apps.iter_mut() {
-            app.kill();
+        for (_, content) in self.contents.iter_mut() {
+            content.kill();
         }
-        self.apps.clear();
+        self.contents.clear();
     }
 }
