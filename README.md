@@ -1,20 +1,24 @@
 # tuiui
 
-**A desktop environment for the terminal.** tuiui is a windowing shell that runs *inside* a terminal: floating, overlapping windows — each hosting a real terminal application — with a mouse cursor, a top menubar, a bottom dock, window snapping, an app launcher, and (in progress) an app store backed by the [awesome-tuis](https://github.com/rothgar/awesome-tuis) catalog.
+**A desktop environment for the terminal.** tuiui is a windowing shell that runs *inside* a terminal: floating, overlapping windows — each hosting a real terminal application — with a mouse cursor, a top menubar + status tray, a bottom dock, configurable grid tiling, an app launcher, and an app store backed by the [awesome-tuis](https://github.com/rothgar/awesome-tuis) catalog.
 
 It's a multiplexer at heart (apps run as real child processes in PTYs and are composited into windows), built from scratch in Rust.
 
-> **Status: early, active development.** The core shell, window management, app launcher, and app catalog work today. The store UI, settings panel, theming, and a daemon/remote layer are on the roadmap below.
+> **Status: active development.** The shell, window management, persistent daemon, app launcher, store, settings, theming, a macOS-style status tray, and configurable grid tiling all work today. GUI/Wayland streaming is on the roadmap below.
 
 ## What works today
 
 - **Floating, overlapping windows** with drop shadows, each running a real TUI (btop, a shell, vim, …) in its own pseudo-terminal.
 - **Faithful rendering** via a full terminal emulator ([`alacritty_terminal`](https://docs.rs/alacritty_terminal)) — even demanding apps like btop render correctly.
 - **Mouse-driven**: drag titlebars to move, drag edges to resize, click the dock to focus, click titlebar buttons to minimize/maximize/close.
-- **Window snapping** (drag to a screen edge → half-screen) and keyboard window management.
-- **Top menubar + bottom dock** chrome.
-- **App launcher** — a menubar dropdown *and* a Spotlight-style search overlay, with apps grouped by category.
-- **App catalog** — the full awesome-tuis list (582 apps, 12 categories), bundled and used to auto-detect which TUIs you already have installed on `$PATH`.
+- **Configurable grid tiling** — set a rows×columns grid (e.g. 2×3 for an ultra-wide) and use drag-to-cell snapping (with a live preview), a one-key *tile-all*, an *auto-tile* mode, or send a window straight to a numbered cell.
+- **Menubar status tray** — clock, CPU/memory, volume, WiFi, Bluetooth, and battery, with click-through popovers that control the **host's** volume, switch to a known WiFi network, and connect a paired Bluetooth device.
+- **App launcher** — a Windows-Start-menu-style multi-column dropdown *and* a Spotlight search overlay, with apps grouped by category.
+- **App store** — browse/search/install from a curated, **100%-verified** catalog of ~590 TUIs (incl. a dedicated **AI** category: Claude Code, Gemini CLI, Aider, opencode, Codex, Crush, Goose, Plandex, and more), OS-aware so Linux-only tools never show on macOS and vice-versa.
+- **Custom apps** — add your own launcher entries (name + command) from **Settings → Apps**.
+- **Theming** — four built-in palettes (midnight, nord, gruvbox, dracula), switchable live from **Settings → Appearance**.
+- **Persistent daemon + thin client** (tmux-style): windows and processes survive detach and SSH disconnects.
+- **In-app updater** — check for and install updates from **Settings → Updates**.
 
 ## Controls
 
@@ -25,11 +29,16 @@ tuiui uses a **leader key** (`Ctrl+Space`) so its shortcuts never collide with m
 | `Ctrl+Space` then `Space` | Spotlight launcher (type to filter, ↑/↓, Enter) |
 | `Ctrl+Space` then `a` | App menu (dropdown) |
 | `Ctrl+Space` then `m` / `n` | Maximize / minimize focused window |
-| `Ctrl+Space` then `[` / `]` | Snap focused window left / right |
+| `Ctrl+Space` then `[` / `]` | Snap focused window left / right half |
+| `Ctrl+Space` then `t` | Tile all windows into the grid |
+| `Ctrl+Space` then `T` | Toggle auto-tile mode |
+| `Ctrl+Space` then `1`–`9` | Send focused window to grid cell N |
 | `Ctrl+Space` then `s` / `,` | Open the Store / Settings |
 | `Ctrl+Space` then `q` / `Q` | Detach (keep running) / shut down the daemon |
 
-Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button (top-right) to exit, titlebar buttons (`– ▢ ✕`), drag titlebars/edges to move/resize, click dock pills to focus.
+Set the grid (rows × columns), gap, and auto-tile from **Settings → Windows**.
+
+Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button (top-right) to exit, titlebar buttons (`– ▢ ✕`), drag titlebars/edges to move/resize, drag a window to a screen edge to snap it into a grid cell, click a tray indicator (clock/volume/WiFi/…) for its popover, and click dock pills to focus.
 
 ## Build & run
 
@@ -108,8 +117,16 @@ A native daemon + thin-client attach (proper persistent remote sessions, instead
 ## Configuration
 
 ```toml
-snapping_enabled = true
-snap_threshold = 3
+snapping_enabled = true   # drag-to-cell snapping
+snap_threshold = 3        # edge band (cells) that engages snapping
+window_shadows = true
+theme = "midnight"        # midnight | nord | gruvbox | dracula
+
+# Tiling grid (also editable in Settings → Windows)
+grid_rows = 2
+grid_cols = 3
+tile_gap = 0
+auto_tile = false
 
 # Auto-started at launch (and shown in the dock)
 [[apps]]
@@ -119,12 +136,15 @@ command = "btop"
 name = "shell"
 command = "zsh"
 
-# Extra apps offered in the launcher (installed TUIs are auto-added)
+# Extra apps offered in the launcher (installed TUIs are auto-added).
+# Also addable from Settings → Apps.
 [[launcher]]
 name = "lazygit"
 command = "lazygit"
 category = "Git"
 ```
+
+Most of these are editable live from the in-app **Settings** panel, which writes this file back.
 
 ## Architecture
 
@@ -135,11 +155,14 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 ## Roadmap
 
 - **✅ Slice 1 — Shell:** compositor, window manager, PTY host, chrome, launcher.
-- **✅ Slice 3 — Store:** browse/search/install the full awesome-tuis catalog (mouse + keyboard; brew/cargo/go install).
-- **✅ Slice 4 — Settings:** sidebar settings panel writing `config.toml`.
 - **✅ Slice 2 — Daemon:** persistent daemon + thin client; detach/reattach keeps windows and processes alive.
-- **Slice 5 — Theming** (make the palette/shadows fully configurable from Settings → Appearance).
-- **Slice 6 — GUI/Wayland mode** (host real GUI apps via the Kitty graphics protocol).
+- **✅ Slice 3 — Store:** browse/search/install a 100%-verified, OS-aware catalog (incl. an AI tools category).
+- **✅ Slice 4 — Settings:** sidebar settings panel writing `config.toml` (Windows, Appearance, Updates, Apps).
+- **✅ Slice 5 — Theming:** four live-switchable palettes from Settings → Appearance.
+- **✅ Menubar tray:** clock/CPU/mem/volume/WiFi/Bluetooth/battery with host-control popovers (macOS + Linux backends).
+- **✅ Grid tiling:** configurable R×C grid — drag-to-cell, auto-tile, send-to-cell, tile-all.
+- **Working-directory selector** — a file-tree picker on launch for apps that need a project directory (e.g. the AI CLIs). *(designed, next up)*
+- **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client).
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 
 ## Credits
