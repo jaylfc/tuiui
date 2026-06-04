@@ -41,6 +41,26 @@ fi
 chmod +x "$BIN_DIR/tuiui"
 
 echo "tuiui: installed $tag -> $BIN_DIR/tuiui"
+
+# Optional, OS-aware dependency step. Installs helpers some tray controls need
+# (currently blueutil for macOS Bluetooth). Transparent and skippable: it prints
+# what it runs, skips silently with no package manager, honours TUIUI_SKIP_DEPS,
+# and in a non-interactive `curl | sh` requires explicit TUIUI_INSTALL_DEPS=1 so
+# piping the installer never surprises you with package installs.
+install_optional_deps() {
+  [ "${TUIUI_SKIP_DEPS:-0}" = "1" ] && return 0
+  if [ ! -t 0 ] && [ "${TUIUI_INSTALL_DEPS:-0}" != "1" ]; then return 0; fi
+  case "$(uname -s)" in
+    Darwin)
+      if command -v brew >/dev/null 2>&1 && ! command -v blueutil >/dev/null 2>&1; then
+        echo "tuiui: installing optional dependency blueutil (Bluetooth control)…"
+        brew install blueutil || echo "tuiui: blueutil install skipped (run 'brew install blueutil' later for Bluetooth control)"
+      fi ;;
+    Linux) : ;; # bluetoothctl/rfkill ship with the distro
+  esac
+}
+install_optional_deps
+
 case ":$PATH:" in
   *":$BIN_DIR:"*) echo "Run it with:  tuiui" ;;
   *) echo "Add $BIN_DIR to your PATH, then run:  tuiui"
