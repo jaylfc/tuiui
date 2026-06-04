@@ -1,5 +1,6 @@
 pub mod geometry;
 pub mod cell;
+pub mod theme;
 pub mod buffer;
 pub mod compositor;
 pub mod terminal;

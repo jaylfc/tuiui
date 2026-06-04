@@ -29,6 +29,9 @@ pub struct Config {
     pub snap_threshold: i32,
     /// Whether windows draw drop shadows.
     pub window_shadows: bool,
+    /// Active color theme name (one of the preset names in `theme::PRESETS`).
+    #[serde(default = "default_theme")]
+    pub theme: String,
     /// Ordered list of apps auto-started at launch (and shown in the dock).
     pub apps: Vec<AppEntry>,
     /// Apps offered in the launcher menu / spotlight. Falls back to `apps`
@@ -55,6 +58,7 @@ impl Default for Config {
             snapping_enabled: true,
             snap_threshold: 3,
             window_shadows: true,
+            theme: "midnight".into(),
             apps: vec![
                 AppEntry { name: "shell".into(), command: default_shell(), args: vec![], category: Some("Shell".into()) },
             ],
@@ -64,6 +68,8 @@ impl Default for Config {
 }
 
 fn default_shell() -> String { std::env::var("SHELL").unwrap_or_else(|_| "bash".into()) }
+
+fn default_theme() -> String { "midnight".into() }
 
 /// Resolve the config file path from `$XDG_CONFIG_HOME` (if set) else
 /// `<home>/.config`, on every platform.

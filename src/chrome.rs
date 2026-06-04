@@ -5,15 +5,8 @@ use crate::geometry::{Point, Rect};
 use crate::window::WindowId;
 
 // ── Theme constants ────────────────────────────────────────────────────────────
-// Named consts so a future theme system can swap them without hunting literals.
 
-const MENUBAR_BG: Rgba = Rgba { r: 22, g: 27, b: 39, a: 255 };
-const DOCK_BG: Rgba    = Rgba { r: 22, g: 27, b: 39, a: 255 };
-const TEXT: Rgba       = Rgba { r: 200, g: 208, b: 220, a: 255 };
-const BRAND: Rgba      = Rgba { r: 108, g: 182, b: 255, a: 255 };
-const ACTIVE_BG: Rgba  = Rgba { r: 45, g: 58, b: 85, a: 255 };
-const QUIT_BG: Rgba    = Rgba { r: 90, g: 38, b: 48, a: 255 };
-const QUIT_FG: Rgba    = Rgba { r: 255, g: 150, b: 150, a: 255 };
+const QUIT_BG: Rgba = Rgba { r: 90, g: 38, b: 48, a: 255 };
 
 /// Label drawn for the menubar quit button (kept as a const so its width and
 /// the matching hit region stay in sync).
@@ -38,9 +31,10 @@ pub struct DockItem {
 /// The layer is 1 row tall, `width` columns wide, positioned at `(0, 0)`.
 /// It displays the brand name on the left and `focused_app` at a fixed offset.
 pub fn render_menubar(width: i32, focused_app: &str) -> Layer {
+    let t = crate::theme::current();
     let mut buf = CellBuffer::new(width, 1);
-    buf.fill(crate::cell::Cell { ch: ' ', fg: TEXT, bg: MENUBAR_BG, attrs: Default::default() });
-    buf.write_str(1, 0, "\u{2726} Tuiui", BRAND, MENUBAR_BG);
+    buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.menubar_bg, attrs: Default::default() });
+    buf.write_str(1, 0, "\u{2726} Tuiui", t.accent, t.menubar_bg);
     // Quit button, right-aligned. write_str paints the label's own spaces with
     // QUIT_BG, giving it a button-like fill.
     let qx = (width - QUIT_LABEL.chars().count() as i32).max(0);
@@ -49,8 +43,8 @@ pub fn render_menubar(width: i32, focused_app: &str) -> Layer {
     const APP_X: i32 = 10;
     let avail = (qx - 1 - APP_X).max(0) as usize;
     let app: String = focused_app.chars().take(avail).collect();
-    buf.write_str(APP_X, 0, &app, TEXT, MENUBAR_BG);
-    buf.write_str(qx, 0, QUIT_LABEL, QUIT_FG, QUIT_BG);
+    buf.write_str(APP_X, 0, &app, t.text, t.menubar_bg);
+    buf.write_str(qx, 0, QUIT_LABEL, t.close_fg, QUIT_BG);
     Layer { z: 1000, origin: Point::new(0, 0), buf, opacity: 1.0, scissor: None }
 }
 
@@ -74,11 +68,12 @@ pub fn menubar_quit_region(width: i32) -> Rect {
 ///
 /// The layer is 1 row tall, positioned at `(0, height - 1)`.
 pub fn render_dock(width: i32, height: i32, items: &[DockItem]) -> Layer {
+    let t = crate::theme::current();
     let mut buf = CellBuffer::new(width, 1);
-    buf.fill(crate::cell::Cell { ch: ' ', fg: TEXT, bg: DOCK_BG, attrs: Default::default() });
+    buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.dock_bg, attrs: Default::default() });
     for (i, (_, r, label)) in dock_layout(items).into_iter().enumerate() {
-        let bg = if items[i].focused { ACTIVE_BG } else { DOCK_BG };
-        buf.write_str(r.x, 0, &label, TEXT, bg);
+        let bg = if items[i].focused { t.active_bg } else { t.dock_bg };
+        buf.write_str(r.x, 0, &label, t.text, bg);
     }
     Layer { z: 1000, origin: Point::new(0, height - 1), buf, opacity: 1.0, scissor: None }
 }

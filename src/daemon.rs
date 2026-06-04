@@ -28,6 +28,7 @@ pub fn run() -> std::io::Result<()> {
     std::fs::set_permissions(&path, Permissions::from_mode(0o600))?;
 
     let cfg = Config::load();
+    crate::theme::set(&cfg.theme);
     let (w, h) = (100, 30); // provisional until the first client reports its size
     let mut core = SessionCore::new(w, h, cfg.clone());
     for app in &cfg.apps {

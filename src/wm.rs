@@ -209,15 +209,6 @@ impl WindowManager {
 
 // ── Window rendering ──────────────────────────────────────────────────────────
 
-const TITLE_BG_FOCUS: Rgba = Rgba { r: 29,  g: 36,  b: 51,  a: 255 };
-const TITLE_BG_BLUR:  Rgba = Rgba { r: 20,  g: 24,  b: 34,  a: 255 };
-const TITLE_FG:       Rgba = Rgba { r: 143, g: 183, b: 255, a: 255 };
-const BORDER:         Rgba = Rgba { r: 58,  g: 68,  b: 88,  a: 255 };
-const WIN_BG:         Rgba = Rgba { r: 17,  g: 20,  b: 29,  a: 255 };
-const SHADOW:         Rgba = Rgba { r: 0,   g: 0,   b: 0,   a: 110 };
-const CTRL_FG:        Rgba = Rgba { r: 150, g: 165, b: 190, a: 255 };
-const CLOSE_FG:       Rgba = Rgba { r: 255, g: 107, b: 107, a: 255 };
-
 /// Render a window and its content into compositor layers.
 ///
 /// Returns `[shadow_layer, window_layer]`.  The shadow is offset by (1, 1) at
@@ -229,6 +220,7 @@ const CLOSE_FG:       Rgba = Rgba { r: 255, g: 107, b: 107, a: 255 };
 /// pass it in; this keeps rendering and process-hosting cleanly separated.
 #[must_use]
 pub fn render_window(win: &Window, content: &CellBuffer, focused: bool, shadows: bool) -> Vec<Layer> {
+    let t = crate::theme::current();
     let r = win.rect;
     let base_z = 10 + win.z * 2;
 
@@ -238,7 +230,7 @@ pub fn render_window(win: &Window, content: &CellBuffer, focused: bool, shadows:
         shadow.fill(Cell {
             ch: ' ',
             fg: Rgba::TRANSPARENT,
-            bg: SHADOW,
+            bg: t.shadow,
             attrs: Default::default(),
         });
         Layer {
@@ -254,40 +246,40 @@ pub fn render_window(win: &Window, content: &CellBuffer, focused: bool, shadows:
     let mut buf = CellBuffer::new(r.w, r.h);
     buf.fill(Cell {
         ch: ' ',
-        fg: Rgba::rgb(200, 208, 220),
-        bg: WIN_BG,
+        fg: t.text,
+        bg: t.window_bg,
         attrs: Default::default(),
     });
 
     // Titlebar row (y = 0 within the buffer).
-    let tbg = if focused { TITLE_BG_FOCUS } else { TITLE_BG_BLUR };
+    let tbg = if focused { t.title_focus } else { t.title_blur };
     for x in 0..r.w {
-        buf.set(x, 0, Cell { ch: ' ', fg: TITLE_FG, bg: tbg, attrs: Default::default() });
+        buf.set(x, 0, Cell { ch: ' ', fg: t.title_fg, bg: tbg, attrs: Default::default() });
     }
     // Title, truncated so it never runs under the control buttons on the right.
     let title_limit = if r.w >= 9 { (r.w - 10).max(0) } else { (r.w - 4).max(0) } as usize;
     let title: String = win.title.chars().take(title_limit).collect();
-    buf.write_str(2, 0, &title, TITLE_FG, tbg);
+    buf.write_str(2, 0, &title, t.title_fg, tbg);
     // Titlebar control buttons. Wide windows get minimize / maximize / close;
     // very narrow windows get just a close glyph (matching `Window::control_at`).
     if r.w >= 9 {
         let (minc, maxc, closec) = win.control_columns();
         let max_glyph = if win.state == WindowState::Maximized { '\u{2750}' } else { '\u{25A2}' };
-        buf.set(minc,   0, Cell { ch: '\u{2013}', fg: CTRL_FG,  bg: tbg, attrs: Default::default() });
-        buf.set(maxc,   0, Cell { ch: max_glyph,  fg: CTRL_FG,  bg: tbg, attrs: Default::default() });
-        buf.set(closec, 0, Cell { ch: '\u{2715}', fg: CLOSE_FG, bg: tbg, attrs: Default::default() });
+        buf.set(minc,   0, Cell { ch: '\u{2013}', fg: t.ctrl_fg,  bg: tbg, attrs: Default::default() });
+        buf.set(maxc,   0, Cell { ch: max_glyph,  fg: t.ctrl_fg,  bg: tbg, attrs: Default::default() });
+        buf.set(closec, 0, Cell { ch: '\u{2715}', fg: t.close_fg, bg: tbg, attrs: Default::default() });
     } else if r.w >= 2 {
-        buf.set(r.w - 2, 0, Cell { ch: '\u{2715}', fg: CLOSE_FG, bg: tbg, attrs: Default::default() });
+        buf.set(r.w - 2, 0, Cell { ch: '\u{2715}', fg: t.close_fg, bg: tbg, attrs: Default::default() });
     }
 
     // Left and right borders (rows 1..h).
     for y in 1..r.h {
-        buf.set(0,       y, Cell { ch: '│', fg: BORDER, bg: WIN_BG, attrs: Default::default() });
-        buf.set(r.w - 1, y, Cell { ch: '│', fg: BORDER, bg: WIN_BG, attrs: Default::default() });
+        buf.set(0,       y, Cell { ch: '│', fg: t.border, bg: t.window_bg, attrs: Default::default() });
+        buf.set(r.w - 1, y, Cell { ch: '│', fg: t.border, bg: t.window_bg, attrs: Default::default() });
     }
     // Bottom border.
     for x in 0..r.w {
-        buf.set(x, r.h - 1, Cell { ch: '─', fg: BORDER, bg: WIN_BG, attrs: Default::default() });
+        buf.set(x, r.h - 1, Cell { ch: '─', fg: t.border, bg: t.window_bg, attrs: Default::default() });
     }
 
     // Blit content into the inner rect starting at (1, 1).

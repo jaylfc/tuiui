@@ -61,7 +61,7 @@ impl Settings {
     fn item_count(&self) -> usize {
         match self.section {
             0 => 2, // snapping, threshold
-            1 => 1, // shadows
+            1 => 2, // shadows, theme
             2 => 2, // check, install
             _ => 0, // About
         }
@@ -114,6 +114,16 @@ impl Settings {
                 };
             }
             (1, 0) => self.cfg.window_shadows = flip(self.cfg.window_shadows, dir),
+            (1, 1) => {
+                let presets = crate::theme::PRESETS;
+                let cur_idx = presets.iter().position(|&p| p == self.cfg.theme.as_str()).unwrap_or(0);
+                let next_idx = if dir == -1 {
+                    (cur_idx + presets.len() - 1) % presets.len()
+                } else {
+                    (cur_idx + 1) % presets.len()
+                };
+                self.cfg.theme = presets[next_idx].to_string();
+            }
             // Updates section: Enter/Space (dir 0) requests an action from the session.
             (2, 0) if dir == 0 => self.action = Some(SettingsAction::CheckUpdates),
             (2, 1) if dir == 0 => self.action = Some(SettingsAction::InstallUpdate),
@@ -169,7 +179,7 @@ impl Settings {
             }
             1 => {
                 self.row(&mut buf, cx, 3, 0, "Window shadows", toggle_val(self.cfg.window_shadows));
-                buf.write_str(cx, 5, "Themes — coming soon", DIM, BG);
+                self.row(&mut buf, cx, 4, 1, "Theme", self.cfg.theme.clone());
             }
             2 => {
                 self.row(&mut buf, cx, 3, 0, "Check for updates", String::new());

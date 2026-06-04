@@ -30,9 +30,6 @@ pub struct CellChange {
     pub cell: Cell,
 }
 
-/// Desktop background fill color — a neutral dark grey backdrop, distinct from the
-/// (bluish, near-black) window titlebars so inactive windows stand out against it.
-const DESKTOP_BG: Rgba = Rgba { r: 44, g: 46, b: 50, a: 255 };
 
 /// Double-buffered compositor: composites z-ordered [`Layer`]s (with alpha blending),
 /// overlays a block cursor, and diffs successive frames into a minimal [`CellChange`] list.
@@ -83,11 +80,12 @@ impl Compositor {
     ///
     /// Returns a shared reference to the resulting back buffer.
     pub fn composite(&mut self, layers: &[Layer], cursor: Option<Point>) -> &CellBuffer {
+        let t = crate::theme::current();
         // Fill back buffer with the desktop background.
         let base = Cell {
             ch: ' ',
             fg: Rgba::rgb(90, 100, 120),
-            bg: DESKTOP_BG,
+            bg: t.desktop_bg,
             attrs: Default::default(),
         };
         self.back.fill(base);

@@ -473,6 +473,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         };
         if let Some(cfg) = cfg {
             self.cfg = cfg;
+            crate::theme::set(&self.cfg.theme);
             let _ = self.cfg.save();
         }
     }
