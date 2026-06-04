@@ -237,7 +237,12 @@ impl SessionCore {
     /// in from the catalog where missing), plus any known TUIs detected on `$PATH`
     /// that aren't already listed.
     fn build_launcher_apps(cfg: &Config) -> Vec<AppEntry> {
-        let mut apps = cfg.launcher_apps();
+        // Pinned tuiui actions first (open the store / settings windows).
+        let mut apps = vec![
+            AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()) },
+            AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()) },
+        ];
+        apps.extend(cfg.launcher_apps());
         for a in &mut apps {
             if a.category.is_none() {
                 a.category = crate::catalog::category_for(&a.name)
@@ -497,9 +502,14 @@ impl SessionCore {
         }
     }
 
-    /// Spawn a launcher entry as a new window and bring it to the front.
+    /// Activate a launcher entry: open the store/settings for the pinned tuiui
+    /// actions, otherwise spawn the app in a new window.
     fn launch_entry(&mut self, e: AppEntry) {
-        self.launch(e.name, e.command, e.args);
+        match e.command.as_str() {
+            "@store" => self.open_store(),
+            "@settings" => self.open_settings(),
+            _ => self.launch(e.name, e.command, e.args),
+        }
     }
 
     /// Spawn a new PTY-backed window.

@@ -124,7 +124,13 @@ impl Launcher {
             self.items.iter().filter(|a| a.name.to_lowercase().contains(&q)).cloned().collect()
         };
         v.sort_by(|a, b| {
-            cat_of(a).cmp(&cat_of(b)).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+            let (ca, cb) = (cat_of(a), cat_of(b));
+            // Pin the "tuiui" section (Store/Settings) to the very top.
+            let rank = |c: &str| if c == "tuiui" { 0 } else { 1 };
+            rank(&ca)
+                .cmp(&rank(&cb))
+                .then_with(|| ca.cmp(&cb))
+                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
         v
     }

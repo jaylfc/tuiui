@@ -4,18 +4,28 @@
 
 use crate::compositor::Compositor;
 use crate::config::Config;
-use crate::protocol::{socket_path, Flags, FrameMsg};
+use crate::protocol::{socket_dir, socket_path, Flags, FrameMsg};
 use crate::session::{ClientMsg, SessionCore};
+use std::fs::Permissions;
 use std::io::{BufRead, BufReader, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::mpsc;
 use std::time::Duration;
 
 /// Run the daemon event loop until `tuiui kill` (or a fatal socket error).
 pub fn run() -> std::io::Result<()> {
+    // Confine the socket to a per-user 0700 directory so other local users
+    // cannot connect to (and thus drive/observe) the session. Creating the
+    // restrictive directory first avoids any window where the socket is exposed.
+    let dir = socket_dir();
+    std::fs::create_dir_all(&dir)?;
+    std::fs::set_permissions(&dir, Permissions::from_mode(0o700))?;
+
     let path = socket_path();
     let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path)?;
+    std::fs::set_permissions(&path, Permissions::from_mode(0o600))?;
 
     let cfg = Config::load();
     let (w, h) = (100, 30); // provisional until the first client reports its size

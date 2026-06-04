@@ -30,11 +30,17 @@ pub struct Flags {
     pub detach: bool,
 }
 
+/// Per-user directory that holds the daemon socket. Created mode `0700` by the
+/// daemon so other local users cannot reach the socket inside it.
+pub fn socket_dir() -> PathBuf {
+    let base = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    let user = std::env::var("USER").unwrap_or_else(|_| "user".into());
+    base.join(format!("tuiui-{user}"))
+}
+
 /// Path of the per-user daemon socket.
 pub fn socket_path() -> PathBuf {
-    if let Some(rt) = std::env::var_os("XDG_RUNTIME_DIR") {
-        return PathBuf::from(rt).join("tuiui.sock");
-    }
-    let user = std::env::var("USER").unwrap_or_else(|_| "user".into());
-    std::env::temp_dir().join(format!("tuiui-{user}.sock"))
+    socket_dir().join("daemon.sock")
 }
