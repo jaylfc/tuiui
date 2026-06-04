@@ -89,7 +89,8 @@ use tuiui::buffer::CellBuffer;
 #[test]
 fn render_window_draws_title_and_content() {
     let mut m = wm();
-    let id = m.add_window("btop".into(), Rect::new(0, 1, 12, 5));
+    // 24 wide: enough room for the "btop" title plus the right-side controls.
+    let id = m.add_window("btop".into(), Rect::new(0, 1, 24, 5));
     let mut content = CellBuffer::new(10, 3);
     content.write_str(0, 0, "hello", tuiui::cell::Rgba::rgb(255, 255, 255), tuiui::cell::Rgba::TRANSPARENT);
     let layers = render_window(m.get(id).unwrap(), &content, true);
@@ -100,4 +101,29 @@ fn render_window_draws_title_and_content() {
     assert!(titlerow.contains("btop"));
     // content 'h' should appear at inner (1,1)
     assert_eq!(win_layer.buf.get(1, 1).unwrap().ch, 'h');
+}
+
+#[test]
+fn maximize_toggle_fills_work_area_and_restores() {
+    let mut m = wm(); // work area Rect::new(0,1,80,22)
+    let a = m.add_window("a".into(), Rect::new(10,5,20,8));
+    m.maximize_toggle(a);
+    assert_eq!(m.get(a).unwrap().rect, Rect::new(0,1,80,22));
+    assert_eq!(m.get(a).unwrap().state, WindowState::Maximized);
+    m.maximize_toggle(a);
+    assert_eq!(m.get(a).unwrap().rect, Rect::new(10,5,20,8));
+    assert_eq!(m.get(a).unwrap().state, WindowState::Floating);
+}
+
+#[test]
+fn minimize_hides_and_moves_focus_then_unminimize_restores() {
+    let mut m = wm();
+    let a = m.add_window("a".into(), Rect::new(2,2,20,8));
+    let b = m.add_window("b".into(), Rect::new(5,5,20,8));
+    m.minimize(b);
+    assert!(m.get(b).unwrap().minimized);
+    assert_eq!(m.focused(), Some(a)); // focus moved off the minimized window
+    m.unminimize(b);
+    assert!(!m.get(b).unwrap().minimized);
+    assert_eq!(m.focused(), Some(b)); // restored + raised
 }

@@ -20,7 +20,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseBu
 use std::time::Duration;
 use tuiui::compositor::Compositor;
 use tuiui::config::Config;
-use tuiui::geometry::Point;
+use tuiui::geometry::{Point, SnapZone};
 use tuiui::session::{ClientMsg, SessionCore};
 use tuiui::terminal::Terminal;
 
@@ -50,14 +50,22 @@ fn main() -> std::io::Result<()> {
             match event::read()? {
                 // Key events — skip Release so we don't double-send.
                 Event::Key(k) if k.kind != KeyEventKind::Release => {
-                    // Ctrl+Alt+Q is the hard-quit chord.
-                    if k.modifiers.contains(KeyModifiers::CONTROL)
-                        && k.modifiers.contains(KeyModifiers::ALT)
-                        && k.code == KeyCode::Char('q')
-                    {
-                        break 'outer;
+                    // Reserved Ctrl+Alt window-management chords are intercepted
+                    // before forwarding input to the focused app.
+                    let ctrl_alt = k.modifiers.contains(KeyModifiers::CONTROL)
+                        && k.modifiers.contains(KeyModifiers::ALT);
+                    if ctrl_alt {
+                        match k.code {
+                            KeyCode::Char('q') => break 'outer,
+                            KeyCode::Up => core.apply(ClientMsg::MaximizeFocused),
+                            KeyCode::Down => core.apply(ClientMsg::MinimizeFocused),
+                            KeyCode::Left => core.apply(ClientMsg::SnapFocused(SnapZone::Left)),
+                            KeyCode::Right => core.apply(ClientMsg::SnapFocused(SnapZone::Right)),
+                            _ => core.apply(ClientMsg::Key(encode_key(k.code, k.modifiers))),
+                        }
+                    } else {
+                        core.apply(ClientMsg::Key(encode_key(k.code, k.modifiers)));
                     }
-                    core.apply(ClientMsg::Key(encode_key(k.code, k.modifiers)));
                 }
 
                 // Mouse events — map to the three ClientMsg variants.

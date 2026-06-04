@@ -3,7 +3,7 @@ use tuiui::geometry::{Rect, Point};
 use tuiui::window::{Window, WindowId, WindowState};
 
 fn win(id: u64, rect: Rect, z: i32) -> Window {
-    Window { id: WindowId(id), title: "t".into(), rect, z, state: WindowState::Floating, restore_rect: rect }
+    Window { id: WindowId(id), title: "t".into(), rect, z, state: WindowState::Floating, restore_rect: rect, minimized: false }
 }
 
 #[test]
@@ -47,4 +47,25 @@ fn drag_while_moving_emits_move_to() {
 fn click_empty_desktop_is_noop() {
     let act = route_mouse(MouseKind::Down, Point::new(70,20), &[], None);
     assert_eq!(act, Action::None);
+}
+
+#[test]
+fn click_minimize_button() {
+    let w = win(1, Rect::new(0,1,40,10), 1); // controls at local 33/35/37
+    let act = route_mouse(MouseKind::Down, Point::new(33,1), &[w], None);
+    assert_eq!(act, Action::Minimize(WindowId(1)));
+}
+
+#[test]
+fn click_maximize_button() {
+    let w = win(1, Rect::new(0,1,40,10), 1);
+    let act = route_mouse(MouseKind::Down, Point::new(35,1), &[w], None);
+    assert_eq!(act, Action::ToggleMaximize(WindowId(1)));
+}
+
+#[test]
+fn click_right_edge_starts_resize() {
+    let w = win(1, Rect::new(0,1,40,10), 1); // right col = 39
+    let act = route_mouse(MouseKind::Down, Point::new(39,5), &[w], None);
+    assert_eq!(act, Action::BeginResize(WindowId(1)));
 }

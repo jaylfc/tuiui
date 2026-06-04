@@ -1,5 +1,5 @@
 use crate::geometry::Point;
-use crate::window::{Window, WindowId};
+use crate::window::{Window, WindowId, WinControl};
 
 /// The kind of mouse event being reported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,6 +50,10 @@ pub enum Action {
     ResizeTo { id: WindowId, w: i32, h: i32 },
     /// Close the window.
     Close(WindowId),
+    /// Minimize the window to the dock.
+    Minimize(WindowId),
+    /// Toggle maximize / restore for the window.
+    ToggleMaximize(WindowId),
     /// Raise and focus the window, then forward the click at `local` coords
     /// (relative to the window's content origin) to the app.
     FocusAndForward { id: WindowId, local: Point },
@@ -97,12 +101,19 @@ pub fn route_mouse(kind: MouseKind, p: Point, windows: &[Window], drag: Option<H
     let w = match topmost_at(p, windows) { Some(w) => w, None => return Action::None };
     let r = w.rect;
 
-    // Close glyph: one cell left of the right border, on the titlebar row.
-    if p.y == r.y && p.x == r.right() - 1 { return Action::Close(w.id); }
-    // Titlebar (top row, not the close glyph) → begin move.
+    // Titlebar control buttons (minimize / maximize / close) take precedence.
+    if let Some(ctrl) = w.control_at(p) {
+        return match ctrl {
+            WinControl::Close => Action::Close(w.id),
+            WinControl::Minimize => Action::Minimize(w.id),
+            WinControl::Maximize => Action::ToggleMaximize(w.id),
+        };
+    }
+    // Rest of the titlebar row → begin move.
     if p.y == r.y { return Action::BeginMove(w.id); }
-    // Bottom-right corner → begin resize.
-    if p.x == r.right() && p.y == r.bottom() { return Action::BeginResize(w.id); }
+    // Right column or bottom row (the window borders) → begin resize.
+    // A whole-edge target makes resizing easy to grab, unlike a 1-cell corner.
+    if p.x == r.right() || p.y == r.bottom() { return Action::BeginResize(w.id); }
     // Content area → focus + forward local coordinates.
     let local = Point::new(p.x - (r.x + 1), p.y - (r.y + 1));
     Action::FocusAndForward { id: w.id, local }

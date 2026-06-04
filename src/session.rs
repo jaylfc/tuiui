@@ -13,7 +13,7 @@
 use crate::chrome::{render_menubar, render_dock, dock_hit_regions, menubar_quit_region, DockItem};
 use crate::compositor::Layer;
 use crate::config::Config;
-use crate::geometry::{Point, Rect, snap_zone};
+use crate::geometry::{Point, Rect, SnapZone, snap_zone};
 use crate::input::{route_mouse, MouseKind, Hit, Action};
 use crate::ptyhost::AppInstance;
 use crate::window::WindowId;
@@ -48,6 +48,12 @@ pub enum ClientMsg {
     Key(Vec<u8>),
     /// Terminal was resized to `w` × `h` cells.
     Resize { w: i32, h: i32 },
+    /// Toggle maximize / restore on the focused window (keyboard command).
+    MaximizeFocused,
+    /// Minimize the focused window to the dock (keyboard command).
+    MinimizeFocused,
+    /// Snap the focused window to a screen half (keyboard command).
+    SnapFocused(SnapZone),
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -180,6 +186,27 @@ impl SessionCore {
                 self.w = w;
                 self.h = h;
                 self.wm.set_work_area(Rect::new(0, 1, w, h - 2));
+                // Re-fit any maximized window and its app to the new work area.
+                if let Some(id) = self.wm.focused() {
+                    self.sync_app_size(id);
+                }
+            }
+            ClientMsg::MaximizeFocused => {
+                if let Some(id) = self.wm.focused() {
+                    self.wm.maximize_toggle(id);
+                    self.sync_app_size(id);
+                }
+            }
+            ClientMsg::MinimizeFocused => {
+                if let Some(id) = self.wm.focused() {
+                    self.wm.minimize(id);
+                }
+            }
+            ClientMsg::SnapFocused(zone) => {
+                if let Some(id) = self.wm.focused() {
+                    self.wm.snap(id, zone);
+                    self.sync_app_size(id);
+                }
             }
         }
     }
@@ -194,8 +221,10 @@ impl SessionCore {
         // visible (not buried under the previous window), clamped so the whole
         // window stays on-screen within the work area.
         let n = self.titles.len() as i32;
-        let win_w = 56.min((self.w - 4).max(20));
-        let win_h = 18.min((self.h - 4).max(6));
+        // Default large enough that demanding apps (e.g. btop needs 80×24
+        // content → 82×26 outer) fit without complaint, clamped to the screen.
+        let win_w = 84.min((self.w - 4).max(20));
+        let win_h = 30.min((self.h - 4).max(6));
         let max_x = (self.w - win_w - 1).max(0);
         let max_y = (self.h - 1 - win_h).max(1); // keep above the dock row
         let x = (2 + n * 6).min(max_x);
@@ -225,12 +254,20 @@ impl SessionCore {
             }
             for (id, r) in self.dock_regions() {
                 if r.contains(p) {
-                    self.wm.raise(id);
+                    // Restore (un-minimize) and raise the clicked window.
+                    self.wm.unminimize(id);
                     return;
                 }
             }
         }
-        let windows: Vec<_> = self.wm.z_ordered().into_iter().cloned().collect();
+        // Minimized windows are hidden, so they never receive mouse events.
+        let windows: Vec<_> = self
+            .wm
+            .z_ordered()
+            .into_iter()
+            .filter(|w| !w.minimized)
+            .cloned()
+            .collect();
         let action = route_mouse(kind, p, &windows, self.drag);
         self.exec(action, p);
     }
@@ -260,6 +297,11 @@ impl SessionCore {
                 self.sync_app_size(id);
             }
             Action::Close(id) => self.close(id),
+            Action::Minimize(id) => self.wm.minimize(id),
+            Action::ToggleMaximize(id) => {
+                self.wm.maximize_toggle(id);
+                self.sync_app_size(id);
+            }
             Action::FocusAndForward { id, local } => {
                 self.wm.raise(id);
                 // Mouse-forwarding into apps is keyboard-first in Slice 1; raise is enough.
@@ -316,6 +358,9 @@ impl SessionCore {
         let focused = self.wm.focused();
 
         for w in self.wm.z_ordered() {
+            if w.minimized {
+                continue; // hidden to the dock
+            }
             let content = self.apps.get(&w.id)
                 .map(|a| a.snapshot())
                 .unwrap_or_else(|| {

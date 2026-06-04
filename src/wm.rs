@@ -58,6 +58,7 @@ impl WindowManager {
             z,
             state: WindowState::Floating,
             restore_rect: rect,
+            minimized: false,
         });
         self.focus = Some(id);
         id
@@ -147,11 +148,61 @@ impl WindowManager {
         }
     }
 
-    /// Remove window `id` and focus the next highest-z window, if any.
+    /// Toggle maximize for window `id`: fill the work area, or restore the
+    /// previous rect if already maximized.
+    ///
+    /// The pre-maximize rect is saved in `restore_rect` (only when coming from a
+    /// floating state, so repeated toggles don't lose the original geometry).
+    pub fn maximize_toggle(&mut self, id: WindowId) {
+        let work = self.work;
+        if let Some(w) = self.get_mut(id) {
+            if w.state == WindowState::Maximized {
+                w.rect = w.restore_rect;
+                w.state = WindowState::Floating;
+            } else {
+                if w.state == WindowState::Floating {
+                    w.restore_rect = w.rect;
+                }
+                w.rect = work;
+                w.state = WindowState::Maximized;
+            }
+        }
+    }
+
+    /// Hide window `id` to the dock. If it was focused, focus moves to the
+    /// topmost remaining visible window.
+    pub fn minimize(&mut self, id: WindowId) {
+        if let Some(w) = self.get_mut(id) {
+            w.minimized = true;
+        }
+        if self.focus == Some(id) {
+            self.focus = self
+                .windows
+                .iter()
+                .filter(|w| !w.minimized)
+                .max_by_key(|w| w.z)
+                .map(|w| w.id);
+        }
+    }
+
+    /// Restore window `id` from the dock and raise/focus it.
+    pub fn unminimize(&mut self, id: WindowId) {
+        if let Some(w) = self.get_mut(id) {
+            w.minimized = false;
+        }
+        self.raise(id);
+    }
+
+    /// Remove window `id` and focus the next highest-z visible window, if any.
     pub fn close(&mut self, id: WindowId) {
         self.windows.retain(|w| w.id != id);
         if self.focus == Some(id) {
-            self.focus = self.windows.iter().max_by_key(|w| w.z).map(|w| w.id);
+            self.focus = self
+                .windows
+                .iter()
+                .filter(|w| !w.minimized)
+                .max_by_key(|w| w.z)
+                .map(|w| w.id);
         }
     }
 }
@@ -164,6 +215,8 @@ const TITLE_FG:       Rgba = Rgba { r: 143, g: 183, b: 255, a: 255 };
 const BORDER:         Rgba = Rgba { r: 58,  g: 68,  b: 88,  a: 255 };
 const WIN_BG:         Rgba = Rgba { r: 17,  g: 20,  b: 29,  a: 255 };
 const SHADOW:         Rgba = Rgba { r: 0,   g: 0,   b: 0,   a: 110 };
+const CTRL_FG:        Rgba = Rgba { r: 150, g: 165, b: 190, a: 255 };
+const CLOSE_FG:       Rgba = Rgba { r: 255, g: 107, b: 107, a: 255 };
 
 /// Render a window and its content into compositor layers.
 ///
@@ -209,10 +262,20 @@ pub fn render_window(win: &Window, content: &CellBuffer, focused: bool) -> Vec<L
     for x in 0..r.w {
         buf.set(x, 0, Cell { ch: ' ', fg: TITLE_FG, bg: tbg, attrs: Default::default() });
     }
-    buf.write_str(2, 0, &win.title, TITLE_FG, tbg);
-    // Close glyph at right - 2 (leaves 1-cell gap to the border).
-    if r.w >= 2 {
-        buf.set(r.w - 2, 0, Cell { ch: '✕', fg: Rgba::rgb(255, 107, 107), bg: tbg, attrs: Default::default() });
+    // Title, truncated so it never runs under the control buttons on the right.
+    let title_limit = if r.w >= 9 { (r.w - 10).max(0) } else { (r.w - 4).max(0) } as usize;
+    let title: String = win.title.chars().take(title_limit).collect();
+    buf.write_str(2, 0, &title, TITLE_FG, tbg);
+    // Titlebar control buttons. Wide windows get minimize / maximize / close;
+    // very narrow windows get just a close glyph (matching `Window::control_at`).
+    if r.w >= 9 {
+        let (minc, maxc, closec) = win.control_columns();
+        let max_glyph = if win.state == WindowState::Maximized { '\u{2750}' } else { '\u{25A2}' };
+        buf.set(minc,   0, Cell { ch: '\u{2013}', fg: CTRL_FG,  bg: tbg, attrs: Default::default() });
+        buf.set(maxc,   0, Cell { ch: max_glyph,  fg: CTRL_FG,  bg: tbg, attrs: Default::default() });
+        buf.set(closec, 0, Cell { ch: '\u{2715}', fg: CLOSE_FG, bg: tbg, attrs: Default::default() });
+    } else if r.w >= 2 {
+        buf.set(r.w - 2, 0, Cell { ch: '\u{2715}', fg: CLOSE_FG, bg: tbg, attrs: Default::default() });
     }
 
     // Left and right borders (rows 1..h).
