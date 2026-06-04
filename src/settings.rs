@@ -77,7 +77,7 @@ impl Settings {
     /// Number of interactive rows in the current section.
     fn item_count(&self) -> usize {
         match self.section {
-            0 => 2,                            // snapping, threshold
+            0 => 6,                            // snapping, threshold, grid rows/cols, gap, auto-tile
             1 => 2,                            // shadows, theme
             2 => 2,                            // check, install
             3 => self.cfg.launcher.len() + 1,  // custom apps + "＋ Add app…"
@@ -170,6 +170,16 @@ impl Settings {
                     _ => if self.cfg.snap_threshold >= 10 { 1 } else { self.cfg.snap_threshold + 1 },
                 };
             }
+            (0, 2) => self.cfg.grid_rows = step_u8(self.cfg.grid_rows, dir, 1, 6),
+            (0, 3) => self.cfg.grid_cols = step_u8(self.cfg.grid_cols, dir, 1, 6),
+            (0, 4) => {
+                self.cfg.tile_gap = match dir {
+                    -1 => (self.cfg.tile_gap - 1).max(0),
+                    1 => (self.cfg.tile_gap + 1).min(4),
+                    _ => if self.cfg.tile_gap >= 4 { 0 } else { self.cfg.tile_gap + 1 },
+                };
+            }
+            (0, 5) => self.cfg.auto_tile = flip(self.cfg.auto_tile, dir),
             (1, 0) => self.cfg.window_shadows = flip(self.cfg.window_shadows, dir),
             (1, 1) => {
                 let presets = crate::theme::PRESETS;
@@ -285,8 +295,12 @@ impl Settings {
 
         match self.section {
             0 => {
-                self.row(&mut buf, cx, 3, 0, "Drag-to-edge snapping", toggle_val(self.cfg.snapping_enabled));
+                self.row(&mut buf, cx, 3, 0, "Drag-to-cell snapping", toggle_val(self.cfg.snapping_enabled));
                 self.row(&mut buf, cx, 4, 1, "Snap threshold (cells)", format!("\u{25C2} {} \u{25B8}", self.cfg.snap_threshold));
+                self.row(&mut buf, cx, 5, 2, "Grid rows", format!("\u{25C2} {} \u{25B8}", self.cfg.grid_rows));
+                self.row(&mut buf, cx, 6, 3, "Grid columns", format!("\u{25C2} {} \u{25B8}", self.cfg.grid_cols));
+                self.row(&mut buf, cx, 7, 4, "Tile gap (cells)", format!("\u{25C2} {} \u{25B8}", self.cfg.tile_gap));
+                self.row(&mut buf, cx, 8, 5, "Auto-tile windows", toggle_val(self.cfg.auto_tile));
             }
             1 => {
                 self.row(&mut buf, cx, 3, 0, "Window shadows", toggle_val(self.cfg.window_shadows));
@@ -371,6 +385,16 @@ fn flip(current: bool, dir: i32) -> bool {
     match dir {
         0 => !current,
         d => d > 0,
+    }
+}
+
+/// Step a `u8` setting within `[lo, hi]`. `dir` -1/+1 decrements/increments;
+/// 0 (Enter/Space) wraps up to `lo` after `hi`.
+fn step_u8(v: u8, dir: i32, lo: u8, hi: u8) -> u8 {
+    match dir {
+        -1 => v.saturating_sub(1).max(lo),
+        1 => (v + 1).min(hi),
+        _ => if v >= hi { lo } else { v + 1 },
     }
 }
 
@@ -467,5 +491,23 @@ mod tests {
         s.left(); // remove "A"
         assert_eq!(s.config().launcher.len(), 1);
         assert_eq!(s.config().launcher[0].name, "B");
+    }
+
+    #[test]
+    fn windows_section_steps_grid_dimensions() {
+        let mut s = Settings::new(Config::default());
+        // Windows is section 0; row 2 = grid rows, row 3 = grid columns.
+        s.section = 0;
+        s.sel = 2;
+        s.right();
+        assert_eq!(s.config().grid_rows, 3);
+        s.left();
+        assert_eq!(s.config().grid_rows, 2);
+        s.sel = 3;
+        s.right();
+        assert_eq!(s.config().grid_cols, 3);
+        s.sel = 5; // auto-tile toggle
+        s.toggle();
+        assert!(s.config().auto_tile);
     }
 }
