@@ -15,6 +15,9 @@ pub mod launcher;
 pub mod input;
 pub mod session;
 pub mod config;
+pub mod system;
+pub mod poller;
+pub mod tray;
 
 /// The crate version (from Cargo.toml).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -11,6 +11,7 @@ toml = "0.8"
 dirs = "5"
 alacritty_terminal = "0.26.0"
 serde_json = "1.0.150"
+sysinfo = "0.33"
 
 [lib]
 name = "tuiui"
