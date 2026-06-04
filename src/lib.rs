@@ -14,3 +14,6 @@ pub mod launcher;
 pub mod input;
 pub mod session;
 pub mod config;
+pub mod protocol;
+pub mod daemon;
+pub mod client;

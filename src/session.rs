@@ -76,7 +76,7 @@ impl WinContent {
 /// This enum is intentionally minimal — exactly the surface needed for Slice 1.
 /// Additional variants (e.g. scroll, touch, IPC commands) belong in later
 /// slices once the socket transport is defined.
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum ClientMsg {
     /// Spawn a new PTY-backed application window.
     Launch {
@@ -148,6 +148,8 @@ pub enum ClientMsg {
     SettingsToggle,
     /// Settings: close the settings window (Escape).
     SettingsClose,
+    /// Shut down the daemon entirely (kills all apps). Sent by `tuiui kill`.
+    Shutdown,
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -191,7 +193,10 @@ pub struct SessionCore {
     drag: Option<Hit>,
     cursor: Point,
     /// Set when the user clicks the menubar quit button; polled by the loop.
+    /// In daemon mode this means "detach", not "shut down".
     quit: bool,
+    /// Set by `ClientMsg::Shutdown` — the daemon should exit and kill all apps.
+    shutdown: bool,
     /// The app launcher (menubar dropdown + Spotlight overlay).
     launcher: Launcher,
 }
@@ -216,9 +221,17 @@ impl SessionCore {
             drag: None,
             cursor: Point::new(w / 2, h / 2),
             quit: false,
+            shutdown: false,
             launcher,
         }
     }
+
+    /// Whether `tuiui kill` requested a full daemon shutdown.
+    pub fn shutdown_requested(&self) -> bool { self.shutdown }
+
+    /// Clear the detach (quit) flag — called by the daemon after a client detaches
+    /// so the next client doesn't immediately detach again.
+    pub fn clear_quit(&mut self) { self.quit = false; }
 
     /// Build the launcher's app list: the configured apps (with categories filled
     /// in from the catalog where missing), plus any known TUIs detected on `$PATH`
@@ -385,6 +398,7 @@ impl SessionCore {
                     }
                 }
             }
+            ClientMsg::Shutdown => self.shutdown = true,
         }
     }
 

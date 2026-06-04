@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Rgba { pub r: u8, pub g: u8, pub b: u8, pub a: u8 }
 
 impl Rgba {
@@ -22,10 +22,10 @@ impl Rgba {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct CellAttrs { pub bold: bool, pub italic: bool, pub underline: bool, pub inverse: bool }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cell { pub ch: char, pub fg: Rgba, pub bg: Rgba, pub attrs: CellAttrs }
 
 impl Default for Cell {

@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Point { pub x: i32, pub y: i32 }
 
 impl Point {
@@ -25,7 +25,7 @@ impl Rect {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SnapZone { Left, Right }
 
 /// Returns a snap zone if `p` is within `threshold` cells of the left/right screen edge.

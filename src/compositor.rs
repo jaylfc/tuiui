@@ -20,7 +20,7 @@ pub struct Layer {
 
 /// A single cell that changed between the last committed frame and the current composite.
 /// Used by the terminal backend to emit only the minimal ANSI update.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CellChange {
     /// Screen column.
     pub x: i32,
