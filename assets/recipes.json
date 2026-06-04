@@ -55,22 +55,22 @@
   "verified": true
  },
  "BrogueCE": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/tmewett/BrogueCE.git && cd BrogueCE && make bin/brogue",
+  "method": "source",
   "os": [
    "macos",
    "linux",
    "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "C-Edit": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/velorek1/c-edit.git && cd c-edit/src && make",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "Caligula": {
   "install": "brew tap philocalyst/tap && brew install caligula",
@@ -91,23 +91,23 @@
   "verified": true
  },
  "Captain's log": {
-  "install": "",
-  "method": "binary",
+  "install": "mkdir -p build && cd build && cmake .. && make && sudo make install",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "CatenaVetus": {
-  "install": "",
-  "method": "binary",
+  "install": "pip install -e .",
+  "method": "pip",
   "os": [
-   "macos",
    "linux",
+   "macos",
    "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "Chawan": {
   "install": "brew install chawan",
@@ -157,12 +157,12 @@
   "verified": true
  },
  "CoreFreq": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/cyring/CoreFreq.git && cd CoreFreq && make -j && make install",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "CrunchyCleaner": {
   "install": "go install github.com/knuspii/crunchycleaner/v2@latest",
@@ -184,14 +184,14 @@
   "verified": true
  },
  "DOOM-ASCII": {
-  "install": "",
-  "method": "binary",
+  "install": "make",
+  "method": "source",
   "os": [
    "macos",
    "linux",
    "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "Desktop-TUI": {
   "install": "cargo install desktop-tui",
@@ -280,13 +280,13 @@
   "verified": true
  },
  "Gameboy Emulator": {
-  "install": "composer global require gabrielrcouto/php-terminal-gameboy-emulator:dev-master",
-  "method": "other",
+  "install": "wget https://raw.githubusercontent.com/gabrielrcouto/php-terminal-gameboy-emulator/master/bin/php-gameboy.phar && chmod +x php-gameboy.phar && mv php-gameboy.phar /usr/local/bin/php-gameboy",
+  "method": "binary",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "GeekCalendar": {
   "install": "npm install -g github:fearlessgeekmedia/GeekCalendar",
@@ -352,13 +352,14 @@
   "verified": true
  },
  "Gorae": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/Han8931/gorae.git && cd gorae && ./install.sh",
+  "method": "script",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "Grafterm": {
   "install": "go install github.com/slok/grafterm/cmd/grafterm@latest",
@@ -393,26 +394,27 @@
   "install": "curl -sSL https://raw.githubusercontent.com/Henriquehnnm/HydroFetch/main/install.fish | fish",
   "method": "script",
   "os": [
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "HydroToDo": {
-  "install": "git clone https://github.com/Henriquehnnm/hydrotodo && cd hydrotodo && python3 hydrotodo.py",
-  "method": "other",
+  "install": "git clone https://github.com/Henriquehnnm/hydrotodo.git && cd hydrotodo && python3 hydrotodo.py",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "ID-Spoofer": {
-  "install": "",
+  "install": "curl -sL https://github.com/NubleX/ID-Spoofer/releases/latest/download/idspoof_linux_amd64 -o idspoof && chmod +x idspoof && sudo mv idspoof /usr/local/bin/",
   "method": "binary",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "IconicFonts": {
   "install": "",
@@ -434,12 +436,12 @@
   "verified": true
  },
  "Kyanos": {
-  "install": "curl -fsSL https://raw.githubusercontent.com/hengyoush/kyanos/refs/heads/main/init_env.sh | bash",
-  "method": "script",
+  "install": "tar xvf kyanos_vx.x.x_linux_amd64.tar.gz && sudo mv kyanos /usr/local/bin/",
+  "method": "binary",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "LYNX": {
   "install": "brew install lynx",
@@ -471,11 +473,7 @@
  },
  "LearnByExample": {
   "install": "",
-  "method": "other",
-  "os": [
-   "macos",
-   "linux"
-  ],
+  "method": "unknown",
   "verified": false
  },
  "LogLens": {
@@ -507,32 +505,31 @@
   "verified": true
  },
  "Maze TUI": {
-  "install": "",
-  "method": "binary",
-  "os": [
-   "macos",
-   "linux",
-   "windows"
-  ],
-  "verified": false
- },
- "Micro Snake": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/agl-alexglopez/maze-tui.git && cd maze-tui/maze_tui && cargo build --release --bin run_tui",
+  "method": "source",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "Micro Snake": {
+  "install": "make && make install",
+  "method": "source",
+  "os": [
+   "linux",
+   "macos"
   ],
   "verified": false
  },
  "Micro Tetris": {
-  "install": "",
-  "method": "unknown",
+  "install": "make -C /tmp/tetris-src && sudo make -C /tmp/tetris-src install DESTDIR=/usr/local",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "Mutt": {
   "install": "brew install mutt",
@@ -582,13 +579,14 @@
   "verified": true
  },
  "Planor": {
-  "install": "",
-  "method": "binary",
+  "install": "go install github.com/mrusme/planor@latest",
+  "method": "go",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "Pocker": {
   "install": "pipx install pocker-tui",
@@ -727,13 +725,13 @@
   "verified": true
  },
  "Superhighway84": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone git@github.com:mrusme/superhighway84.git && cd superhighway84 && go build .",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "Systemd-manager-tui": {
   "install": "cargo install --locked systemd-manager-tui",
@@ -783,7 +781,7 @@
  },
  "TermUI": {
   "install": "",
-  "method": "library",
+  "method": "unknown",
   "os": [
    "macos",
    "linux",
@@ -851,9 +849,10 @@
   "method": "cargo",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "VT Code": {
   "install": "brew install vtcode",
@@ -883,12 +882,12 @@
   "verified": true
  },
  "WG Commander": {
-  "install": "",
+  "install": "curl -SL https://github.com/andrianbdn/wg-cmd/releases/download/v0.1.7/wg-cmd-0.1.7-linux-amd64 -o /usr/local/bin/wg-cmd && chmod +x /usr/local/bin/wg-cmd",
   "method": "binary",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "WTF": {
   "install": "brew install wtf",
@@ -929,12 +928,12 @@
   "verified": true
  },
  "WireGuard Monitor": {
-  "install": "",
-  "method": "binary",
+  "install": "cargo install --git https://codeberg.org/anthonymills/Wireguard_Monitor",
+  "method": "cargo",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "Wordle": {
   "install": "brew install wordle",
@@ -955,17 +954,17 @@
   "verified": true
  },
  "Zigtris": {
-  "install": "",
-  "method": "other",
+  "install": "zig build -Doptimize=ReleaseFast && ./zig-cache/bin/zigtris",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "Zoridor": {
   "install": "",
-  "method": "other",
+  "method": "unknown",
   "os": [
    "macos",
    "linux"
@@ -1129,8 +1128,8 @@
   "verified": true
  },
  "awkaster": {
-  "install": "git clone https://github.com/TheMozg/awk-raycaster.git && cd awk-raycaster && gawk -f awkaster.awk",
-  "method": "other",
+  "install": "",
+  "method": "unknown",
   "os": [
    "macos",
    "linux"
@@ -1148,13 +1147,13 @@
   "verified": true
  },
  "balatrotui": {
-  "install": "cargo install --git https://github.com/Passeriform/BalatroTUI balatro_tui",
-  "method": "cargo",
+  "install": "cargo build --release --package balatro_tui",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "bandwhich": {
   "install": "brew install bandwhich",
@@ -1211,13 +1210,13 @@
   "verified": true
  },
  "blinkenlights": {
-  "install": "",
-  "method": "binary",
+  "install": "./configure && make -j4 && sudo make install",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "bluetui": {
   "install": "cargo install bluetui",
@@ -1266,12 +1265,12 @@
  },
  "botany": {
   "install": "git clone https://github.com/jifunks/botany.git && cd botany && python3 botany.py",
-  "method": "other",
+  "method": "script",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "bottom": {
   "install": "brew install bottom",
@@ -1293,11 +1292,11 @@
  },
  "brickgame-4bit": {
   "install": "git clone https://github.com/ilyakurdyukov/brickgame-4bit && cd brickgame-4bit && make",
-  "method": "other",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "broot": {
   "install": "brew install broot",
@@ -1608,23 +1607,22 @@
   "verified": true
  },
  "csol": {
-  "install": "",
-  "method": "binary",
+  "install": "cmake . && make && sudo make install",
+  "method": "source",
   "os": [
-   "macos",
    "linux",
-   "windows"
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "csope": {
-  "install": "",
-  "method": "binary",
+  "install": "make",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "csvlens": {
   "install": "brew install csvlens",
@@ -1655,11 +1653,11 @@
  },
  "ctune": {
   "install": "git clone https://github.com/An7ar35/ctune.git && cd ctune && cmake . -DCMAKE_BUILD_TYPE=Release && cmake --build . && sudo cmake --install .",
-  "method": "other",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "d4s": {
   "install": "brew install jr-k/d4s/d4s",
@@ -1748,13 +1746,13 @@
   "verified": true
  },
  "deputui": {
-  "install": "git clone https://github.com/twiddler/deputui && cd deputui && cargo build --release && cp target/release/deputui /usr/local/bin/",
-  "method": "other",
+  "install": "make all",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "diary": {
   "install": "brew install diary",
@@ -1905,13 +1903,13 @@
   "verified": true
  },
  "dvtm": {
-  "install": "",
-  "method": "other",
+  "install": "make && sudo make install",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "e1s": {
   "install": "brew install e1s",
@@ -1980,22 +1978,22 @@
   "verified": true
  },
  "elinks": {
-  "install": "",
-  "method": "binary",
+  "install": "meson setup builddir && cd builddir && meson compile && meson install",
+  "method": "source",
   "os": [
-   "macos",
    "linux",
-   "windows"
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "emu2": {
-  "install": "git clone https://github.com/dmsc/emu2 && cd emu2 && make && sudo make install",
-  "method": "other",
+  "install": "make && sudo make install",
+  "method": "source",
   "os": [
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "endcord": {
   "install": "bash -c \"$(curl -fsSL https://raw.githubusercontent.com/mzivic7/endcord/main/tools/install.sh)\"",
@@ -2082,22 +2080,22 @@
   "verified": true
  },
  "fml": {
-  "install": "git clone https://github.com/wick3dr0se/fml && cp fml/fml /usr/local/bin/fml",
-  "method": "other",
+  "install": "git clone https://github.com/wick3dr0se/fml && cd fml && cp fml /usr/local/bin",
+  "method": "script",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "fnf": {
-  "install": "mkdir build && cd build && git clone https://github.com/leo-arch/fnf && cd fnf && make && sudo make install",
-  "method": "other",
+  "install": "git clone https://github.com/leo-arch/fnf && cd fnf && make && sudo make install",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "framework-tool-tui": {
   "install": "brew install framework-tool-tui",
@@ -2559,7 +2557,7 @@
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "jellyfin-tui": {
   "install": "cargo install jellyfin-tui",
@@ -2616,13 +2614,13 @@
   "verified": true
  },
  "kabmat": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/PlankCipher/kabmat.git && cd kabmat && make && sudo make install",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "kagan": {
   "install": "pipx install kagan",
@@ -2720,13 +2718,13 @@
   "verified": true
  },
  "kilo": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/antirez/kilo.git && cd kilo && make && sudo cp kilo /usr/local/bin/",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "kmon": {
   "install": "cargo install kmon",
@@ -2839,13 +2837,13 @@
   "verified": true
  },
  "levite": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/RauliL/levite.git && cd levite && mkdir build && cd build && cmake .. && make",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "lf": {
   "install": "brew install lf",
@@ -2857,13 +2855,13 @@
   "verified": true
  },
  "line": {
-  "install": "",
+  "install": "curl -L https://pd3v.github.io/downloads/line_v0.8.2_mac_M_series.zip -o line.zip && unzip line.zip && ./line",
   "method": "binary",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "lnav": {
   "install": "brew install lnav",
@@ -2875,14 +2873,14 @@
   "verified": true
  },
  "logradar": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/nanook72/logradar && cd logradar && cargo install --path .",
+  "method": "source",
   "os": [
    "macos",
    "linux",
    "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "logshark": {
   "install": "go install github.com/ugosan/logshark/cmd/logshark@latest",
@@ -2933,13 +2931,13 @@
   "verified": true
  },
  "maki": {
-  "install": "dotnet build && cd ./maki/bin/Debug/net8.0 && ./maki",
-  "method": "other",
+  "install": "git clone https://git.sr.ht/~bscit/maki && cd maki && dotnet build && ./maki/bin/Debug/net8.0/maki",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "managarr": {
   "install": "brew tap Dark-Alex-17/managarr && brew install managarr",
@@ -2971,22 +2969,22 @@
   "verified": true
  },
  "markln": {
-  "install": "git clone https://github.com/xqtr/markln && cd markln && pip install -r requirements.txt",
-  "method": "other",
+  "install": "git clone https://github.com/xqtr/markln && cd markln && pip install -r requirements.txt && python markln.py",
+  "method": "source",
   "os": [
    "macos",
    "linux",
    "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "marstui-audio": {
-  "install": "",
-  "method": "other",
+  "install": "git clone https://github.com/schooldanlp6/marstui-rustio && cd marstui-rustio && cargo build --release && sudo cp target/release/marstui-audio /usr/local/bin/",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "mastui": {
   "install": "pipx install mastui",
@@ -3009,7 +3007,7 @@
  },
  "matterhorn": {
   "install": "",
-  "method": "binary",
+  "method": "unknown",
   "os": [
    "macos",
    "linux"
@@ -3137,13 +3135,13 @@
   "verified": true
  },
  "mpvc": {
-  "install": "curl -fsSLO https://github.com/gmt4/mpvc/raw/master/extras/mpvc-installer && SHELL=/bin/sh BINDIR=$HOME/bin sh ./mpvc-installer fetch-user",
+  "install": "curl -fsSLO https://github.com/lwilletts/mpvc/raw/master/extras/mpvc-installer && SHELL=/bin/sh BINDIR=$HOME/bin sh ./mpvc-installer fetch-user",
   "method": "script",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "mqttui": {
   "install": "brew install mqttui",
@@ -3219,13 +3217,12 @@
   "verified": true
  },
  "nchess": {
-  "install": "",
-  "method": "binary",
+  "install": "make clean && make",
+  "method": "source",
   "os": [
-   "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "ncspot": {
   "install": "brew install ncspot",
@@ -3246,13 +3243,13 @@
   "verified": true
  },
  "neo": {
-  "install": "",
-  "method": "binary",
+  "install": "./configure && make && sudo make install",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "neoss": {
   "install": "npm install -g neoss",
@@ -3300,13 +3297,14 @@
   "verified": true
  },
  "nino": {
-  "install": "git clone https://github.com/evanlin96069/nino && cd nino && mkdir build && cd build && cmake .. && cmake --build .",
-  "method": "other",
+  "install": "git clone https://github.com/evanlin96069/nino.git && cd nino && mkdir build && cd build && cmake .. && cmake --build . && cmake --install .",
+  "method": "source",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "nless": {
   "install": "brew install mpryor/tap/nless",
@@ -3319,12 +3317,12 @@
   "verified": true
  },
  "nmtui": {
-  "install": "",
+  "install": "sudo apt install network-manager",
   "method": "apt",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "nnn": {
   "install": "brew install nnn",
@@ -3354,13 +3352,14 @@
   "verified": true
  },
  "nostratui": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/adamm-xyz/nostratui.git && cd nostratui && cargo build",
+  "method": "source",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "nostui": {
   "install": "cargo install nostui",
@@ -3373,13 +3372,12 @@
   "verified": true
  },
  "ntc": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://codeberg.org/ItsZariep/ntc && cd ntc/src && make",
+  "method": "source",
   "os": [
-   "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "nudoku": {
   "install": "brew install nudoku",
@@ -3530,13 +3528,14 @@
   "verified": true
  },
  "pagerduty-tui": {
-  "install": "",
-  "method": "binary",
+  "install": "cargo build --release",
+  "method": "source",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "pass-cli": {
   "install": "brew tap arimxyer/homebrew-tap && brew install pass-cli",
@@ -3574,21 +3573,21 @@
   "verified": true
  },
  "pipe-viewer": {
-  "install": "perl Build.PL && ./Build && sudo ./Build install",
-  "method": "other",
+  "install": "perl Build.PL && sudo ./Build installdeps && sudo ./Build install",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "pkm": {
-  "install": "git clone https://github.com/wick3dr0se/pkm && cd pkm && bash pkm",
+  "install": "git clone https://github.com/wick3dr0se/pkm; cd pkm",
   "method": "script",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "play": {
   "install": "go install github.com/paololazzari/play@latest",
@@ -3629,12 +3628,13 @@
   "verified": true
  },
  "pond": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://gitlab.com/alice-lefebvre/pond/ && cd pond && make && sudo make install",
+  "method": "source",
   "os": [
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "portfolio_rs": {
   "install": "cargo install portfolio_rs",
@@ -3783,13 +3783,13 @@
   "verified": true
  },
  "pyradio": {
-  "install": "pipx install pyradio",
-  "method": "pipx",
+  "install": "curl -L https://raw.githubusercontent.com/coderholic/pyradio/master/pyradio/install.py -o install.py && python3 install.py",
+  "method": "script",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "qo": {
   "install": "brew install qo",
@@ -3923,11 +3923,11 @@
  },
  "rttt": {
   "install": "git clone https://gitlab.com/BlackEdder/rttt.git && cd rttt && cmake . && make install",
-  "method": "script",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "runme": {
   "install": "brew install runme",
@@ -3951,11 +3951,11 @@
   "install": "",
   "method": "binary",
   "os": [
-   "macos",
    "linux",
+   "macos",
    "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "rxpipes": {
   "install": "cargo install rxpipes",
@@ -4005,22 +4005,22 @@
   "verified": true
  },
  "sclack": {
-  "install": "pip install git+https://github.com/haskellcamargo/sclack.git",
-  "method": "other",
+  "install": "pip3 install -r requirements.txt",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "scli": {
-  "install": "git clone https://github.com/isamert/scli.git && cd scli && python3 scli",
-  "method": "other",
+  "install": "apt install scli",
+  "method": "apt",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "searxngr": {
   "install": "uv tool install https://github.com/scross01/searxngr.git",
@@ -4052,21 +4052,21 @@
  },
  "sfm": {
   "install": "git clone https://github.com/afify/sfm && cd sfm && make && make install",
-  "method": "other",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "siggo": {
-  "install": "",
-  "method": "binary",
+  "install": "make build",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "slap": {
   "install": "npm install -g slap@latest",
@@ -4166,12 +4166,12 @@
  },
  "soundcloud2000": {
   "install": "gem install soundcloud2000",
-  "method": "other",
+  "method": "pip",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "spotatui": {
   "install": "cargo install spotatui",
@@ -4255,18 +4255,19 @@
   "method": "go",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "sssnake": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/AngelJumbo/sssnake.git && cd sssnake && make && sudo make install",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "steam-tui": {
   "install": "cargo install steam-tui",
@@ -4277,14 +4278,14 @@
   "verified": true
  },
  "steam_friends_list_tui": {
-  "install": "",
+  "install": "Download from https://github.com/AdamWHY2K/steam_friends_list_tui/releases",
   "method": "binary",
   "os": [
    "macos",
    "linux",
    "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "stegodon": {
   "install": "go install github.com/deemkeen/stegodon@latest",
@@ -4305,12 +4306,12 @@
   "verified": true
  },
  "sudoku-rs": {
-  "install": "cargo install sudoku-rs",
-  "method": "cargo",
+  "install": "sudo snap install sudoku-rs",
+  "method": "binary",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "sup": {
   "install": "gem install sup",
@@ -4341,8 +4342,8 @@
   "verified": true
  },
  "sweeper": {
-  "install": "uv run https://github.com/igor47/sweeper/raw/master/sweeper.py",
-  "method": "other",
+  "install": "",
+  "method": "unknown",
   "os": [
    "macos",
    "linux"
@@ -4350,12 +4351,13 @@
   "verified": false
  },
  "sysz": {
-  "install": "",
+  "install": "wget -O ~/.bin/sysz https://github.com/joehillen/sysz/releases/latest/download/sysz && chmod +x ~/.bin/sysz",
   "method": "binary",
   "os": [
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "tab-pal": {
   "install": "pipx install tab-pal",
@@ -4469,12 +4471,12 @@
   "verified": true
  },
  "term.everything": {
-  "install": "go install github.com/mmulet/term.everything@latest",
-  "method": "go",
+  "install": "cd /tmp && curl -L https://github.com/mmulet/term.everything/releases/download/0.7.8/term.everything.mmulet.com-dont_forget_to_chmod_+x_this_file -o term.everything && chmod +x term.everything && sudo mv term.everything /usr/local/bin/",
+  "method": "binary",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "termdbms": {
   "install": "go install github.com/mathaou/termdbms@latest",
@@ -4487,13 +4489,14 @@
   "verified": true
  },
  "terminal-phase": {
-  "install": "git clone https://gitlab.com/dustyweb/terminal-phase && cd terminal-phase && ./bootstrap.sh && ./configure && make && make install",
-  "method": "other",
+  "install": "raco pkg install terminal-phase",
+  "method": "binary",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "terminal-pong": {
   "install": "cargo install --git https://github.com/IshmamR/terminal.pong",
@@ -4515,21 +4518,21 @@
   "verified": true
  },
  "terminalperiodictable": {
-  "install": "git clone https://github.com/velorek1/terminalperiodictable.git && cd terminalperiodictable && make && sudo make install",
-  "method": "script",
+  "install": "make && sudo make install",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "termrex": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/SATYADAHAL/termrex.git && cd termrex && make -j release && ./build/termrex",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "termscp": {
   "install": "brew install termscp",
@@ -4655,12 +4658,12 @@
   "verified": true
  },
  "tilde": {
-  "install": "",
-  "method": "binary",
+  "install": "apt-get install tilde",
+  "method": "apt",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "timg": {
   "install": "brew install timg",
@@ -4672,13 +4675,13 @@
   "verified": true
  },
  "tinytetris": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/taylorconor/tinytetris && cd tinytetris && make",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "tizonia-openmax-il": {
   "install": "curl -kL https://github.com/tizonia/tizonia-openmax-il/raw/master/tools/install.sh | bash",
@@ -4686,7 +4689,7 @@
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "tlock": {
   "install": "go install github.com/eklairs/tlock@latest",
@@ -4901,7 +4904,7 @@
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "tui-slides": {
   "install": "cargo install tui-slides",
@@ -4950,22 +4953,21 @@
   "verified": true
  },
  "tuix": {
-  "install": "cargo install --git https://github.com/pythops/tuix",
-  "method": "cargo",
+  "install": "git clone https://github.com/pythops/tuix && cd tuix && cargo install --path .",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "turbo": {
-  "install": "",
-  "method": "binary",
+  "install": "cmake . -DCMAKE_BUILD_TYPE=Release && cmake --build .",
+  "method": "source",
   "os": [
-   "macos",
    "linux",
-   "windows"
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "turbostream": {
   "install": "go install github.com/turboline-ai/turbostream/cmd/server@latest",
@@ -4987,13 +4989,13 @@
   "verified": true
  },
  "tvterm": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone --recursive https://github.com/magiblot/tvterm && cd tvterm && cmake . -B ./build -DCMAKE_BUILD_TYPE=Release && cmake --build ./build",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "tweakcc": {
   "install": "brew install tweakcc",
@@ -5136,13 +5138,14 @@
   "verified": true
  },
  "vv": {
-  "install": "",
-  "method": "binary",
+  "install": "cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build",
+  "method": "source",
   "os": [
    "macos",
-   "linux"
+   "linux",
+   "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "w3m": {
   "install": "brew install w3m",
@@ -5164,11 +5167,11 @@
  },
  "wavemon": {
   "install": "./configure && make && sudo make install",
-  "method": "other",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "waves": {
   "install": "go install github.com/llehouerou/waves@latest",
@@ -5179,12 +5182,12 @@
   "verified": true
  },
  "wb": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/MertGunduz/wb.git && cd wb && chmod 755 INSTALL.sh && ./INSTALL.sh",
+  "method": "script",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "weathr": {
   "install": "cargo install weathr",
@@ -5223,23 +5226,23 @@
   "verified": true
  },
  "wocogo": {
-  "install": "",
-  "method": "unknown",
+  "install": "git clone https://codeberg.org/kedlubnowski/wocogo.git && cd wocogo && pip install .",
+  "method": "source",
   "os": [
    "macos",
    "linux",
    "windows"
   ],
-  "verified": false
+  "verified": true
  },
  "wttr.in": {
-  "install": "",
-  "method": "other",
+  "install": "git clone https://github.com/chubin/wttr.in && cd wttr.in && bash build.sh build",
+  "method": "source",
   "os": [
-   "macos",
-   "linux"
+   "linux",
+   "macos"
   ],
-  "verified": false
+  "verified": true
  },
  "x-cmd": {
   "install": "brew install x-cmd",
@@ -5289,22 +5292,21 @@
   "verified": true
  },
  "ytfzf": {
-  "install": "git clone https://github.com/pystardust/ytfzf && cd ytfzf && sudo make install",
-  "method": "script",
+  "install": "git clone https://github.com/pystardust/ytfzf && cd ytfzf && sudo make install doc",
+  "method": "source",
   "os": [
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "ytui-music": {
-  "install": "",
-  "method": "binary",
+  "install": "git clone https://github.com/sudipghimire533/ytui-music && cd ytui-music && git submodule init && MPV_BUILD=mpv-build/ cargo build --all --release --features build_libmpv",
+  "method": "source",
   "os": [
    "macos",
-   "linux",
-   "windows"
+   "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "zee": {
   "install": "cargo install --locked zee",
