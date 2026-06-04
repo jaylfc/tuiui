@@ -416,15 +416,6 @@
   ],
   "verified": true
  },
- "IconicFonts": {
-  "install": "",
-  "method": "unknown",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": false
- },
  "Judo": {
   "install": "cargo install judo",
   "method": "cargo",
@@ -471,11 +462,6 @@
   ],
   "verified": true
  },
- "LearnByExample": {
-  "install": "",
-  "method": "unknown",
-  "verified": false
- },
  "LogLens": {
   "install": "brew tap Caelrith/loglens && brew install loglens",
   "method": "brew",
@@ -514,13 +500,13 @@
   "verified": true
  },
  "Micro Snake": {
-  "install": "make && make install",
-  "method": "source",
+  "install": "git clone https://github.com/troglobit/snake && cd snake && make && sudo install -m 755 snake /usr/local/bin/snake",
+  "method": "make",
   "os": [
-   "linux",
-   "macos"
+   "macos",
+   "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "Micro Tetris": {
   "install": "make -C /tmp/tetris-src && sudo make -C /tmp/tetris-src install DESTDIR=/usr/local",
@@ -779,16 +765,6 @@
   ],
   "verified": true
  },
- "TermUI": {
-  "install": "",
-  "method": "unknown",
-  "os": [
-   "macos",
-   "linux",
-   "windows"
-  ],
-  "verified": false
- },
  "Toad": {
   "install": "pipx install batrachian-toad",
   "method": "pipx",
@@ -963,13 +939,13 @@
   "verified": true
  },
  "Zoridor": {
-  "install": "",
-  "method": "unknown",
+  "install": "git clone https://github.com/ringtailsoftware/zoridor && cd zoridor && zig build -Doptimize=ReleaseSafe && sudo cp zig-out/bin/zoridor /usr/local/bin/zoridor",
+  "method": "zig",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "abook": {
   "install": "brew install abook",
@@ -1128,13 +1104,13 @@
   "verified": true
  },
  "awkaster": {
-  "install": "",
-  "method": "unknown",
+  "install": "brew install gawk && git clone https://github.com/TheMozg/awk-raycaster && cd awk-raycaster && gawk -f awkaster.awk",
+  "method": "source",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "awsui": {
   "install": "pip install awsui",
@@ -3006,13 +2982,13 @@
   "verified": true
  },
  "matterhorn": {
-  "install": "",
-  "method": "unknown",
+  "install": "curl -L https://github.com/matterhorn-chat/matterhorn/releases/download/90000.1.1/matterhorn-90000.1.1-Darwin-arm64.tar.bz2 -o matterhorn.tar.bz2 && tar -xjf matterhorn.tar.bz2 && sudo mv matterhorn-90000.1.1-Darwin-arm64/matterhorn /usr/local/bin/matterhorn",
+  "method": "binary",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "mc": {
   "install": "brew install midnight-commander",
@@ -4342,13 +4318,13 @@
   "verified": true
  },
  "sweeper": {
-  "install": "",
-  "method": "unknown",
+  "install": "git clone https://github.com/igor47/sweeper && cd sweeper && uv run sweeper.py",
+  "method": "script",
   "os": [
    "macos",
    "linux"
   ],
-  "verified": false
+  "verified": true
  },
  "sysz": {
   "install": "wget -O ~/.bin/sysz https://github.com/joehillen/sysz/releases/latest/download/sysz && chmod +x ~/.bin/sysz",
