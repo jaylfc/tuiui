@@ -12,6 +12,12 @@ const DOCK_BG: Rgba    = Rgba { r: 22, g: 27, b: 39, a: 255 };
 const TEXT: Rgba       = Rgba { r: 200, g: 208, b: 220, a: 255 };
 const BRAND: Rgba      = Rgba { r: 108, g: 182, b: 255, a: 255 };
 const ACTIVE_BG: Rgba  = Rgba { r: 45, g: 58, b: 85, a: 255 };
+const QUIT_BG: Rgba    = Rgba { r: 90, g: 38, b: 48, a: 255 };
+const QUIT_FG: Rgba    = Rgba { r: 255, g: 150, b: 150, a: 255 };
+
+/// Label drawn for the menubar quit button (kept as a const so its width and
+/// the matching hit region stay in sync).
+const QUIT_LABEL: &str = " \u{2715} Quit ";
 
 // ── Public types ───────────────────────────────────────────────────────────────
 
@@ -35,8 +41,27 @@ pub fn render_menubar(width: i32, focused_app: &str) -> Layer {
     let mut buf = CellBuffer::new(width, 1);
     buf.fill(crate::cell::Cell { ch: ' ', fg: TEXT, bg: MENUBAR_BG, attrs: Default::default() });
     buf.write_str(1, 0, "\u{2726} Tuiui", BRAND, MENUBAR_BG);
-    buf.write_str(10, 0, focused_app, TEXT, MENUBAR_BG);
+    // Quit button, right-aligned. write_str paints the label's own spaces with
+    // QUIT_BG, giving it a button-like fill.
+    let qx = (width - QUIT_LABEL.chars().count() as i32).max(0);
+    // Focused-app name sits between the brand and the quit button, truncated so
+    // it can never overwrite the button on a narrow bar.
+    const APP_X: i32 = 10;
+    let avail = (qx - 1 - APP_X).max(0) as usize;
+    let app: String = focused_app.chars().take(avail).collect();
+    buf.write_str(APP_X, 0, &app, TEXT, MENUBAR_BG);
+    buf.write_str(qx, 0, QUIT_LABEL, QUIT_FG, QUIT_BG);
     Layer { z: 1000, origin: Point::new(0, 0), buf, opacity: 1.0, scissor: None }
+}
+
+/// Screen-space hit region for the menubar quit button (top row, right side).
+///
+/// Returned in the same coordinate space as [`dock_hit_regions`] so input
+/// routing can detect a quit click without coupling to chrome rendering.
+pub fn menubar_quit_region(width: i32) -> Rect {
+    let qw = QUIT_LABEL.chars().count() as i32;
+    let qx = (width - qw).max(0);
+    Rect::new(qx, 0, width - qx, 1)
 }
 
 /// Build a compositor [`Layer`] for the bottom dock row.

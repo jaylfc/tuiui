@@ -42,6 +42,23 @@ impl AppInstance {
         for a in args {
             builder.arg(a);
         }
+        // Inherit the parent environment so apps on the user's PATH (e.g.
+        // Homebrew binaries in /opt/homebrew/bin) can actually be found and
+        // launched, and so children get HOME/LANG/etc.
+        for (key, val) in std::env::vars() {
+            builder.env(key, val);
+        }
+        // Pin TERM/COLORTERM to what our embedded vt100 emulator implements,
+        // independent of the outer terminal. This keeps apps from emitting
+        // terminal-specific escapes our parser can't model (e.g. xterm-ghostty
+        // over SSH) while still letting them produce 24-bit color, which we
+        // capture and re-emit per the *outer* terminal's real capabilities.
+        builder.env("TERM", "xterm-256color");
+        builder.env("COLORTERM", "truecolor");
+        // Start children in the user's home directory when it is known.
+        if let Some(home) = dirs::home_dir() {
+            builder.cwd(home);
+        }
         let child = pair
             .slave
             .spawn_command(builder)

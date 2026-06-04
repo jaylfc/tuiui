@@ -24,3 +24,14 @@ fn click_dock_focuses_window() {
     assert_eq!(core.focused(), Some(first_id));
     core.shutdown();
 }
+
+#[test]
+fn clicking_menubar_quit_button_requests_quit() {
+    use tuiui::chrome::menubar_quit_region;
+    let mut core = SessionCore::new(80, 24, Config::default());
+    assert!(!core.quit_requested());
+    let r = menubar_quit_region(80);
+    core.apply(ClientMsg::MouseDown(Point::new(r.x, 0)));
+    assert!(core.quit_requested());
+    core.shutdown();
+}

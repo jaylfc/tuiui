@@ -94,6 +94,11 @@ fn main() -> std::io::Result<()> {
             }
         }
 
+        // Quit if the user clicked the menubar quit button this tick.
+        if core.quit_requested() {
+            break 'outer;
+        }
+
         // Reap child processes that have exited.
         core.reap_dead();
 

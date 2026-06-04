@@ -10,7 +10,7 @@
 //! details cross this boundary — it is the seam that a future daemon will
 //! expose on a socket.
 
-use crate::chrome::{render_menubar, render_dock, dock_hit_regions, DockItem};
+use crate::chrome::{render_menubar, render_dock, dock_hit_regions, menubar_quit_region, DockItem};
 use crate::compositor::Layer;
 use crate::config::Config;
 use crate::geometry::{Point, Rect, snap_zone};
@@ -86,6 +86,8 @@ pub struct SessionCore {
     h: i32,
     drag: Option<Hit>,
     cursor: Point,
+    /// Set when the user clicks the menubar quit button; polled by the loop.
+    quit: bool,
 }
 
 impl SessionCore {
@@ -104,8 +106,13 @@ impl SessionCore {
             h,
             drag: None,
             cursor: Point::new(w / 2, h / 2),
+            quit: false,
         }
     }
+
+    /// Whether the user has requested quit (clicked the menubar quit button).
+    /// The render loop polls this each tick and exits when it returns `true`.
+    pub fn quit_requested(&self) -> bool { self.quit }
 
     /// Return the number of live windows (app instances spawned successfully).
     pub fn window_count(&self) -> usize { self.apps.len() }
@@ -206,8 +213,13 @@ impl SessionCore {
 
     /// Route a mouse event through dock hit-testing then the WM input router.
     fn handle_mouse(&mut self, kind: MouseKind, p: Point) {
-        // Dock clicks are checked first so they bypass normal window routing.
+        // Menubar quit button and dock clicks are checked first so they bypass
+        // normal window routing.
         if kind == MouseKind::Down {
+            if menubar_quit_region(self.w).contains(p) {
+                self.quit = true;
+                return;
+            }
             for (id, r) in self.dock_regions() {
                 if r.contains(p) {
                     self.wm.raise(id);
