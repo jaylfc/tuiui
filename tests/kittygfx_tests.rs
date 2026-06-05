@@ -1,4 +1,4 @@
-use tuiui::kittygfx::{GraphicsTap, GraphicsCmd};
+use tuiui::kittygfx::GraphicsTap;
 
 /// Build a Kitty graphics APC: ESC _ G <control> ; <payload> ESC \
 fn apc(control: &str, payload: &str) -> Vec<u8> {
@@ -49,6 +49,27 @@ fn non_graphics_apc_passes_through() {
     assert_eq!(out.passthrough, input); // passed through untouched
 }
 
+#[test]
+fn transparency_invariant_for_non_graphics() {
+    // For any input WITHOUT a graphics APC, passthrough == input exactly and
+    // commands is empty. Covers plain text, CSI (ESC [ … m), OSC (ESC ] … BEL/ST),
+    // and DCS (ESC P … ST) — none are ESC _ G, so all must pass through untouched.
+    let cases: &[&[u8]] = &[
+        b"plain text\nwith newlines\t and tabs",
+        b"\x1b[0m\x1b[1;31mcolored\x1b[m",          // CSI SGR sequences
+        b"\x1b]0;window title\x07rest",              // OSC terminated by BEL
+        b"\x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\", // OSC terminated by ST
+        b"\x1bPq#0;2;0;0;0\x1b\\",                   // DCS (sixel-like) terminated by ST
+        b"\x1b_Xnon-graphics apc\x1b\\tail",         // non-graphics APC
+    ];
+    for case in cases {
+        let mut tap = GraphicsTap::new();
+        let out = tap.feed(case);
+        assert!(out.commands.is_empty(), "unexpected command for {case:?}");
+        assert_eq!(out.passthrough, *case, "passthrough corrupted for {case:?}");
+    }
+}
+
 use tuiui::kittygfx::GraphicsState;
 
 fn tiny_png() -> Vec<u8> {
@@ -94,4 +115,52 @@ fn chunked_transmit_reassembles() {
     assert!(st.png(5).is_none()); // not complete yet
     st.apply(&tuiui::kittygfx::parse_one(&apc("i=5,m=0", b)), 0, 0);
     assert!(st.png(5).is_some());
+}
+
+#[test]
+fn transmit_and_display_places_at_cursor() {
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(tiny_png());
+    let cmd = tuiui::kittygfx::parse_one(&apc("a=T,f=100,t=d,i=2,c=4,r=2", &b64));
+    let mut st = GraphicsState::new();
+    st.apply(&cmd, 6, 3);
+    assert_eq!(st.placements.len(), 1);
+    let p = &st.placements[0];
+    assert_eq!((p.col, p.row, p.cols, p.rows), (6, 3, 4, 2));
+}
+
+#[test]
+fn delete_all_and_by_id() {
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(tiny_png());
+    let mut st = GraphicsState::new();
+    st.apply(&tuiui::kittygfx::parse_one(&apc("a=T,f=100,t=d,i=1,c=1,r=1", &b64)), 0, 0);
+    st.apply(&tuiui::kittygfx::parse_one(&apc("a=T,f=100,t=d,i=2,c=1,r=1", &b64)), 1, 0);
+    assert_eq!(st.placements.len(), 2);
+    st.apply(&tuiui::kittygfx::parse_one(&apc("a=d,d=i,i=1", "")), 0, 0);
+    assert_eq!(st.placements.len(), 1);
+    st.apply(&tuiui::kittygfx::parse_one(&apc("a=d,d=A", "")), 0, 0);
+    assert!(st.placements.is_empty());
+}
+
+#[test]
+fn query_pushes_ok_reply() {
+    let mut st = GraphicsState::new();
+    st.apply(&tuiui::kittygfx::parse_one(&apc("a=q,i=99", "")), 0, 0);
+    assert_eq!(st.queries.len(), 1);
+    assert!(st.queries[0].windows(2).any(|w| w == b"OK"));
+}
+
+#[test]
+fn temp_file_source_is_read() {
+    use base64::Engine;
+    let dir = std::env::temp_dir().join(format!("tuiui-a2-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("img.png");
+    std::fs::write(&path, tiny_png()).unwrap();
+    let path_b64 = base64::engine::general_purpose::STANDARD.encode(path.to_string_lossy().as_bytes());
+    let mut st = GraphicsState::new();
+    st.apply(&tuiui::kittygfx::parse_one(&apc("a=t,f=100,t=t,i=8", &path_b64)), 0, 0);
+    assert!(st.png(8).is_some());
+    let _ = std::fs::remove_dir_all(&dir);
 }
