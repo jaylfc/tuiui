@@ -20,7 +20,13 @@ pub struct FrameMsg {
 
 /// UI-state flags the client uses to decide where keyboard input goes. They lag
 /// the daemon by one frame, which is imperceptible for typing.
+///
+/// `#[serde(default)]` makes the struct tolerant of version skew: a client built
+/// against a newer `Flags` can still parse frames from an older daemon (missing
+/// fields default to `false`) instead of dropping every frame and rendering a
+/// blank desktop.
 #[derive(Serialize, Deserialize, Clone, Copy, Default)]
+#[serde(default)]
 pub struct Flags {
     pub launcher_open: bool,
     pub spotlight_open: bool,
