@@ -24,6 +24,8 @@ fn frame_msg_roundtrips_json() {
         changes: vec![CellChange { x: 1, y: 2, cell: Cell { ch: 'A', fg: Rgba::rgb(1,2,3), bg: Rgba::rgb(4,5,6), attrs: Default::default() } }],
         cursor: Some(Point::new(5, 6)),
         flags: Flags { launcher_open: true, ..Default::default() },
+        images: Vec::new(),
+        image_data: Vec::new(),
     };
     let s = serde_json::to_string(&f).unwrap();
     let back: FrameMsg = serde_json::from_str(&s).unwrap();

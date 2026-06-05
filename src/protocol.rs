@@ -6,16 +6,41 @@
 //!   client needs to route keyboard input (which overlay is open, etc.).
 
 use crate::compositor::CellChange;
-use crate::geometry::Point;
+use crate::geometry::{Point, Rect};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Daemon → client frame: changed cells, cursor position, and routing flags.
+/// Daemon → client frame: changed cells, cursor position, routing flags, and the
+/// image layer (placements + any first-time image data).
 #[derive(Serialize, Deserialize)]
 pub struct FrameMsg {
     pub changes: Vec<CellChange>,
     pub cursor: Option<Point>,
     pub flags: Flags,
+    /// Image placements for this frame (where each visible image goes).
+    #[serde(default)]
+    pub images: Vec<ImagePlacement>,
+    /// PNG bytes for images not yet sent to this client (base64), sent once.
+    #[serde(default)]
+    pub image_data: Vec<ImageBlob>,
+}
+
+/// A request to place image `id` at `rect` (screen cells). `visible=false` tells
+/// the client to remove the placement (occluded or window closed).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ImagePlacement {
+    pub id: u64,
+    pub rect: Rect,
+    pub cols: u16,
+    pub rows: u16,
+    pub visible: bool,
+}
+
+/// PNG bytes for image `id`, base64-encoded, sent once per attach.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ImageBlob {
+    pub id: u64,
+    pub png_base64: String,
 }
 
 /// UI-state flags the client uses to decide where keyboard input goes. They lag

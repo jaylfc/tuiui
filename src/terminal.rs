@@ -13,6 +13,8 @@ pub struct Caps {
     pub truecolor: bool,
     /// Whether the terminal supports SGR 1016 pixel-position mouse events (Kitty / WezTerm / Ghostty).
     pub pixel_mouse: bool,
+    /// Whether the terminal supports the Kitty graphics protocol (for images).
+    pub kitty_graphics: bool,
 }
 
 impl Caps {
@@ -23,7 +25,8 @@ impl Caps {
         // Pixel mouse (SGR 1016) — conservatively off unless a known supporting terminal.
         let term = std::env::var("TERM_PROGRAM").unwrap_or_default();
         let pixel_mouse = matches!(term.as_str(), "kitty" | "WezTerm" | "ghostty");
-        Caps { truecolor, pixel_mouse }
+        let kitty_graphics = pixel_mouse; // same set of terminals support graphics
+        Caps { truecolor, pixel_mouse, kitty_graphics }
     }
 }
 

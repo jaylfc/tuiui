@@ -119,7 +119,13 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             help_open: core.help_open(),
             detach: core.quit_requested(),
         };
-        let mut buf = serde_json::to_vec(&FrameMsg { changes, cursor: frame.cursor, flags })
+        let mut buf = serde_json::to_vec(&FrameMsg {
+            changes,
+            cursor: frame.cursor,
+            flags,
+            images: Vec::new(),
+            image_data: Vec::new(),
+        })
             .unwrap_or_default();
         buf.push(b'\n');
         if writer.write_all(&buf).is_err() {
