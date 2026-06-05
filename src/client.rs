@@ -201,6 +201,15 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             (KeyCode::Tab, false) => send(&mut out_stream, &ClientMsg::FileManagerNextTab)?,
                             _ => {}
                         }
+                    } else if f.desktop_editing {
+                        // Desktop rename / new-folder overlay: forward typed chars.
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::DesktopCancel)?,
+                            KeyCode::Enter => send(&mut out_stream, &ClientMsg::DesktopCommit)?,
+                            KeyCode::Backspace => send(&mut out_stream, &ClientMsg::DesktopBackspace)?,
+                            KeyCode::Char(c) if !ctrl => send(&mut out_stream, &ClientMsg::DesktopChar(c))?,
+                            _ => {}
+                        }
                     } else if ctrl_alt {
                         match k.code {
                             KeyCode::Char('q') => break,

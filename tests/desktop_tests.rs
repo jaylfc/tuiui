@@ -82,6 +82,42 @@ fn double_click_pin_runs_command() {
 }
 
 #[test]
+fn right_click_opens_context_and_menu_targets() {
+    use tuiui::desktop::DesktopOverlay;
+    let d = tmp("ctx");
+    fs::write(d.join("a.txt"), b"x").unwrap();
+    let mut dt = DesktopIcons::new(d.clone());
+    dt.reload(&[], &BTreeMap::new());
+    dt.layout(100, 30);
+    dt.right_click(Point::new(2, 1)); // on the icon
+    assert!(matches!(dt.overlay(), Some(DesktopOverlay::Context { .. })));
+    dt.right_click(Point::new(60, 20)); // empty desktop
+    assert!(matches!(dt.overlay(), Some(DesktopOverlay::DesktopMenu { .. })));
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn rename_overlay_edits_and_commit_requests_fs() {
+    let d = tmp("ren");
+    fs::write(d.join("old.txt"), b"x").unwrap();
+    let mut dt = DesktopIcons::new(d.clone());
+    dt.reload(&[], &BTreeMap::new());
+    dt.layout(100, 30);
+    dt.begin_rename(0);
+    for _ in 0.."old.txt".len() {
+        dt.overlay_backspace();
+    }
+    for c in "new.txt".chars() {
+        dt.overlay_char(c);
+    }
+    // commit performs the rename via the model's fs (StdFs on temp dir)
+    dt.overlay_commit();
+    assert!(d.join("new.txt").exists());
+    assert!(!d.join("old.txt").exists());
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
 fn drag_snaps_to_target_cell_and_reports_position() {
     let d = tmp("drag");
     fs::create_dir(d.join("proj")).unwrap();
