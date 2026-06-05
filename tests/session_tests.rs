@@ -165,3 +165,19 @@ fn open_file_manager_creates_focused_window_and_is_single_instance() {
     assert!(!core.focused_is_filemanager());
     core.shutdown();
 }
+
+#[test]
+fn desktop_image_icon_emits_thumbnail_placement() {
+    let dir = std::env::temp_dir().join(format!("tuiui-deskthumb-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let img = image::RgbaImage::from_pixel(8, 8, image::Rgba([9, 9, 9, 255]));
+    image::DynamicImage::ImageRgba8(img).save(dir.join("p.png")).unwrap();
+
+    let mut core = SessionCore::new(100, 30, Config { desktop_pins: vec![], ..Config::default() });
+    core.set_desktop_dir_for_test(dir.clone());
+    let frame = core.build_frame();
+    assert!(frame.images.iter().any(|pl| pl.cols >= 1), "expected a desktop thumbnail placement");
+    core.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

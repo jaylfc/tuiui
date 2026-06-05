@@ -366,8 +366,14 @@ impl SessionCore {
     }
 
     /// Load image thumbnails for the desktop's image icons into the shared store.
-    /// (Task 8 fills in the body; a stub keeps the wiring compiling.)
-    fn refresh_desktop_thumbnails(&mut self) {}
+    fn refresh_desktop_thumbnails(&mut self) {
+        let reqs = self.desktop.thumbnail_requests();
+        for (idx, path) in reqs {
+            if let Some(id) = self.images.load(&path, 13 * 8, 16) {
+                self.desktop.set_thumb(idx, id);
+            }
+        }
+    }
 
     /// Point the desktop at a specific directory and reload (integration tests).
     #[doc(hidden)]
@@ -1696,6 +1702,17 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 let vis = self.fully_unobstructed(w);
                 images.extend(f.thumbnail_placements(cr, vis));
             }
+        }
+
+        // Thumbnail placements for desktop image icons not covered by a window.
+        if self.cfg.desktop_enabled {
+            let occluded = |r: crate::geometry::Rect| {
+                self.wm
+                    .z_ordered()
+                    .iter()
+                    .any(|w| !w.minimized && w.rect.intersect(r).is_some())
+            };
+            images.extend(self.desktop.thumbnail_placements(|r| !occluded(r)));
         }
 
         Frame { layers, cursor: Some(self.cursor), images }

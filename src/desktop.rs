@@ -450,6 +450,48 @@ impl<F: FsOps> DesktopIcons<F> {
         any
     }
 
+    // ── Thumbnails (A1 image placements) ──────────────────────────────────────
+
+    /// Image-role icons (with a non-empty path) needing a thumbnail loaded.
+    pub fn thumbnail_requests(&self) -> Vec<(usize, PathBuf)> {
+        self.icons
+            .iter()
+            .enumerate()
+            .filter(|(_, i)| i.role == Role::Image && !i.path.as_os_str().is_empty())
+            .map(|(i, ic)| (i, ic.path.clone()))
+            .collect()
+    }
+
+    /// Record a loaded thumbnail id for an icon.
+    pub fn set_thumb(&mut self, idx: usize, id: u64) {
+        if let Some(i) = self.icons.get_mut(idx) {
+            i.thumb = Some(id);
+        }
+    }
+
+    /// Placements for loaded thumbnails; `visible(tile_rect)` decides occlusion.
+    pub fn thumbnail_placements(
+        &self,
+        visible: impl Fn(crate::geometry::Rect) -> bool,
+    ) -> Vec<crate::protocol::ImagePlacement> {
+        let mut out = Vec::new();
+        for icon in &self.icons {
+            if let Some(id) = icon.thumb {
+                let r = Self::tile_rect(icon.cell);
+                let cell = crate::geometry::Rect::new(r.x + ICON_W / 2 - 1, r.y, 2, 1);
+                out.push(crate::protocol::ImagePlacement {
+                    id,
+                    rect: cell,
+                    cols: cell.w.max(1) as u16,
+                    rows: cell.h.max(1) as u16,
+                    visible: visible(r),
+                });
+            }
+        }
+        out.sort_by_key(|p| p.id);
+        out
+    }
+
     /// The icon index a context menu is anchored on, if any.
     pub fn context_idx(&self) -> Option<usize> {
         match self.overlay {
