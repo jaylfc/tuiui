@@ -36,6 +36,10 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
             let mut r = BufReader::new(reader_stream);
             let mut line = String::new();
             let mut out = std::io::stdout();
+            // Image ids already transmitted, and the placement geometry currently
+            // displayed for each (so we only re-place on move/resize).
+            let mut transmitted: std::collections::HashSet<u64> = std::collections::HashSet::new();
+            let mut active: std::collections::HashMap<u64, (i32, i32, u16, u16)> = std::collections::HashMap::new();
             loop {
                 line.clear();
                 match r.read_line(&mut line) {
@@ -45,6 +49,10 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             *flags.lock().unwrap() = msg.flags;
                             let ansi = frame_to_ansi(&msg.changes, &caps);
                             let _ = out.write_all(ansi.as_bytes());
+                            if caps.kitty_graphics {
+                                let g = reconcile_images(&msg, &mut transmitted, &mut active);
+                                let _ = out.write_all(g.as_bytes());
+                            }
                             let _ = out.flush();
                             if msg.flags.detach {
                                 break;
@@ -193,6 +201,50 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
     // the daemon, which keeps the session alive.
     drop(term);
     Ok(())
+}
+
+/// Build the Kitty graphics escapes for a frame: transmit not-yet-seen image
+/// blobs, (re)place images whose geometry changed, and delete placements that are
+/// now hidden or gone. The cursor is saved/restored so cell rendering is intact.
+fn reconcile_images(
+    msg: &FrameMsg,
+    transmitted: &mut std::collections::HashSet<u64>,
+    active: &mut std::collections::HashMap<u64, (i32, i32, u16, u16)>,
+) -> String {
+    use std::fmt::Write;
+    let mut g = String::new();
+    for blob in &msg.image_data {
+        if transmitted.insert(blob.id) {
+            g.push_str(&crate::kitty::transmit_b64(blob.id, &blob.png_base64));
+        }
+    }
+    // Compute the new visible set and which placements need (re)placing.
+    let mut now: std::collections::HashMap<u64, (i32, i32, u16, u16)> = std::collections::HashMap::new();
+    let mut to_place = Vec::new();
+    for p in &msg.images {
+        if p.visible {
+            let geo = (p.rect.x, p.rect.y, p.cols, p.rows);
+            now.insert(p.id, geo);
+            if active.get(&p.id) != Some(&geo) {
+                to_place.push((p.id, geo));
+            }
+        }
+    }
+    let to_delete: Vec<u64> = active.keys().filter(|id| !now.contains_key(id)).copied().collect();
+    if !to_place.is_empty() || !to_delete.is_empty() {
+        g.push_str("\x1b[s"); // save cursor
+        for (id, (x, y, c, r)) in to_place {
+            g.push_str(&crate::kitty::delete(id)); // clear any prior placement
+            let _ = write!(g, "\x1b[{};{}H", y + 1, x + 1);
+            g.push_str(&crate::kitty::place(id, c, r));
+        }
+        for id in to_delete {
+            g.push_str(&crate::kitty::delete(id));
+        }
+        g.push_str("\x1b[u"); // restore cursor
+    }
+    *active = now;
+    g
 }
 
 /// Serialize a [`ClientMsg`] as a newline-delimited JSON frame.
