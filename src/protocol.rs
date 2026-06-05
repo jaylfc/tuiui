@@ -68,6 +68,10 @@ pub struct Flags {
     pub dirpicker_creating: bool,
     /// The keyboard-shortcut help overlay is showing (any key dismisses it).
     pub help_open: bool,
+    /// The file-manager window is focused; the client routes navigation keys to it.
+    pub filemanager_focused: bool,
+    /// The file manager has a text overlay open (new-folder / rename); forward chars.
+    pub filemanager_editing: bool,
     /// The daemon asked the client to detach (e.g. the Quit button was clicked).
     pub detach: bool,
 }

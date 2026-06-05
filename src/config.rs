@@ -71,6 +71,10 @@ pub struct Config {
     /// File-role → handler map for opening files (see `openwith`).
     #[serde(default)]
     pub default_apps: std::collections::BTreeMap<String, String>,
+    /// Persisted default file-manager view (`"icon"` or `"list"`); wired fully in
+    /// a later stage — stored here so the config round-trips.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filemanager_view: Option<String>,
 }
 
 impl Config {
@@ -105,6 +109,7 @@ impl Default for Config {
             ],
             launcher: vec![],
             default_apps: crate::openwith::default_handlers(),
+            filemanager_view: None,
         }
     }
 }

@@ -120,6 +120,8 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             dirpicker_open: core.dirpicker_open(),
             dirpicker_creating: core.dirpicker_creating(),
             help_open: core.help_open(),
+            filemanager_focused: core.focused_is_filemanager(),
+            filemanager_editing: core.filemanager_editing(),
             detach: core.quit_requested(),
         };
         // Send PNG bytes once per image id (base64); later frames carry only the

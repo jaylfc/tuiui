@@ -38,6 +38,8 @@ enum WinContent {
     Settings(Settings),
     /// A native image viewer (placeholder cells + a Kitty graphics placement).
     ImageView(crate::imageview::ImageView),
+    /// The native file manager.
+    FileManager(crate::filemanager::FileManager),
 }
 
 impl WinContent {
@@ -47,6 +49,7 @@ impl WinContent {
             WinContent::Store(s) => s.render(w, h),
             WinContent::Settings(s) => s.render(w, h),
             WinContent::ImageView(v) => v.render(w, h),
+            WinContent::FileManager(f) => f.render(w, h),
         }
     }
     fn resize(&mut self, w: i32, h: i32) {
@@ -62,7 +65,10 @@ impl WinContent {
     fn is_alive(&mut self) -> bool {
         match self {
             WinContent::App(a) => a.is_alive(),
-            WinContent::Store(_) | WinContent::Settings(_) | WinContent::ImageView(_) => true,
+            WinContent::Store(_)
+            | WinContent::Settings(_)
+            | WinContent::ImageView(_)
+            | WinContent::FileManager(_) => true,
         }
     }
     fn kill(&mut self) {
@@ -163,6 +169,43 @@ pub enum ClientMsg {
     SettingsCancelEdit,
     /// Settings: close the settings window (Escape).
     SettingsClose,
+    /// Open the file-manager window (or focus it if already open).
+    OpenFileManager,
+    /// File manager: move the cursor.
+    FileManagerUp,
+    FileManagerDown,
+    FileManagerLeft,
+    FileManagerRight,
+    /// File manager: enter the focused entry (navigate / open).
+    FileManagerActivate,
+    /// File manager: history back.
+    FileManagerBack,
+    /// File manager: navigate to the parent directory.
+    FileManagerParent,
+    /// File manager: toggle Icon / List view.
+    FileManagerToggleView,
+    /// File manager: toggle hidden (dot) entries.
+    FileManagerToggleHidden,
+    /// File manager: begin the new-folder overlay.
+    FileManagerNewFolder,
+    /// File manager: begin the rename overlay.
+    FileManagerRename,
+    /// File manager: begin the delete confirmation.
+    FileManagerDelete,
+    /// File manager: copy / cut the selection to the clipboard.
+    FileManagerCopy,
+    FileManagerCut,
+    /// File manager: paste the clipboard into the current directory.
+    FileManagerPaste,
+    /// File manager: type / delete a character in an overlay text field.
+    FileManagerChar(char),
+    FileManagerBackspace,
+    /// File manager: commit the active overlay (Enter).
+    FileManagerCommit,
+    /// File manager: cancel the active overlay (Escape).
+    FileManagerCancel,
+    /// File manager: close the window (Escape with no overlay).
+    FileManagerClose,
     /// Toggle the keyboard-shortcut help overlay.
     ToggleHelp,
     /// Open an image file in a native image-viewer window.
@@ -219,6 +262,8 @@ pub struct SessionCore {
     store_win: Option<WindowId>,
     /// The settings window's id, if open.
     settings_win: Option<WindowId>,
+    /// The file-manager window's id, if open.
+    filemanager_win: Option<WindowId>,
     /// Dock-ordered list of (id, display-name) pairs.
     titles: Vec<(WindowId, String)>,
     cfg: Config,
@@ -262,6 +307,7 @@ impl SessionCore {
             contents: HashMap::new(),
             store_win: None,
             settings_win: None,
+            filemanager_win: None,
             titles: Vec::new(),
             cfg,
             w,
@@ -374,6 +420,7 @@ impl SessionCore {
         let mut apps = vec![
             AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
             AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
+            AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
         ];
         apps.extend(cfg.launcher_apps());
         for a in &mut apps {
@@ -602,6 +649,52 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     }
                 }
             }
+            ClientMsg::OpenFileManager => self.open_filemanager(),
+            ClientMsg::FileManagerUp => { if let Some(f) = self.focused_filemanager_mut() { f.move_cursor(0, -1); } }
+            ClientMsg::FileManagerDown => { if let Some(f) = self.focused_filemanager_mut() { f.move_cursor(0, 1); } }
+            ClientMsg::FileManagerLeft => { if let Some(f) = self.focused_filemanager_mut() { f.move_cursor(-1, 0); } }
+            ClientMsg::FileManagerRight => { if let Some(f) = self.focused_filemanager_mut() { f.move_cursor(1, 0); } }
+            ClientMsg::FileManagerActivate => {
+                if let Some(f) = self.focused_filemanager_mut() { f.activate(); }
+                self.drain_fm_action();
+            }
+            ClientMsg::FileManagerBack => { if let Some(f) = self.focused_filemanager_mut() { f.go_back(); } }
+            ClientMsg::FileManagerParent => { if let Some(f) = self.focused_filemanager_mut() { f.go_parent(); } }
+            ClientMsg::FileManagerToggleView => {
+                if let Some(f) = self.focused_filemanager_mut() {
+                    let v = match f.view() {
+                        crate::filemanager::ViewMode::Icon => crate::filemanager::ViewMode::List,
+                        crate::filemanager::ViewMode::List => crate::filemanager::ViewMode::Icon,
+                    };
+                    f.set_view(v);
+                }
+            }
+            ClientMsg::FileManagerToggleHidden => { if let Some(f) = self.focused_filemanager_mut() { f.toggle_hidden(); } }
+            ClientMsg::FileManagerNewFolder => { if let Some(f) = self.focused_filemanager_mut() { f.begin_new_folder(); } }
+            ClientMsg::FileManagerRename => { if let Some(f) = self.focused_filemanager_mut() { f.begin_rename(); } }
+            ClientMsg::FileManagerDelete => { if let Some(f) = self.focused_filemanager_mut() { f.begin_delete(); } }
+            ClientMsg::FileManagerCopy => { if let Some(f) = self.focused_filemanager_mut() { f.copy_selection(); } }
+            ClientMsg::FileManagerCut => { if let Some(f) = self.focused_filemanager_mut() { f.cut_selection(); } }
+            ClientMsg::FileManagerPaste => { if let Some(f) = self.focused_filemanager_mut() { f.paste(); } }
+            ClientMsg::FileManagerChar(c) => { if let Some(f) = self.focused_filemanager_mut() { f.overlay_char(c); } }
+            ClientMsg::FileManagerBackspace => { if let Some(f) = self.focused_filemanager_mut() { f.overlay_backspace(); } }
+            ClientMsg::FileManagerCommit => {
+                // Commit either an edit overlay or a delete confirmation.
+                if let Some(f) = self.focused_filemanager_mut() {
+                    match f.overlay() {
+                        Some(crate::filemanager::Overlay::ConfirmDelete { .. }) => f.confirm_delete(),
+                        _ => f.overlay_commit(),
+                    }
+                }
+            }
+            ClientMsg::FileManagerCancel => { if let Some(f) = self.focused_filemanager_mut() { f.cancel_overlay(); } }
+            ClientMsg::FileManagerClose => {
+                if let Some(id) = self.wm.focused() {
+                    if matches!(self.contents.get(&id), Some(WinContent::FileManager(_))) {
+                        self.close(id);
+                    }
+                }
+            }
             ClientMsg::ToggleHelp => self.help_open = !self.help_open,
             ClientMsg::OpenImage(p) => self.open_image(p),
             ClientMsg::DirPickerUp => { if let Some(d) = self.dirpicker.as_mut() { d.move_up(); } }
@@ -770,6 +863,84 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         }
     }
 
+    /// Open the file-manager window, or focus it if it's already open.
+    fn open_filemanager(&mut self) {
+        if let Some(id) = self.filemanager_win {
+            if self.contents.contains_key(&id) {
+                self.wm.unminimize(id);
+                return;
+            }
+        }
+        let w = 90.min((self.w - 4).max(40));
+        let h = 30.min((self.h - 4).max(12));
+        let rect = Rect::new((self.w - w) / 2, 2, w, h);
+        let id = self.wm.add_window("Files".into(), rect);
+        let root = self.picker_root();
+        self.contents.insert(
+            id,
+            WinContent::FileManager(crate::filemanager::FileManager::new(root, self.cfg.default_apps.clone())),
+        );
+        self.titles.push((id, "Files".into()));
+        self.filemanager_win = Some(id);
+    }
+
+    /// `true` when the focused window hosts the file manager.
+    pub fn focused_is_filemanager(&self) -> bool {
+        matches!(
+            self.wm.focused().and_then(|id| self.contents.get(&id)),
+            Some(WinContent::FileManager(_))
+        )
+    }
+
+    /// `true` when the focused file manager has a text overlay open (new-folder /
+    /// rename), so the client forwards typed characters as overlay input.
+    pub fn filemanager_editing(&self) -> bool {
+        matches!(
+            self.wm.focused().and_then(|id| self.contents.get(&id)),
+            Some(WinContent::FileManager(f)) if f.is_editing()
+        )
+    }
+
+    fn focused_filemanager_mut(&mut self) -> Option<&mut crate::filemanager::FileManager> {
+        let id = self.wm.focused()?;
+        match self.contents.get_mut(&id)? {
+            WinContent::FileManager(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    /// The cwd of the focused file manager (for launching an app in-place).
+    fn focused_fm_cwd(&self) -> Option<std::path::PathBuf> {
+        match self.wm.focused().and_then(|id| self.contents.get(&id)) {
+            Some(WinContent::FileManager(f)) => Some(f.cwd().to_path_buf()),
+            _ => None,
+        }
+    }
+
+    /// Turn a pending [`FileManagerAction`] from the focused file manager into a
+    /// real effect: open the builtin image viewer, or launch a TUI app in the
+    /// file manager's current directory.
+    fn drain_fm_action(&mut self) {
+        // Compute everything that borrows `self` immutably first, so the
+        // subsequent `&mut self` calls (open_image / launch_in) don't conflict.
+        let action = self.focused_filemanager_mut().and_then(|f| f.take_action());
+        let cwd = self.focused_fm_cwd();
+        match action {
+            Some(crate::filemanager::FileManagerAction::OpenImage(path)) => {
+                self.open_image(path.to_string_lossy().to_string());
+            }
+            Some(crate::filemanager::FileManagerAction::RunApp { command, args }) => {
+                let name = args
+                    .last()
+                    .and_then(|a| a.rsplit('/').next())
+                    .unwrap_or(&command)
+                    .to_string();
+                self.launch_in(name, command, args, cwd);
+            }
+            None => {}
+        }
+    }
+
     /// Enter on a store row: launch the app if installed, else install it (the
     /// install command runs visibly in a new shell window).
     fn store_activate(&mut self) {
@@ -799,6 +970,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         match e.command.as_str() {
             "@store" => self.open_store(),
             "@settings" => self.open_settings(),
+            "@files" => self.open_filemanager(),
             "@image" => { if let Some(p) = e.args.first().cloned() { self.open_image(p); } }
             _ => self.launch_maybe_cwd(e.name, e.command, e.args, e.requires_cwd.unwrap_or(false), e.cwd),
         }
@@ -979,10 +1151,15 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 let cr = self.wm.get(id).map(|w| w.content_rect());
                 let mut store_activate = false;
                 let mut settings_changed = false;
+                let mut fm_clicked = false;
                 if let Some(cr) = cr {
                     match self.contents.get_mut(&id) {
                         Some(WinContent::Store(s)) => store_activate = s.handle_click(local, cr.w, cr.h),
                         Some(WinContent::Settings(s)) => settings_changed = s.handle_click(local, cr.w, cr.h),
+                        // The mouse path carries no modifiers, so a click is a plain
+                        // single-select / toolbar-nav (Ctrl/Shift-select and
+                        // double-click-to-open are keyboard-driven for v1).
+                        Some(WinContent::FileManager(f)) => fm_clicked = f.handle_click(local, cr.w, cr.h, false, false),
                         _ => {}
                     }
                 }
@@ -991,6 +1168,9 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 }
                 if settings_changed {
                     self.sync_settings();
+                }
+                if fm_clicked {
+                    self.drain_fm_action();
                 }
             }
             Action::EndDrag => {
@@ -1078,6 +1258,9 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         }
         if self.settings_win == Some(id) {
             self.settings_win = None;
+        }
+        if self.filemanager_win == Some(id) {
+            self.filemanager_win = None;
         }
         self.titles.retain(|(i, _)| *i != id);
         self.wm.close(id);

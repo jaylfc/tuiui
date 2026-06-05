@@ -93,3 +93,17 @@ fn image_window_emits_a_visible_placement() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn open_file_manager_creates_focused_window_and_is_single_instance() {
+    let mut core = SessionCore::new(120, 40, Config::default());
+    assert!(!core.focused_is_filemanager());
+    core.apply(ClientMsg::OpenFileManager);
+    assert!(core.focused_is_filemanager());
+    let n = core.window_count();
+    core.apply(ClientMsg::OpenFileManager);
+    assert_eq!(core.window_count(), n); // re-focus, not a second window
+    core.apply(ClientMsg::FileManagerClose);
+    assert!(!core.focused_is_filemanager());
+    core.shutdown();
+}
