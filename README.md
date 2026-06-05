@@ -14,6 +14,8 @@ It's a multiplexer at heart (apps run as real child processes in PTYs and are co
 - **Configurable grid tiling** — set a rows×columns grid (e.g. 2×3 for an ultra-wide) and use drag-to-cell snapping (with a live preview), a one-key *tile-all*, an *auto-tile* mode, or send a window straight to a numbered cell.
 - **Menubar status tray** — clock, CPU/memory, volume, WiFi, Bluetooth, and battery, with click-through popovers that control the **host's** volume, switch to a known WiFi network, and connect a paired Bluetooth device.
 - **Native image viewing** — real raster images inside windows via the Kitty graphics protocol (Ghostty/Kitty/WezTerm), with a cell placeholder fallback elsewhere. Open one with a launcher entry `command = "@image"`, `args = ["~/pic.png"]`.
+- **File manager** — a native, mouse-and-keyboard file browser (launcher entry **Files**, or `@files`): icon-grid and list views, folder navigation with history, single/ctrl/shift selection, new folder, rename, copy/cut/paste, and **delete-to-Trash** (never a hard delete). Double-click/Enter opens each file with its default app.
+- **Default Apps** — a configurable file-type → app map (**Settings → Default Apps**): images open in the built-in viewer, text/code in your `$EDITOR`, and you can cycle the handler for each role. The file manager uses it to open files "just like a real OS."
 - **App launcher** — a Windows-Start-menu-style multi-column dropdown *and* a Spotlight search overlay, with apps grouped by category.
 - **App store** — browse/search/install from a curated, **100%-verified** catalog of ~590 TUIs (incl. a dedicated **AI** category: Claude Code, Gemini CLI, Aider, opencode, Codex, Crush, Goose, Plandex, and more), OS-aware so Linux-only tools never show on macOS and vice-versa.
 - **Custom apps** — add your own launcher entries (name + command) from **Settings → Apps**.
@@ -44,6 +46,8 @@ Forget a shortcut? Press **`Ctrl+Space` then `?`** for the in-app cheatsheet.
 Set the grid (rows × columns), gap, and auto-tile from **Settings → Windows**.
 
 In the **working-directory picker** (opens when launching a coding agent): `↑`/`↓` to move, `→`/`←` to expand/collapse, `n` to make a new folder, `.` to toggle hidden dirs, `Enter` to open there, `Esc` to cancel.
+
+In the **file manager** (launcher → **Files**): `↑`/`↓`/`←`/`→` move the cursor, `Enter` opens (folder → navigate, file → default app), `Backspace` goes up, `Ctrl+C`/`Ctrl+X`/`Ctrl+V` copy/cut/paste, `Delete` moves to Trash (with confirm), `F2` renames, `Ctrl+N` makes a new folder, `1`/`2` switch icon/list views, `.` toggles hidden files, `Esc` closes. Click an entry to select, the toolbar `◂ ▸ ▲` to navigate, and the scroll wheel to move through long folders.
 
 Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button (top-right) to exit, titlebar buttons (`– ▢ ✕`), drag titlebars/edges to move/resize, drag a window to a screen edge to snap it into a grid cell, click a tray indicator (clock/volume/WiFi/…) for its popover, and click dock pills to focus.
 
@@ -172,7 +176,10 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 - **✅ Menubar tray:** clock/CPU/mem/volume/WiFi/Bluetooth/battery with host-control popovers (macOS + Linux backends).
 - **✅ Grid tiling:** configurable R×C grid — drag-to-cell, auto-tile, send-to-cell, tile-all.
 - **✅ Working-directory picker:** a browsable file-tree on launch for apps flagged `requires_cwd` (the AI CLIs); remembers recent dirs.
-- **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client).
+- **✅ Native image layer:** Kitty-graphics image rendering inside windows (image viewer; thumbnail engine for the file manager).
+- **✅ Default Apps:** configurable file-type → app map (Settings → Default Apps).
+- **✅ File manager (core):** native mouse+keyboard browser — icon/list views, navigation, copy/cut/paste, rename, new folder, delete-to-Trash, open-with-default. *Next: image thumbnails, tabs, preview pane, Get-Info.*
+- **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client) — plus a parked idea: a fullscreen **browser PWA** of tuiui.
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 
 ## Credits
