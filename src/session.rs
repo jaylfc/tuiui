@@ -1547,6 +1547,13 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
 
     /// Kill a window's content, remove its dock entry, and close the WM window.
     fn close(&mut self, id: WindowId) {
+        // An install window is kept alive (it `exec`s a shell after the install so
+        // the output stays readable), so it never trips `reap_dead`; instead we
+        // refresh here when the user closes it, so the new app appears immediately.
+        let was_install = self
+            .titles
+            .iter()
+            .any(|(i, t)| *i == id && t.starts_with("install:"));
         if let Some(mut content) = self.contents.remove(&id) {
             content.kill();
         }
@@ -1561,7 +1568,18 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         }
         self.titles.retain(|(i, _)| *i != id);
         self.wm.close(id);
+        if was_install {
+            self.refresh_installed_apps();
+        }
         self.auto_tile_if_enabled();
+    }
+
+    /// Re-scan `$PATH` for newly-installed binaries and rebuild the launcher so a
+    /// just-installed app appears without a daemon restart. Shared by `close`
+    /// (install window dismissed) and `reap_dead` (install process exited).
+    fn refresh_installed_apps(&mut self) {
+        crate::catalog::refresh_installed();
+        self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg));
     }
 
     // ── Frame builder ─────────────────────────────────────────────────────────
@@ -1704,8 +1722,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             self.close(id);
         }
         if install_finished {
-            crate::catalog::refresh_installed();
-            self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg));
+            self.refresh_installed_apps();
         }
     }
 
