@@ -177,3 +177,24 @@ fn temp_file_source_is_read() {
     assert!(st.png(8).is_some());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn chunked_transmit_and_display_places_after_completion() {
+    // Mirrors chafa/real emitters: a=T + dims + c/r live on the OPENING chunk
+    // (m=1); continuation/final chunks carry only m=. The image must be PLACED when
+    // transmission completes, even though the final chunk has no a=T. (Regression:
+    // previously the image decoded but was never placed → nothing rendered.)
+    use base64::Engine;
+    let raw: Vec<u8> = (0..16).map(|i| i as u8).collect(); // 2x2 RGBA
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&raw);
+    let (h1, h2) = b64.split_at(b64.len() / 2);
+    let mut st = GraphicsState::new();
+    st.apply(&tuiui::kittygfx::parse_one(&apc("a=T,f=32,s=2,v=2,c=4,r=2,m=1", h1)), 6, 3);
+    assert!(st.placements.is_empty(), "must not place until transmission completes");
+    st.apply(&tuiui::kittygfx::parse_one(&apc("m=0", h2)), 9, 9);
+    assert_eq!(st.placements.len(), 1, "placed on completion");
+    let p = &st.placements[0];
+    // Placement uses the OPENER's cursor (6,3) + c/r (4,2), not the final chunk's cursor.
+    assert_eq!((p.col, p.row, p.cols, p.rows), (6, 3, 4, 2));
+    assert!(st.png(0).is_some());
+}

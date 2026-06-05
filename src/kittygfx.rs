@@ -146,6 +146,14 @@ struct Pending {
     width: u32,
     height: u32,
     zlib: bool,
+    // Display intent is declared on the OPENING chunk (`a=T`), but the image can
+    // only be placed once transmission completes (the final `m=0` chunk, which
+    // carries no action). So we remember the intent + placement from the opener.
+    display: bool,
+    place_col: u16,
+    place_row: u16,
+    cols: u16,
+    rows: u16,
     data: Vec<u8>,       // accumulated base64 (direct) or path bytes
 }
 
@@ -205,11 +213,15 @@ impl GraphicsState {
         let action = cmd.get('a').unwrap_or_else(|| "t".into());
         match action.as_str() {
             "t" | "T" => {
-                self.accumulate(cmd);
+                self.accumulate(cmd, action == "T", col, row);
                 if cmd.get('m').as_deref() != Some("1") {
                     let id = Self::num(cmd, 'i', 0);
-                    self.finish_transmit(id);
-                    if action == "T" { self.place(id, col, row, cmd); }
+                    // Capture the opener's display intent before consuming `pending`.
+                    if let Some((display, pc, pr, pcols, prows)) = self.finish_transmit(id) {
+                        if display {
+                            self.place_resolved(id, pc, pr, pcols, prows);
+                        }
+                    }
                 }
                 self.generation += 1;
             }
@@ -224,7 +236,10 @@ impl GraphicsState {
         }
     }
 
-    fn accumulate(&mut self, cmd: &GraphicsCmd) {
+    /// Append a transmission chunk. The opener (first chunk for this id) sets the
+    /// format/medium/dimensions and the display intent + placement; continuation
+    /// chunks (`m=1`, no action) only append payload.
+    fn accumulate(&mut self, cmd: &GraphicsCmd, display: bool, col: u16, row: u16) {
         let id = Self::num(cmd, 'i', 0);
         let e = self.pending.entry(id).or_insert_with(|| Pending {
             format: Self::num(cmd, 'f', 32),
@@ -232,20 +247,39 @@ impl GraphicsState {
             width: Self::num(cmd, 's', 0),
             height: Self::num(cmd, 'v', 0),
             zlib: cmd.get('o').as_deref() == Some("z"),
+            display,
+            place_col: col,
+            place_row: row,
+            cols: Self::num(cmd, 'c', 0) as u16,
+            rows: Self::num(cmd, 'r', 0) as u16,
             data: Vec::new(),
         });
         e.data.extend_from_slice(&cmd.payload);
     }
 
-    fn finish_transmit(&mut self, id: u32) {
-        let Some(p) = self.pending.remove(&id) else { return; };
-        if let Some(png) = decode(&p) { self.images.insert(id, png); }
+    /// Finish a transmission: decode + store the image. Returns the opener's
+    /// `(display, place_col, place_row, cols, rows)` so the caller can place it.
+    fn finish_transmit(&mut self, id: u32) -> Option<(bool, u16, u16, u16, u16)> {
+        let p = self.pending.remove(&id)?;
+        let intent = (p.display, p.place_col, p.place_row, p.cols, p.rows);
+        if let Some(png) = decode(&p) {
+            self.images.insert(id, png);
+        }
+        Some(intent)
     }
 
     fn place(&mut self, id: u32, col: u16, row: u16, cmd: &GraphicsCmd) {
-        if !self.images.contains_key(&id) { return; }
         let cols = Self::num(cmd, 'c', 0) as u16;
         let rows = Self::num(cmd, 'r', 0) as u16;
+        self.place_resolved(id, col, row, cols, rows);
+    }
+
+    /// Place image `id` at `(col,row)` spanning `cols×rows` cells (deriving the
+    /// footprint from the pixel size when `cols`/`rows` are unspecified).
+    fn place_resolved(&mut self, id: u32, col: u16, row: u16, cols: u16, rows: u16) {
+        if !self.images.contains_key(&id) {
+            return;
+        }
         let (cols, rows) = if cols > 0 && rows > 0 {
             (cols, rows)
         } else {
