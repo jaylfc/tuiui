@@ -95,6 +95,24 @@ fn image_window_emits_a_visible_placement() {
 }
 
 #[test]
+fn file_manager_emits_thumbnail_placement_for_image() {
+    let dir = std::env::temp_dir().join(format!("tuiui-fmthumb-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let img = image::RgbaImage::from_pixel(8, 8, image::Rgba([1, 2, 3, 255]));
+    image::DynamicImage::ImageRgba8(img).save(dir.join("p.png")).unwrap();
+
+    let mut core = SessionCore::new(100, 30, Config::default());
+    core.apply(ClientMsg::OpenFileManager);
+    // navigate the FM into our temp dir by faking it: open at temp via a second open
+    core.open_filemanager_at(dir.clone()); // test helper below
+    let frame = core.build_frame();
+    assert!(frame.images.iter().any(|p| p.cols >= 1), "expected a thumbnail placement");
+    core.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn open_file_manager_creates_focused_window_and_is_single_instance() {
     let mut core = SessionCore::new(120, 40, Config::default());
     assert!(!core.focused_is_filemanager());

@@ -206,3 +206,31 @@ fn get_info_overlay_opens_for_focused_entry() {
     let _ = fm.render(80, 24);
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn thumbnail_requests_lists_image_entries() {
+    let d = tmp("thumbreq");
+    fs::write(d.join("pic.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+    fs::write(d.join("note.txt"), b"hi").unwrap();
+    let fm = FileManager::new(d.clone(), BTreeMap::new());
+    let reqs = fm.thumbnail_requests();
+    assert_eq!(reqs.len(), 1);
+    assert!(reqs[0].1.ends_with("pic.png"));
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn set_thumb_then_placement_is_reported() {
+    use tuiui::geometry::Rect;
+    let d = tmp("thumbplace");
+    fs::write(d.join("pic.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    let idx = fm.thumbnail_requests()[0].0;
+    fm.set_thumb(idx, 12345);
+    // content rect at origin (0,0) sized 80x24
+    let places = fm.thumbnail_placements(Rect::new(10, 2, 80, 24), true);
+    assert_eq!(places.len(), 1);
+    assert_eq!(places[0].id, 12345);
+    assert!(places[0].visible);
+    let _ = fs::remove_dir_all(&d);
+}

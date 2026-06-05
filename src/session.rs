@@ -722,6 +722,11 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             }
             ClientMsg::Shutdown => self.shutdown = true,
         }
+        // Refresh thumbnails after any message that may have changed the focused
+        // file manager's listing (cheap: ImageStore loads are content-hash cached).
+        if self.focused_is_filemanager() {
+            self.refresh_fm_thumbnails();
+        }
     }
 
     /// Resolve the open picker: launch its pending app in the chosen directory
@@ -864,7 +869,30 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
     }
 
     /// Open the file-manager window, or focus it if it's already open.
+    /// Load thumbnails for the focused file manager's image entries into the
+    /// shared ImageStore and hand the ids back to the widget.
+    fn refresh_fm_thumbnails(&mut self) {
+        let reqs = match self.focused_filemanager_mut() {
+            Some(f) => f.thumbnail_requests(),
+            None => return,
+        };
+        for (idx, path) in reqs {
+            // Bound thumbnail pixels: a tile is ~13 cells wide; cells are ~8x16px.
+            if let Some(id) = self.images.load(&path, 13 * 8, 16) {
+                if let Some(f) = self.focused_filemanager_mut() {
+                    f.set_thumb(idx, id);
+                }
+            }
+        }
+    }
+
     fn open_filemanager(&mut self) {
+        let root = self.picker_root();
+        self.open_filemanager_root(root);
+    }
+
+    /// Open (or re-focus) the file manager rooted at `root`, then load thumbnails.
+    fn open_filemanager_root(&mut self, root: std::path::PathBuf) {
         if let Some(id) = self.filemanager_win {
             if self.contents.contains_key(&id) {
                 self.wm.unminimize(id);
@@ -875,13 +903,25 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         let h = 30.min((self.h - 4).max(12));
         let rect = Rect::new((self.w - w) / 2, 2, w, h);
         let id = self.wm.add_window("Files".into(), rect);
-        let root = self.picker_root();
         self.contents.insert(
             id,
             WinContent::FileManager(crate::filemanager::FileManager::new(root, self.cfg.default_apps.clone())),
         );
         self.titles.push((id, "Files".into()));
         self.filemanager_win = Some(id);
+        self.refresh_fm_thumbnails();
+    }
+
+    /// Open the file manager rooted at an arbitrary directory (test support).
+    #[doc(hidden)]
+    pub fn open_filemanager_at(&mut self, dir: std::path::PathBuf) {
+        // Replace any existing FM so the new root takes effect.
+        if let Some(id) = self.filemanager_win.take() {
+            self.contents.remove(&id);
+            self.titles.retain(|(tid, _)| *tid != id);
+            self.wm.close(id);
+        }
+        self.open_filemanager_root(dir);
     }
 
     /// `true` when the focused window hosts the file manager.
@@ -1354,6 +1394,18 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     rows: cr.h.max(1) as u16,
                     visible: self.fully_unobstructed(w),
                 });
+            }
+        }
+
+        // Thumbnail placements for visible file-manager windows (Icon view).
+        for w in self.wm.z_ordered() {
+            if w.minimized {
+                continue;
+            }
+            if let Some(WinContent::FileManager(f)) = self.contents.get(&w.id) {
+                let cr = w.content_rect();
+                let vis = self.fully_unobstructed(w);
+                images.extend(f.thumbnail_placements(cr, vis));
             }
         }
 

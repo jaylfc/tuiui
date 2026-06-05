@@ -58,6 +58,8 @@ pub struct FileManager<F: FsOps = StdFs> {
     action: Option<FileManagerAction>,
     /// Tiles per row in the last Icon render; navigation uses it. Updated by render.
     cols_per_row: std::cell::Cell<i32>,
+    /// Entry index → loaded thumbnail ImageId (filled by the session).
+    thumbs: std::collections::HashMap<usize, u64>,
 }
 
 impl FileManager<StdFs> {
@@ -86,6 +88,7 @@ impl<F: FsOps> FileManager<F> {
             status: String::new(),
             action: None,
             cols_per_row: std::cell::Cell::new(1),
+            thumbs: std::collections::HashMap::new(),
         };
         me.reload();
         me
@@ -120,6 +123,7 @@ impl<F: FsOps> FileManager<F> {
         self.cursor = self.cursor.min(self.entries.len().saturating_sub(1));
         self.selection.clear();
         self.scroll = 0;
+        self.thumbs.clear();
     }
 
     pub fn toggle_hidden(&mut self) {
@@ -128,6 +132,60 @@ impl<F: FsOps> FileManager<F> {
     }
 
     pub fn set_view(&mut self, v: ViewMode) { self.view = v; }
+
+    /// Image entries (index, path) in the current view that should have a thumbnail.
+    pub fn thumbnail_requests(&self) -> Vec<(usize, std::path::PathBuf)> {
+        self.entries
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.role == crate::openwith::Role::Image)
+            .map(|(i, e)| (i, e.path.clone()))
+            .collect()
+    }
+
+    /// Record a loaded thumbnail id for entry `idx`.
+    pub fn set_thumb(&mut self, idx: usize, id: u64) {
+        self.thumbs.insert(idx, id);
+    }
+
+    /// Placements for loaded thumbnails, in the Icon view's tile grid, offset into
+    /// `content` (the window content rect, cells). Only on-screen tiles are emitted.
+    pub fn thumbnail_placements(
+        &self,
+        content: crate::geometry::Rect,
+        visible: bool,
+    ) -> Vec<crate::protocol::ImagePlacement> {
+        // Thumbnails only render in Icon view (List shows glyphs).
+        if self.view != ViewMode::Icon {
+            return Vec::new();
+        }
+        let area_x = SIDEBAR_W;
+        let area_w = (content.w - SIDEBAR_W).max(1);
+        let cols = (area_w / TILE_W).max(1);
+        let mut out = Vec::new();
+        for (&idx, &id) in &self.thumbs {
+            if idx >= self.entries.len() {
+                continue;
+            }
+            let col = idx as i32 % cols;
+            let row = idx as i32 / cols;
+            let cx = content.x + area_x + col * TILE_W;
+            let cy = content.y + LIST_TOP + row * TILE_H;
+            if cy + 1 >= content.y + content.h {
+                continue; // below the viewport
+            }
+            let rect = crate::geometry::Rect::new(cx, cy, (TILE_W - 1).max(1), 1);
+            out.push(crate::protocol::ImagePlacement {
+                id,
+                rect,
+                cols: rect.w.max(1) as u16,
+                rows: rect.h.max(1) as u16,
+                visible,
+            });
+        }
+        out.sort_by_key(|p| p.id); // deterministic order
+        out
+    }
 
     /// Move the cursor by (dx tiles, dy rows). In List view any nonzero delta is
     /// collapsed to a single ±1 step.
