@@ -1695,7 +1695,7 @@
  },
  {
   "name": "TUIFIManager",
-  "bin": "tuifimanager",
+  "bin": "tuifi",
   "category": "File Managers",
   "description": "A cross-platform terminal-based file manager _(supports termux)_.",
   "homepage": "https://github.com/GiorgosXou/TUIFIManager"
