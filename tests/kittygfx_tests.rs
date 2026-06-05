@@ -152,6 +152,19 @@ fn query_pushes_ok_reply() {
 }
 
 #[test]
+fn file_source_outside_temp_is_refused() {
+    use base64::Engine;
+    // A real, readable file OUTSIDE any temp dir must be rejected (no arbitrary read
+    // via a crafted t=f escape in untrusted PTY output).
+    let secret = "/etc/hosts"; // exists on macOS/Linux, not under a temp dir
+    assert!(std::path::Path::new(secret).exists());
+    let path_b64 = base64::engine::general_purpose::STANDARD.encode(secret.as_bytes());
+    let mut st = GraphicsState::new();
+    st.apply(&tuiui::kittygfx::parse_one(&apc("a=t,f=100,t=f,i=4", &path_b64)), 0, 0);
+    assert!(st.png(4).is_none(), "reads outside temp dirs must be refused");
+}
+
+#[test]
 fn temp_file_source_is_read() {
     use base64::Engine;
     let dir = std::env::temp_dir().join(format!("tuiui-a2-{}", std::process::id()));

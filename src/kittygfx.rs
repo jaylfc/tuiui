@@ -277,10 +277,13 @@ fn decode(p: &Pending) -> Option<Vec<u8>> {
     // direct payload is base64; file/temp payload is a base64 path.
     let decoded = base64::engine::general_purpose::STANDARD.decode(&p.data).ok()?;
     let raw: Vec<u8> = match p.medium {
-        'f' | 't' => {
-            let path = String::from_utf8_lossy(&decoded).to_string();
-            std::fs::read(path).ok()?
-        }
+        // File/temp-file transmission carries a path. PTY output can be
+        // attacker-controlled (e.g. `cat`ing an untrusted file that embeds a
+        // crafted graphics escape), and the decoded image is transmitted to the
+        // attached client — so an unrestricted read would be an arbitrary
+        // file-read / exfiltration vector. Sandbox it to temp dirs where graphics
+        // apps legitimately stage images.
+        'f' | 't' => read_sandboxed(&String::from_utf8_lossy(&decoded))?,
         _ => decoded, // 'd'
     };
     let raw = if p.zlib { inflate(&raw)? } else { raw };
@@ -290,6 +293,33 @@ fn decode(p: &Pending) -> Option<Vec<u8>> {
         32 => reencode_raw(&raw, p.width, p.height, true),
         _ => image::load_from_memory(&raw).ok().map(|_| raw),
     }
+}
+
+/// Read a file referenced by a Kitty `t=f`/`t=t` transmission, sandboxed against
+/// arbitrary-file-read via crafted PTY escapes. Only regular files under a temp
+/// directory are allowed; the path is canonicalized first (defeating symlink and
+/// `..` traversal escapes), and the read is size-capped against device/huge files.
+fn read_sandboxed(path_str: &str) -> Option<Vec<u8>> {
+    use std::io::Read;
+    const MAX_BYTES: u64 = 64 * 1024 * 1024;
+    let canon = std::fs::canonicalize(path_str).ok()?;
+    // Allowed roots: the platform temp dir ($TMPDIR) and /tmp (canonicalized, so
+    // macOS's /tmp -> /private/tmp resolves correctly).
+    let roots = [std::env::temp_dir(), std::path::PathBuf::from("/tmp")];
+    let allowed = roots
+        .iter()
+        .filter_map(|r| std::fs::canonicalize(r).ok())
+        .any(|root| canon.starts_with(&root));
+    if !allowed {
+        return None;
+    }
+    let meta = std::fs::metadata(&canon).ok()?;
+    if !meta.is_file() || meta.len() > MAX_BYTES {
+        return None;
+    }
+    let mut buf = Vec::new();
+    std::fs::File::open(&canon).ok()?.take(MAX_BYTES).read_to_end(&mut buf).ok()?;
+    Some(buf)
 }
 
 fn inflate(data: &[u8]) -> Option<Vec<u8>> {
