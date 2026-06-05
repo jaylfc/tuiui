@@ -725,8 +725,14 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 || app.category == "AI";
             self.launch_maybe_cwd(app.name.clone(), app.bin.clone(), Vec::new(), requires_cwd, None);
         } else {
+            // Run the install visibly, then drop into a shell so the output (and
+            // any errors) stay on screen. Closing the window triggers a $PATH
+            // re-scan + launcher rebuild (see `reap_dead`).
             let cmd = store::install_command(app);
-            self.launch(format!("install: {}", app.name), "sh".into(), vec!["-lc".into(), cmd]);
+            let wrapped = format!(
+                "{cmd}; echo; echo '── install finished — close this window (✕) to refresh ──'; exec \"$SHELL\""
+            );
+            self.launch(format!("install: {}", app.name), "sh".into(), vec!["-lc".into(), wrapped]);
         }
     }
 
@@ -1098,8 +1104,18 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             .iter_mut()
             .filter_map(|(id, c)| if !c.is_alive() { Some(*id) } else { None })
             .collect();
+        // If an install window finished, re-scan $PATH and rebuild the launcher so
+        // the newly-installed app shows up (and the store sees it as installed)
+        // without a daemon restart.
+        let install_finished = dead.iter().any(|id| {
+            self.titles.iter().any(|(i, t)| i == id && t.starts_with("install:"))
+        });
         for id in dead {
             self.close(id);
+        }
+        if install_finished {
+            crate::catalog::refresh_installed();
+            self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg));
         }
     }
 

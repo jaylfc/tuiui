@@ -1849,7 +1849,7 @@
  },
  {
   "name": "Micro Tetris",
-  "bin": "microtetris",
+  "bin": "tetris",
   "category": "Games",
   "description": "One of the smallest Tetris implementations in the world, utilizing only ANSI escape sequences to draw the board.",
   "homepage": "https://github.com/troglobit/tetris"

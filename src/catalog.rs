@@ -99,15 +99,30 @@ pub fn category_for(name_or_bin: &str) -> Option<String> {
         .map(|c| c.category.clone())
 }
 
-/// Whether an executable `bin` is present on `$PATH` (cached per process).
-pub fn is_installed(bin: &str) -> bool {
-    path_bins().contains(&bin.to_lowercase())
+/// Cached set of `$PATH` executable names. `None` until first use; replaced by
+/// [`refresh_installed`] after an install so newly-added binaries are detected
+/// without restarting the daemon.
+static BINS: std::sync::RwLock<Option<HashSet<String>>> = std::sync::RwLock::new(None);
+
+/// Snapshot of the current `$PATH` executables (scanning + caching on first use).
+fn path_bins() -> HashSet<String> {
+    if let Some(set) = BINS.read().unwrap().clone() {
+        return set;
+    }
+    let set = path_executables();
+    *BINS.write().unwrap() = Some(set.clone());
+    set
 }
 
-/// The set of `$PATH` executable names, scanned once per process.
-fn path_bins() -> &'static HashSet<String> {
-    static BINS: OnceLock<HashSet<String>> = OnceLock::new();
-    BINS.get_or_init(path_executables)
+/// Re-scan `$PATH`, replacing the cache. Call after an install completes so the
+/// store and launcher pick up the newly-installed binary.
+pub fn refresh_installed() {
+    *BINS.write().unwrap() = Some(path_executables());
+}
+
+/// Whether an executable `bin` is present on `$PATH`.
+pub fn is_installed(bin: &str) -> bool {
+    path_bins().contains(&bin.to_lowercase())
 }
 
 /// Return catalog apps whose binary is present on the current `$PATH`.
