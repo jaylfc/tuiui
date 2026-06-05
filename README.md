@@ -16,6 +16,7 @@ It's a multiplexer at heart (apps run as real child processes in PTYs and are co
 - **Native image viewing** — real raster images inside windows via the Kitty graphics protocol (Ghostty/Kitty/WezTerm), with a cell placeholder fallback elsewhere. Open one with a launcher entry `command = "@image"`, `args = ["~/pic.png"]`.
 - **File manager** — a native, mouse-and-keyboard file browser (launcher entry **Files**, or `@files`): **icon-grid, list, and Miller-columns** views, **image thumbnails** (via the Kitty graphics layer), a **preview pane** (text head / PDF text / metadata), **tabs**, **Get Info** (size, kind, Unix permissions, symlink target), folder navigation with history, single/ctrl/shift selection, new folder, rename, copy/cut/paste, and **delete-to-Trash** (never a hard delete). Double-click/Enter opens each file with its default app.
 - **Default Apps** — a configurable file-type → app map (**Settings → Default Apps**): images open in the built-in viewer, text/code in your `$EDITOR`, and you can cycle the handler for each role. The file manager uses it to open files "just like a real OS."
+- **Desktop icons** — clickable icons on the wallpaper, merged from your live `~/Desktop` folder and pinned shortcuts. Double-click to open (via Default Apps), drag to rearrange (snaps to a grid, positions persisted), and right-click for a context menu (open / rename / move to Trash / new folder). Image files show thumbnails on Kitty-graphics terminals.
 - **App launcher** — a Windows-Start-menu-style multi-column dropdown *and* a Spotlight search overlay, with apps grouped by category.
 - **App store** — browse/search/install from a curated, **100%-verified** catalog of ~590 TUIs (incl. a dedicated **AI** category: Claude Code, Gemini CLI, Aider, opencode, Codex, Crush, Goose, Plandex, and more), OS-aware so Linux-only tools never show on macOS and vice-versa.
 - **Custom apps** — add your own launcher entries (name + command) from **Settings → Apps**.
@@ -48,6 +49,8 @@ Set the grid (rows × columns), gap, and auto-tile from **Settings → Windows**
 In the **working-directory picker** (opens when launching a coding agent): `↑`/`↓` to move, `→`/`←` to expand/collapse, `n` to make a new folder, `.` to toggle hidden dirs, `Enter` to open there, `Esc` to cancel.
 
 In the **file manager** (launcher → **Files**): `↑`/`↓`/`←`/`→` move the cursor, `Enter` opens (folder → navigate, file → default app), `Backspace` goes up, `Ctrl+C`/`Ctrl+X`/`Ctrl+V` copy/cut/paste, `Delete` moves to Trash (with confirm), `F2` renames, `Ctrl+N` makes a new folder, `1`/`2`/`3` switch icon/list/columns views, `Space` toggles the preview pane, `.` toggles hidden files, `Esc` closes. **Tabs:** `Ctrl+T` new, `Ctrl+W` close, `Tab` switch. **Get Info** (size, kind, Unix permissions, symlink target) is on the context menu. Click an entry to select, the toolbar `◂ ▸ ▲` to navigate, and the scroll wheel to move through long folders. Image folders show **thumbnails** in icon view on terminals with the Kitty graphics protocol.
+
+On the **desktop** (the empty wallpaper): click an icon to select, **double-click to open** (folders → the file manager, files → their default app, pins → the app), **drag** an icon to rearrange it (snaps to a grid, position saved), and **right-click** an icon (open / rename / move to Trash) or the empty desktop (new folder / clean up). Icons come from your `~/Desktop` folder plus pinned shortcuts.
 
 Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button (top-right) to exit, titlebar buttons (`– ▢ ✕`), drag titlebars/edges to move/resize, drag a window to a screen edge to snap it into a grid cell, click a tray indicator (clock/volume/WiFi/…) for its popover, and click dock pills to focus.
 
@@ -179,7 +182,8 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 - **✅ Native image layer:** Kitty-graphics image rendering inside windows (image viewer; thumbnail engine for the file manager).
 - **✅ Default Apps:** configurable file-type → app map (Settings → Default Apps).
 - **✅ File manager:** native mouse+keyboard browser — icon/list/**columns** views, navigation, copy/cut/paste, rename, new folder, delete-to-Trash, open-with-default, **image thumbnails**, **tabs**, **preview pane**, and **Get Info** (permissions/symlink).
-- **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client) — plus a parked idea: a fullscreen **browser PWA** of tuiui.
+- **✅ Desktop icons:** clickable wallpaper icons from `~/Desktop` + pins; double-click to open, drag-to-grid (persisted), right-click menu (rename/Trash/new folder), thumbnails.
+- **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client) — plus parked ideas: a fullscreen **browser PWA** of tuiui and a **Win95-style cascading launcher**.
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 
 ## Credits
