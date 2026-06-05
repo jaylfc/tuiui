@@ -166,6 +166,35 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             KeyCode::Enter | KeyCode::Char(' ') => send(&mut out_stream, &ClientMsg::SettingsToggle)?,
                             _ => {}
                         }
+                    } else if f.filemanager_focused && f.filemanager_editing {
+                        // New-folder / rename overlay: forward typed characters.
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::FileManagerCancel)?,
+                            KeyCode::Enter => send(&mut out_stream, &ClientMsg::FileManagerCommit)?,
+                            KeyCode::Backspace => send(&mut out_stream, &ClientMsg::FileManagerBackspace)?,
+                            KeyCode::Char(c) if !ctrl => send(&mut out_stream, &ClientMsg::FileManagerChar(c))?,
+                            _ => {}
+                        }
+                    } else if f.filemanager_focused {
+                        match (k.code, ctrl) {
+                            (KeyCode::Esc, _) => send(&mut out_stream, &ClientMsg::FileManagerClose)?,
+                            (KeyCode::Up, _) => send(&mut out_stream, &ClientMsg::FileManagerUp)?,
+                            (KeyCode::Down, _) => send(&mut out_stream, &ClientMsg::FileManagerDown)?,
+                            (KeyCode::Left, _) => send(&mut out_stream, &ClientMsg::FileManagerLeft)?,
+                            (KeyCode::Right, _) => send(&mut out_stream, &ClientMsg::FileManagerRight)?,
+                            (KeyCode::Enter, _) => send(&mut out_stream, &ClientMsg::FileManagerActivate)?,
+                            (KeyCode::Backspace, _) => send(&mut out_stream, &ClientMsg::FileManagerParent)?,
+                            (KeyCode::Char('c'), true) => send(&mut out_stream, &ClientMsg::FileManagerCopy)?,
+                            (KeyCode::Char('x'), true) => send(&mut out_stream, &ClientMsg::FileManagerCut)?,
+                            (KeyCode::Char('v'), true) => send(&mut out_stream, &ClientMsg::FileManagerPaste)?,
+                            (KeyCode::Char('n'), true) => send(&mut out_stream, &ClientMsg::FileManagerNewFolder)?,
+                            (KeyCode::Delete, _) => send(&mut out_stream, &ClientMsg::FileManagerDelete)?,
+                            (KeyCode::F(2), _) => send(&mut out_stream, &ClientMsg::FileManagerRename)?,
+                            (KeyCode::Char('1'), false) => send(&mut out_stream, &ClientMsg::FileManagerToggleView)?,
+                            (KeyCode::Char('2'), false) => send(&mut out_stream, &ClientMsg::FileManagerToggleView)?,
+                            (KeyCode::Char('.'), false) => send(&mut out_stream, &ClientMsg::FileManagerToggleHidden)?,
+                            _ => {}
+                        }
                     } else if ctrl_alt {
                         match k.code {
                             KeyCode::Char('q') => break,
@@ -188,6 +217,8 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                         MouseEventKind::Moved => send(&mut out_stream, &ClientMsg::MouseDrag(p))?,
                         MouseEventKind::ScrollUp if f.store_focused => send(&mut out_stream, &ClientMsg::StoreUp)?,
                         MouseEventKind::ScrollDown if f.store_focused => send(&mut out_stream, &ClientMsg::StoreDown)?,
+                        MouseEventKind::ScrollUp if f.filemanager_focused => send(&mut out_stream, &ClientMsg::FileManagerUp)?,
+                        MouseEventKind::ScrollDown if f.filemanager_focused => send(&mut out_stream, &ClientMsg::FileManagerDown)?,
                         _ => {}
                     }
                 }
