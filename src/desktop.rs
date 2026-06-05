@@ -358,6 +358,252 @@ impl<F: FsOps> DesktopIcons<F> {
     pub fn dragging(&self) -> bool {
         self.drag.is_some()
     }
+
+    // ── Context menus + rename / new-folder / trash ───────────────────────────
+
+    /// Right-click: open a context menu over an icon, else the empty-desktop menu.
+    pub fn right_click(&mut self, p: Point) {
+        match self.icon_at(p) {
+            Some(i) => {
+                self.selection.clear();
+                self.selection.insert(i);
+                self.overlay = Some(DesktopOverlay::Context { idx: i, anchor: p });
+            }
+            None => self.overlay = Some(DesktopOverlay::DesktopMenu { anchor: p }),
+        }
+    }
+
+    /// Begin a rename overlay for a folder-sourced icon (pins can't be renamed).
+    pub fn begin_rename(&mut self, idx: usize) {
+        if let Some(icon) = self.icons.get(idx) {
+            if matches!(icon.source, IconSource::Folder) {
+                self.overlay = Some(DesktopOverlay::Rename { idx, name: icon.label.clone() });
+            }
+        }
+    }
+
+    /// Begin a new-folder overlay (empty name field).
+    pub fn begin_new_folder(&mut self) {
+        self.overlay = Some(DesktopOverlay::NewFolder { name: String::new() });
+    }
+
+    /// Dismiss any open overlay / menu.
+    pub fn cancel_overlay(&mut self) {
+        self.overlay = None;
+    }
+
+    /// Append a character to the active rename / new-folder text field.
+    pub fn overlay_char(&mut self, c: char) {
+        match &mut self.overlay {
+            Some(DesktopOverlay::Rename { name, .. }) | Some(DesktopOverlay::NewFolder { name }) => {
+                name.push(c);
+            }
+            _ => {}
+        }
+    }
+
+    /// Delete the last character of the active rename / new-folder text field.
+    pub fn overlay_backspace(&mut self) {
+        match &mut self.overlay {
+            Some(DesktopOverlay::Rename { name, .. }) | Some(DesktopOverlay::NewFolder { name }) => {
+                name.pop();
+            }
+            _ => {}
+        }
+    }
+
+    /// Commit the active rename / new-folder overlay via the fs. Returns `true`
+    /// when the folder changed (so the session reloads the icon list).
+    pub fn overlay_commit(&mut self) -> bool {
+        match self.overlay.take() {
+            Some(DesktopOverlay::Rename { idx, name }) if !name.trim().is_empty() => {
+                if let Some(path) = self.icons.get(idx).map(|i| i.path.clone()) {
+                    let _ = self.fs.rename(&path, name.trim());
+                }
+                true
+            }
+            Some(DesktopOverlay::NewFolder { name }) if !name.trim().is_empty() => {
+                let dir = self.desktop_dir.clone();
+                let _ = self.fs.mkdir(&dir, name.trim());
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Move the selected folder icons to Trash. Returns `true` if anything moved.
+    pub fn trash_selection(&mut self) -> bool {
+        let paths: Vec<PathBuf> = self
+            .selection
+            .iter()
+            .filter_map(|&i| self.icons.get(i))
+            .filter(|i| matches!(i.source, IconSource::Folder))
+            .map(|i| i.path.clone())
+            .collect();
+        let mut any = false;
+        for p in paths {
+            if self.fs.trash(&p).is_ok() {
+                any = true;
+            }
+        }
+        self.overlay = None;
+        any
+    }
+
+    /// The icon index a context menu is anchored on, if any.
+    pub fn context_idx(&self) -> Option<usize> {
+        match self.overlay {
+            Some(DesktopOverlay::Context { idx, .. }) => Some(idx),
+            _ => None,
+        }
+    }
+    pub fn icon_is_pinned(&self, idx: usize) -> bool {
+        self.icons.get(idx).map(|i| matches!(i.source, IconSource::Pinned)).unwrap_or(false)
+    }
+    pub fn icon_command(&self, idx: usize) -> Option<String> {
+        self.icons.get(idx).and_then(|i| i.command.clone())
+    }
+    pub fn icon_path(&self, idx: usize) -> Option<PathBuf> {
+        self.icons.get(idx).map(|i| i.path.clone())
+    }
+
+    /// The menu items for the currently-open overlay, top to bottom. Empty when
+    /// no menu (or a text overlay) is open.
+    fn menu_items(&self) -> Vec<DesktopMenuItem> {
+        match self.overlay {
+            Some(DesktopOverlay::Context { idx, .. }) => {
+                if self.icon_is_pinned(idx) {
+                    vec![DesktopMenuItem::Open, DesktopMenuItem::Unpin]
+                } else {
+                    vec![
+                        DesktopMenuItem::Open,
+                        DesktopMenuItem::OpenWith,
+                        DesktopMenuItem::Rename,
+                        DesktopMenuItem::Trash,
+                    ]
+                }
+            }
+            Some(DesktopOverlay::DesktopMenu { .. }) => {
+                vec![DesktopMenuItem::NewFolder, DesktopMenuItem::CleanUp]
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// The screen rect of the open menu box (anchor + item list), if any. Width is
+    /// fixed; height is one row per item plus a one-cell border on each side.
+    fn menu_rect(&self) -> Option<crate::geometry::Rect> {
+        let anchor = match self.overlay {
+            Some(DesktopOverlay::Context { anchor, .. })
+            | Some(DesktopOverlay::DesktopMenu { anchor }) => anchor,
+            _ => return None,
+        };
+        let items = self.menu_items();
+        if items.is_empty() {
+            return None;
+        }
+        let w = MENU_W;
+        let h = items.len() as i32 + 2; // +border rows
+        Some(crate::geometry::Rect::new(anchor.x, anchor.y, w, h))
+    }
+
+    /// The text-field box for an open rename / new-folder overlay, if any.
+    fn field_rect(&self) -> Option<crate::geometry::Rect> {
+        match &self.overlay {
+            Some(DesktopOverlay::Rename { idx, .. }) => {
+                let cell = self.icons.get(*idx)?.cell;
+                let r = Self::tile_rect(cell);
+                Some(crate::geometry::Rect::new(r.x, r.y, ICON_W, 3))
+            }
+            Some(DesktopOverlay::NewFolder { .. }) => {
+                Some(crate::geometry::Rect::new(2, GRID_TOP, MENU_W, 3))
+            }
+            _ => None,
+        }
+    }
+
+    /// The menu item under `p` for an open context / desktop menu, if any.
+    pub fn menu_item_at(&self, p: Point) -> Option<DesktopMenuItem> {
+        let r = self.menu_rect()?;
+        let items = self.menu_items();
+        if !r.contains(p) {
+            return None;
+        }
+        // Rows are the interior of the box (skip the top border row).
+        let row = p.y - (r.y + 1);
+        if row < 0 || row as usize >= items.len() {
+            return None;
+        }
+        Some(items[row as usize])
+    }
+
+    /// Render the open overlay (menu box or text field) into a screen-sized buffer,
+    /// or `None` when no overlay is open. The session composites this above the
+    /// windows on a high-z layer.
+    pub fn overlay_buffer(&self, w: i32, h: i32) -> Option<crate::buffer::CellBuffer> {
+        use crate::cell::{Cell, Rgba};
+        self.overlay.as_ref()?;
+        const FG: Rgba = Rgba { r: 224, g: 228, b: 238, a: 255 };
+        const BG: Rgba = Rgba { r: 30, g: 34, b: 46, a: 245 };
+        let transparent = Rgba::TRANSPARENT;
+        let mut buf = crate::buffer::CellBuffer::new(w, h);
+        buf.fill(Cell { ch: ' ', fg: FG, bg: transparent, attrs: Default::default() });
+
+        if let Some(r) = self.menu_rect() {
+            // Box background.
+            for y in r.y..r.y + r.h {
+                for x in r.x..r.x + r.w {
+                    buf.set(x, y, Cell { ch: ' ', fg: FG, bg: BG, attrs: Default::default() });
+                }
+            }
+            // Item labels, one per interior row.
+            for (i, item) in self.menu_items().iter().enumerate() {
+                buf.write_str(r.x + 1, r.y + 1 + i as i32, item.label(), FG, BG);
+            }
+        } else if let Some(r) = self.field_rect() {
+            let name = match &self.overlay {
+                Some(DesktopOverlay::Rename { name, .. })
+                | Some(DesktopOverlay::NewFolder { name }) => name.as_str(),
+                _ => "",
+            };
+            for y in r.y..r.y + r.h {
+                for x in r.x..r.x + r.w {
+                    buf.set(x, y, Cell { ch: ' ', fg: FG, bg: BG, attrs: Default::default() });
+                }
+            }
+            let shown: String = name.chars().take((r.w - 2) as usize).collect();
+            buf.write_str(r.x + 1, r.y + 1, &shown, FG, BG);
+        }
+        Some(buf)
+    }
+}
+
+/// Fixed pixel/cell width of a desktop menu box.
+const MENU_W: i32 = 18;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DesktopMenuItem {
+    Open,
+    OpenWith,
+    Rename,
+    Trash,
+    Unpin,
+    NewFolder,
+    CleanUp,
+}
+
+impl DesktopMenuItem {
+    fn label(self) -> &'static str {
+        match self {
+            DesktopMenuItem::Open => "Open",
+            DesktopMenuItem::OpenWith => "Open with…",
+            DesktopMenuItem::Rename => "Rename",
+            DesktopMenuItem::Trash => "Move to Trash",
+            DesktopMenuItem::Unpin => "Unpin",
+            DesktopMenuItem::NewFolder => "New Folder",
+            DesktopMenuItem::CleanUp => "Clean Up",
+        }
+    }
 }
 
 fn glyph_for(role: Role) -> char {

@@ -113,6 +113,46 @@ fn file_manager_emits_thumbnail_placement_for_image() {
 }
 
 #[test]
+fn desktop_click_selects_and_double_click_opens_files() {
+    let dir = std::env::temp_dir().join(format!("tuiui-deskwire-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir(dir.join("proj")).unwrap();
+
+    // Point the desktop at our temp dir via a test helper.
+    let mut core = SessionCore::new(100, 30, Config { desktop_pins: vec![], ..Config::default() });
+    core.set_desktop_dir_for_test(dir.clone()); // reloads desktop at `dir`
+    // "proj" is at cell (0,0): tile glyph at (7,1); click then double-click.
+    let p = tuiui::geometry::Point::new(2, 1);
+    core.apply(ClientMsg::MouseDown(p));
+    assert_eq!(core.desktop_selection_len_for_test(), 1);
+    let before = core.window_count();
+    core.apply(ClientMsg::MouseDouble(p));
+    assert_eq!(core.window_count(), before + 1); // a Files window opened on the folder
+    core.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn desktop_new_folder_via_menu_creates_dir() {
+    let dir = std::env::temp_dir().join(format!("tuiui-deskmk-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut core = SessionCore::new(100, 30, Config { desktop_pins: vec![], ..Config::default() });
+    core.set_desktop_dir_for_test(dir.clone());
+    core.apply(ClientMsg::MouseRightDown(tuiui::geometry::Point::new(60, 20))); // empty desktop menu
+    // Drive new-folder directly via the editing messages (menu click tested in unit tests):
+    core.begin_desktop_new_folder_for_test();
+    for c in "Stuff".chars() {
+        core.apply(ClientMsg::DesktopChar(c));
+    }
+    core.apply(ClientMsg::DesktopCommit);
+    assert!(dir.join("Stuff").is_dir());
+    core.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn open_file_manager_creates_focused_window_and_is_single_instance() {
     let mut core = SessionCore::new(120, 40, Config::default());
     assert!(!core.focused_is_filemanager());

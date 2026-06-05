@@ -316,6 +316,8 @@ pub struct SessionCore {
     help_open: bool,
     /// Decoded-image cache for ImageView windows (the native image layer).
     images: crate::imagestore::ImageStore,
+    /// The wallpaper-level desktop icons (merged `~/Desktop` + pins).
+    desktop: crate::desktop::DesktopIcons,
 }
 
 impl SessionCore {
@@ -326,7 +328,8 @@ impl SessionCore {
     pub fn new(w: i32, h: i32, cfg: Config) -> Self {
         let work = Rect::new(0, 1, w, h - 2);
         let launcher = Launcher::new(Self::build_launcher_apps(&cfg));
-        Self {
+        let desktop_dir = dirs::home_dir().map(|h| h.join("Desktop")).unwrap_or_default();
+        let mut core = Self {
             wm: WindowManager::new(work),
             contents: HashMap::new(),
             store_win: None,
@@ -348,7 +351,59 @@ impl SessionCore {
             dirpicker: None,
             help_open: false,
             images: crate::imagestore::ImageStore::new(),
-        }
+            desktop: crate::desktop::DesktopIcons::new(desktop_dir),
+        };
+        core.reload_desktop();
+        core
+    }
+
+    /// Rebuild the desktop icons from the configured pins + saved positions, lay
+    /// them out for the current screen, and refresh any image thumbnails.
+    fn reload_desktop(&mut self) {
+        self.desktop.reload(&self.cfg.desktop_pins, &self.cfg.desktop_positions);
+        self.desktop.layout(self.w, self.h);
+        self.refresh_desktop_thumbnails();
+    }
+
+    /// Load image thumbnails for the desktop's image icons into the shared store.
+    /// (Task 8 fills in the body; a stub keeps the wiring compiling.)
+    fn refresh_desktop_thumbnails(&mut self) {}
+
+    /// Point the desktop at a specific directory and reload (integration tests).
+    #[doc(hidden)]
+    pub fn set_desktop_dir_for_test(&mut self, dir: std::path::PathBuf) {
+        self.desktop = crate::desktop::DesktopIcons::new(dir);
+        self.reload_desktop();
+    }
+
+    /// The number of currently-selected desktop icons (integration tests).
+    #[doc(hidden)]
+    pub fn desktop_selection_len_for_test(&self) -> usize {
+        self.desktop.selection().len()
+    }
+
+    /// Begin the desktop new-folder overlay directly (integration tests).
+    #[doc(hidden)]
+    pub fn begin_desktop_new_folder_for_test(&mut self) {
+        self.desktop.begin_new_folder();
+    }
+
+    /// Whether the desktop has a rename / new-folder overlay open (so the client
+    /// forwards typed characters as desktop overlay input).
+    pub fn desktop_editing(&self) -> bool {
+        self.desktop.is_editing()
+    }
+
+    /// True when no non-minimized window's rect contains `p` (a click here falls
+    /// through to the desktop).
+    fn window_at_is_none(&self, p: Point) -> bool {
+        !self.wm.z_ordered().iter().any(|w| !w.minimized && w.rect.contains(p))
+    }
+
+    /// Persist the desktop's current icon positions to the config.
+    fn persist_desktop_positions(&mut self) {
+        self.cfg.desktop_positions = self.desktop.positions();
+        let _ = self.cfg.save();
     }
 
     /// Open an image file in a new ImageView window.
@@ -759,13 +814,21 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     self.confirm_dirpicker();
                 }
             }
-            // TODO(desktop Task 6): wire these to the desktop model.
-            ClientMsg::MouseDouble(_)
-            | ClientMsg::MouseRightDown(_)
-            | ClientMsg::DesktopChar(_)
-            | ClientMsg::DesktopBackspace
-            | ClientMsg::DesktopCommit
-            | ClientMsg::DesktopCancel => {}
+            ClientMsg::MouseRightDown(p) => {
+                self.cursor = p;
+                self.handle_desktop_right(p);
+            }
+            ClientMsg::MouseDouble(p) => {
+                self.cursor = p;
+                if self.cfg.desktop_enabled && self.window_at_is_none(p) {
+                    self.desktop.double_click(p);
+                    self.drain_desktop_action();
+                }
+            }
+            ClientMsg::DesktopChar(c) => self.desktop.overlay_char(c),
+            ClientMsg::DesktopBackspace => self.desktop.overlay_backspace(),
+            ClientMsg::DesktopCommit => self.desktop_commit(),
+            ClientMsg::DesktopCancel => self.desktop.cancel_overlay(),
             ClientMsg::Shutdown => self.shutdown = true,
         }
         // Refresh thumbnails after any message that may have changed the focused
@@ -1027,6 +1090,68 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         }
     }
 
+    /// Turn a pending [`DesktopAction`] from the desktop model into a real effect:
+    /// open a folder in Files, open an image, launch an app for a file, run a pin,
+    /// or unpin a shortcut. Mirrors [`drain_fm_action`](Self::drain_fm_action).
+    fn drain_desktop_action(&mut self) {
+        // Take the action first so the desktop borrow is dropped before the
+        // subsequent `&mut self` effect calls.
+        let action = self.desktop.take_action();
+        match action {
+            Some(crate::desktop::DesktopAction::Open(path)) => {
+                let is_dir = path.is_dir();
+                match crate::openwith::resolve(&path, is_dir, &self.cfg.default_apps) {
+                    crate::openwith::OpenAction::Navigate => self.open_filemanager_root(path),
+                    crate::openwith::OpenAction::Builtin("@image") => {
+                        self.open_image(path.to_string_lossy().to_string());
+                    }
+                    crate::openwith::OpenAction::Builtin(_) => {}
+                    crate::openwith::OpenAction::RunApp { command, args } => {
+                        let name = args
+                            .last()
+                            .and_then(|a| a.rsplit('/').next())
+                            .unwrap_or(&command)
+                            .to_string();
+                        let cwd = path.parent().map(|p| p.to_path_buf());
+                        self.launch_in(name, command, args, cwd);
+                    }
+                    crate::openwith::OpenAction::OpenWithMenu => {}
+                }
+            }
+            Some(crate::desktop::DesktopAction::Run { command, args }) => {
+                self.launch_entry(AppEntry {
+                    name: command.clone(),
+                    command,
+                    args,
+                    category: None,
+                    requires_cwd: None,
+                    cwd: None,
+                });
+            }
+            Some(crate::desktop::DesktopAction::Unpin(cmd)) => {
+                self.cfg.desktop_pins.retain(|p| p.command != cmd);
+                let _ = self.cfg.save();
+                self.reload_desktop();
+            }
+            None => {}
+        }
+    }
+
+    /// Right-click on the desktop: open a context (icon) or empty-desktop menu,
+    /// but only for clicks that fall through to the desktop (no window hit).
+    fn handle_desktop_right(&mut self, p: Point) {
+        if self.cfg.desktop_enabled && self.window_at_is_none(p) {
+            self.desktop.right_click(p);
+        }
+    }
+
+    /// Commit the desktop's rename / new-folder overlay, reloading on success.
+    fn desktop_commit(&mut self) {
+        if self.desktop.overlay_commit() {
+            self.reload_desktop();
+        }
+    }
+
     /// Enter on a store row: launch the app if installed, else install it (the
     /// install command runs visibly in a new shell window).
     fn store_activate(&mut self) {
@@ -1179,6 +1304,31 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 }
             }
         }
+        // An open desktop menu floats above the windows: a left press first tries
+        // a menu item, else dismisses the menu, before any window routing.
+        if kind == MouseKind::Down && self.cfg.desktop_enabled && self.desktop.overlay().is_some() {
+            self.handle_desktop_menu_click(p);
+            return;
+        }
+
+        // A desktop drag in progress captures motion + release (the icon drag is
+        // tracked inside the desktop model, separate from window `self.drag`).
+        if self.desktop.dragging() {
+            match kind {
+                MouseKind::Drag => {
+                    self.desktop.drag_to(p);
+                    return;
+                }
+                MouseKind::Up => {
+                    if self.desktop.end_drag(p) {
+                        self.persist_desktop_positions();
+                    }
+                    return;
+                }
+                MouseKind::Down | MouseKind::Move => {}
+            }
+        }
+
         // Minimized windows are hidden, so they never receive mouse events.
         let windows: Vec<_> = self
             .wm
@@ -1188,7 +1338,68 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             .cloned()
             .collect();
         let action = route_mouse(kind, p, &windows, self.drag);
+        // A left press that hits no window and no chrome falls through to the
+        // desktop: begin a drag on an icon (which also selects it), else clear
+        // the selection. A plain press-without-move still leaves the icon
+        // selected; a drag moves + persists.
+        if self.cfg.desktop_enabled
+            && matches!(action, Action::None)
+            && self.drag.is_none()
+            && kind == MouseKind::Down
+        {
+            match self.desktop.icon_at(p) {
+                Some(_) => self.desktop.begin_drag(p),
+                None => self.desktop.click(p, false),
+            }
+            return;
+        }
         self.exec(action, p);
+    }
+
+    /// A click while a desktop context / desktop menu is open: act on the menu
+    /// item under `p`, or dismiss the menu if the click missed it.
+    fn handle_desktop_menu_click(&mut self, p: Point) {
+        let item = self.desktop.menu_item_at(p);
+        let idx = self.desktop.context_idx();
+        match item {
+            Some(crate::desktop::DesktopMenuItem::Open) => {
+                self.desktop.cancel_overlay();
+                if let Some(i) = idx {
+                    let r = crate::desktop::DesktopIcons::<crate::fileops::StdFs>::tile_rect(
+                        self.desktop.icons()[i].cell,
+                    );
+                    self.desktop.double_click(Point::new(r.x + 1, r.y));
+                    self.drain_desktop_action();
+                }
+            }
+            Some(crate::desktop::DesktopMenuItem::OpenWith) => self.desktop.cancel_overlay(),
+            Some(crate::desktop::DesktopMenuItem::Rename) => {
+                if let Some(i) = idx {
+                    self.desktop.begin_rename(i);
+                }
+            }
+            Some(crate::desktop::DesktopMenuItem::Trash) => {
+                if self.desktop.trash_selection() {
+                    self.reload_desktop();
+                }
+            }
+            Some(crate::desktop::DesktopMenuItem::Unpin) => {
+                let cmd = idx.and_then(|i| self.desktop.icon_command(i));
+                self.desktop.cancel_overlay();
+                if let Some(cmd) = cmd {
+                    self.cfg.desktop_pins.retain(|p| p.command != cmd);
+                    let _ = self.cfg.save();
+                    self.reload_desktop();
+                }
+            }
+            Some(crate::desktop::DesktopMenuItem::NewFolder) => self.desktop.begin_new_folder(),
+            Some(crate::desktop::DesktopMenuItem::CleanUp) => {
+                self.desktop.cancel_overlay();
+                self.desktop.clean_up();
+                self.persist_desktop_positions();
+            }
+            None => self.desktop.cancel_overlay(),
+        }
     }
 
     /// Execute a resolved [`Action`] against the window manager and app state.
@@ -1367,6 +1578,12 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         let mut layers: Vec<Layer> = Vec::new();
         let focused = self.wm.focused();
 
+        // The desktop icon layer sits at z=0, beneath every window (z≥1).
+        if self.cfg.desktop_enabled {
+            let buf = self.desktop.render(self.w, self.h);
+            layers.push(Layer { z: 0, origin: Point::new(0, 0), buf, opacity: 1.0, scissor: None });
+        }
+
         for w in self.wm.z_ordered() {
             if w.minimized {
                 continue; // hidden to the dock
@@ -1400,6 +1617,14 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         };
         layers.push(render_menubar(self.w, &app_name, &segs));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
+
+        // The desktop context / rename menu floats above the windows (but below
+        // the launcher / help overlays) on its own high-z layer.
+        if self.cfg.desktop_enabled {
+            if let Some(buf) = self.desktop.overlay_buffer(self.w, self.h) {
+                layers.push(Layer { z: 850, origin: Point::new(0, 0), buf, opacity: 1.0, scissor: None });
+            }
+        }
 
         // Launcher (dropdown / Spotlight) renders above all chrome.
         layers.extend(self.launcher.render(self.w, self.h).layers);
