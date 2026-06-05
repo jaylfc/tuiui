@@ -90,9 +90,12 @@ impl AppInstance {
         }
         // Pin TERM/COLORTERM to what the embedded emulator implements, letting
         // apps emit 24-bit color (captured here, re-emitted per the real terminal).
-        // `xterm-kitty` is the strongest signal that Kitty graphics are supported,
-        // so apps like yazi emit image escapes the reader thread's tap captures.
-        builder.env("TERM", "xterm-kitty");
+        // TERM stays `xterm-256color` (universally present in terminfo) — using
+        // `xterm-kitty` would break ncurses apps on hosts lacking that entry. Kitty
+        // graphics support is instead advertised at runtime: the reader thread's tap
+        // answers the graphics query (`a=q`) with OK, which graphics-capable apps
+        // (yazi, timg) probe for and treat as the authoritative capability signal.
+        builder.env("TERM", "xterm-256color");
         builder.env("COLORTERM", "truecolor");
         // Start in the requested working directory, else the user's home.
         match cwd {
