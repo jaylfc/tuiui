@@ -235,6 +235,18 @@ pub enum ClientMsg {
     /// Picker: type / delete a character of the new-folder name.
     DirPickerChar(char),
     DirPickerBackspace,
+    /// Left-button double-click at screen coordinates `p` (desktop: open icon).
+    MouseDouble(Point),
+    /// Right-button press at screen coordinates `p` (desktop: context menu).
+    MouseRightDown(Point),
+    /// Desktop overlay (rename / new-folder): type a character.
+    DesktopChar(char),
+    /// Desktop overlay: delete the last character.
+    DesktopBackspace,
+    /// Desktop overlay: commit (Enter).
+    DesktopCommit,
+    /// Desktop overlay: cancel (Escape).
+    DesktopCancel,
     /// Shut down the daemon entirely (kills all apps). Sent by `tuiui kill`.
     Shutdown,
 }
@@ -747,6 +759,13 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     self.confirm_dirpicker();
                 }
             }
+            // TODO(desktop Task 6): wire these to the desktop model.
+            ClientMsg::MouseDouble(_)
+            | ClientMsg::MouseRightDown(_)
+            | ClientMsg::DesktopChar(_)
+            | ClientMsg::DesktopBackspace
+            | ClientMsg::DesktopCommit
+            | ClientMsg::DesktopCancel => {}
             ClientMsg::Shutdown => self.shutdown = true,
         }
         // Refresh thumbnails after any message that may have changed the focused

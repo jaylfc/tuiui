@@ -66,6 +66,7 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
     }
 
     let mut leader = false;
+    let mut last_click: Option<(Point, std::time::Instant)> = None;
     loop {
         if detached.load(Ordering::SeqCst) {
             break;
@@ -216,7 +217,20 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                 Event::Mouse(m) => {
                     let p = Point::new(m.column as i32, m.row as i32);
                     match m.kind {
-                        MouseEventKind::Down(MouseButton::Left) => send(&mut out_stream, &ClientMsg::MouseDown(p))?,
+                        MouseEventKind::Down(MouseButton::Left) => {
+                            let now = std::time::Instant::now();
+                            let dbl = last_click
+                                .map(|(lp, lt)| lp == p && now.duration_since(lt) < std::time::Duration::from_millis(400))
+                                .unwrap_or(false);
+                            if dbl {
+                                send(&mut out_stream, &ClientMsg::MouseDouble(p))?;
+                                last_click = None;
+                            } else {
+                                send(&mut out_stream, &ClientMsg::MouseDown(p))?;
+                                last_click = Some((p, now));
+                            }
+                        }
+                        MouseEventKind::Down(MouseButton::Right) => send(&mut out_stream, &ClientMsg::MouseRightDown(p))?,
                         MouseEventKind::Drag(MouseButton::Left) => send(&mut out_stream, &ClientMsg::MouseDrag(p))?,
                         MouseEventKind::Up(MouseButton::Left) => send(&mut out_stream, &ClientMsg::MouseUp(p))?,
                         MouseEventKind::Moved => send(&mut out_stream, &ClientMsg::MouseDrag(p))?,

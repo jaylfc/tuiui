@@ -72,6 +72,8 @@ pub struct Flags {
     pub filemanager_focused: bool,
     /// The file manager has a text overlay open (new-folder / rename); forward chars.
     pub filemanager_editing: bool,
+    /// The desktop has a rename/new-folder overlay open; forward typed chars.
+    pub desktop_editing: bool,
     /// The daemon asked the client to detach (e.g. the Quit button was clicked).
     pub detach: bool,
 }

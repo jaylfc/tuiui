@@ -122,6 +122,8 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             help_open: core.help_open(),
             filemanager_focused: core.focused_is_filemanager(),
             filemanager_editing: core.filemanager_editing(),
+            // TODO(desktop Task 7): wire to core.desktop_editing().
+            desktop_editing: false,
             detach: core.quit_requested(),
         };
         // Send PNG bytes once per image id (base64); later frames carry only the

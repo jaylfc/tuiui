@@ -33,3 +33,14 @@ fn frame_msg_roundtrips_json() {
     assert_eq!(back.changes[0].cell.ch, 'A');
     assert!(back.flags.launcher_open);
 }
+
+#[test]
+fn new_mouse_messages_roundtrip() {
+    use tuiui::session::ClientMsg;
+    use tuiui::geometry::Point;
+    for msg in [ClientMsg::MouseDouble(Point::new(3, 4)), ClientMsg::MouseRightDown(Point::new(5, 6))] {
+        let s = serde_json::to_string(&msg).unwrap();
+        let back: ClientMsg = serde_json::from_str(&s).unwrap();
+        assert_eq!(serde_json::to_string(&back).unwrap(), s);
+    }
+}
