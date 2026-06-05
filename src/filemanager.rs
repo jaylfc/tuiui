@@ -30,6 +30,7 @@ pub enum Overlay {
     Context { idx: usize },          // right-click menu for entry `idx`
     OpenWith { idx: usize, sel: usize },
     Error { message: String },
+    GetInfo { idx: usize },
 }
 
 #[derive(Clone, Debug)]
@@ -232,6 +233,10 @@ impl<F: FsOps> FileManager<F> {
 
     pub fn begin_context(&mut self) {
         self.overlay = Some(Overlay::Context { idx: self.cursor });
+    }
+
+    pub fn begin_get_info(&mut self) {
+        self.overlay = Some(Overlay::GetInfo { idx: self.cursor });
     }
 
     pub fn cancel_overlay(&mut self) { self.overlay = None; }
@@ -495,24 +500,70 @@ impl<F: FsOps> FileManager<F> {
 
     fn render_overlay(&self, buf: &mut CellBuffer, w: i32, h: i32) {
         let Some(ov) = &self.overlay else { return; };
-        let (title, body): (String, String) = match ov {
-            Overlay::NewFolder { name } => ("New folder".into(), format!("Name: {name}\u{2588}")),
-            Overlay::Rename { name, .. } => ("Rename".into(), format!("Name: {name}\u{2588}")),
-            Overlay::ConfirmDelete { count } => ("Move to Trash".into(), format!("Trash {count} item(s)? [Enter] Yes  [Esc] No")),
-            Overlay::Context { .. } => ("Actions".into(), "Open  Rename  Copy  Cut  Delete".into()),
-            Overlay::OpenWith { .. } => ("Open with".into(), "Pick an app (Enter), Esc to cancel".into()),
-            Overlay::Error { message } => ("Error".into(), message.clone()),
-        };
-        let bw = (title.len().max(body.len()) as i32 + 4).min(w - 2);
+        match ov {
+            Overlay::NewFolder { name } => {
+                self.draw_box(buf, w, h, "New folder", &[format!("Name: {name}\u{2588}")]);
+            }
+            Overlay::Rename { name, .. } => {
+                self.draw_box(buf, w, h, "Rename", &[format!("Name: {name}\u{2588}")]);
+            }
+            Overlay::ConfirmDelete { count } => {
+                self.draw_box(
+                    buf,
+                    w,
+                    h,
+                    "Move to Trash",
+                    &[format!("Trash {count} item(s)? [Enter] Yes  [Esc] No")],
+                );
+            }
+            Overlay::Context { .. } => {
+                self.draw_box(buf, w, h, "Actions", &["Open  Rename  Copy  Cut  Delete".to_string()]);
+            }
+            Overlay::OpenWith { .. } => {
+                self.draw_box(buf, w, h, "Open with", &["Pick an app (Enter), Esc to cancel".to_string()]);
+            }
+            Overlay::Error { message } => {
+                self.draw_box(buf, w, h, "Error", std::slice::from_ref(message));
+            }
+            Overlay::GetInfo { idx } => {
+                let Some(e) = self.entries.get(*idx) else { return; };
+                let mut lines = vec![format!("Name: {}", e.name)];
+                if let Ok(info) = crate::fileops::info(&e.path) {
+                    lines.push(format!("Path: {}", info.path.display()));
+                    lines.push(format!("Size: {} bytes", info.size));
+                    let kind = if info.is_dir { "Folder" } else { e.role.label() };
+                    lines.push(format!("Kind: {kind}"));
+                    lines.push(format!(
+                        "Permissions: {} ({:o})",
+                        crate::fileops::mode_rwx(info.mode),
+                        info.mode & 0o777
+                    ));
+                    if let Some(t) = &info.link_target {
+                        lines.push(format!("Symlink \u{2192} {}", t.display()));
+                    }
+                }
+                lines.push("[Esc] close".into());
+                self.draw_box(buf, w, h, "Get Info", &lines);
+            }
+        }
+    }
+
+    /// Draw a centered modal box `lines.len()+2` rows tall with a title and body.
+    fn draw_box(&self, buf: &mut CellBuffer, w: i32, h: i32, title: &str, lines: &[String]) {
+        let widest = lines.iter().map(|l| l.len()).max().unwrap_or(0);
+        let bw = (title.len().max(widest) as i32 + 4).min(w - 2).max(4);
+        let bh = lines.len() as i32 + 2;
         let bx = (w - bw) / 2;
-        let by = h / 2 - 1;
-        for y in by..by + 4 {
+        let by = (h - bh) / 2;
+        for y in by..by + bh {
             for x in bx..bx + bw {
                 buf.set(x, y, Cell { ch: ' ', fg: FG, bg: SEL_BG, attrs: Default::default() });
             }
         }
-        buf.write_str(bx + 2, by, &title, ACCENT, SEL_BG);
-        buf.write_str(bx + 2, by + 2, &body, FG, SEL_BG);
+        buf.write_str(bx + 2, by, title, ACCENT, SEL_BG);
+        for (i, line) in lines.iter().enumerate() {
+            buf.write_str(bx + 2, by + 2 + i as i32, line, FG, SEL_BG);
+        }
     }
 }
 

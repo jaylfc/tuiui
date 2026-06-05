@@ -35,6 +35,22 @@ impl Role {
             Role::Other => "other",
         }
     }
+
+    /// A human-readable label for this role (used in Get-Info and previews).
+    pub fn label(self) -> &'static str {
+        match self {
+            Role::Image => "Image",
+            Role::Video => "Video",
+            Role::Audio => "Audio",
+            Role::Text => "Text",
+            Role::Code => "Code",
+            Role::Archive => "Archive",
+            Role::Pdf => "PDF",
+            Role::Directory => "Folder",
+            Role::Executable => "Executable",
+            Role::Other => "Document",
+        }
+    }
 }
 
 /// Classify `path` into a `Role`. `is_dir` is passed in (the caller already

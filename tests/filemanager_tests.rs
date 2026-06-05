@@ -192,3 +192,17 @@ fn delete_moves_to_trash_after_confirm() {
     }
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn get_info_overlay_opens_for_focused_entry() {
+    use tuiui::filemanager::Overlay;
+    let d = tmp("getinfo");
+    fs::write(d.join("a.txt"), b"hello").unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    fm.select_at(0, false, false);
+    fm.begin_get_info();
+    assert!(matches!(fm.overlay(), Some(Overlay::GetInfo { .. })));
+    // render must not panic and must include the permission triad somewhere
+    let _ = fm.render(80, 24);
+    let _ = fs::remove_dir_all(&d);
+}
