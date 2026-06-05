@@ -13,6 +13,7 @@ It's a multiplexer at heart (apps run as real child processes in PTYs and are co
 - **Mouse-driven**: drag titlebars to move, drag edges to resize, click the dock to focus, click titlebar buttons to minimize/maximize/close.
 - **Configurable grid tiling** — set a rows×columns grid (e.g. 2×3 for an ultra-wide) and use drag-to-cell snapping (with a live preview), a one-key *tile-all*, an *auto-tile* mode, or send a window straight to a numbered cell.
 - **Menubar status tray** — clock, CPU/memory, volume, WiFi, Bluetooth, and battery, with click-through popovers that control the **host's** volume, switch to a known WiFi network, and connect a paired Bluetooth device.
+- **Native image viewing** — real raster images inside windows via the Kitty graphics protocol (Ghostty/Kitty/WezTerm), with a cell placeholder fallback elsewhere. Open one with a launcher entry `command = "@image"`, `args = ["~/pic.png"]`.
 - **App launcher** — a Windows-Start-menu-style multi-column dropdown *and* a Spotlight search overlay, with apps grouped by category.
 - **App store** — browse/search/install from a curated, **100%-verified** catalog of ~590 TUIs (incl. a dedicated **AI** category: Claude Code, Gemini CLI, Aider, opencode, Codex, Crush, Goose, Plandex, and more), OS-aware so Linux-only tools never show on macOS and vice-versa.
 - **Custom apps** — add your own launcher entries (name + command) from **Settings → Apps**.
