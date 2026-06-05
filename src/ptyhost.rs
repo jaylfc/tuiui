@@ -73,7 +73,11 @@ impl AppInstance {
             .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
             .map_err(|e| std::io::Error::other(e.to_string()))?;
 
-        let mut builder = CommandBuilder::new(cmd);
+        // Resolve a bare command name to an absolute path ourselves. portable-pty's
+        // own PATH search is unreliable here (a binary on $PATH still failed to
+        // launch by bare name), so we hand it the resolved path.
+        let program = resolve_program(cmd);
+        let mut builder = CommandBuilder::new(&program);
         for a in args {
             builder.arg(a);
         }
@@ -205,6 +209,27 @@ impl AppInstance {
     }
 }
 
+/// Resolve a bare command name (no `/`) to an absolute path by searching `$PATH`.
+/// Returns the input unchanged if it's already a path or can't be found (so the
+/// error surfaces from the spawn rather than here).
+fn resolve_program(cmd: &str) -> String {
+    if cmd.contains('/') {
+        return cmd.to_string();
+    }
+    if let Some(path) = std::env::var_os("PATH") {
+        use std::os::unix::fs::PermissionsExt;
+        for dir in std::env::split_paths(&path) {
+            let candidate = dir.join(cmd);
+            if let Ok(meta) = std::fs::metadata(&candidate) {
+                if meta.is_file() && meta.permissions().mode() & 0o111 != 0 {
+                    return candidate.to_string_lossy().into_owned();
+                }
+            }
+        }
+    }
+    cmd.to_string()
+}
+
 /// Resolve an alacritty cell color into our [`Rgba`].
 fn resolve_color(c: AColor, default: Rgba) -> Rgba {
     match c {
@@ -277,6 +302,16 @@ mod tests {
                 self.0.lock().unwrap().push(s);
             }
         }
+    }
+
+    #[test]
+    fn resolves_bare_command_to_absolute_path() {
+        // `sh` is always on $PATH at an absolute location.
+        let p = resolve_program("sh");
+        assert!(p.contains('/'), "expected an absolute path, got {p}");
+        assert!(std::path::Path::new(&p).is_file());
+        // A path is returned unchanged.
+        assert_eq!(resolve_program("/bin/sh"), "/bin/sh");
     }
 
     // Apps like tetris move the cursor to 999;999 and send ESC[6n to learn the
