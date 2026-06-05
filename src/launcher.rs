@@ -20,6 +20,25 @@ const BORDER: Rgba = Rgba { r: 58, g: 68, b: 88, a: 255 };
 const HINT: Rgba = Rgba { r: 120, g: 130, b: 150, a: 255 };
 const ACCENT: Rgba = Rgba { r: 108, g: 182, b: 255, a: 255 };
 
+/// A node in the cascading menu.
+#[derive(Clone, Debug)]
+enum MenuEntry {
+    Launch(AppEntry),
+    Submenu { label: String, items: Vec<MenuEntry> },
+}
+
+impl MenuEntry {
+    fn label(&self) -> &str {
+        match self {
+            MenuEntry::Launch(a) => &a.name,
+            MenuEntry::Submenu { label, .. } => label,
+        }
+    }
+    fn is_submenu(&self) -> bool {
+        matches!(self, MenuEntry::Submenu { .. })
+    }
+}
+
 /// How the launcher is currently presented.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LauncherMode {
@@ -36,6 +55,13 @@ pub struct Launcher {
     query: String,
     /// Highlighted row index into the currently *filtered* list.
     selected: usize,
+    /// Cascade root (Menu mode), rebuilt on open.
+    menu_root: Vec<MenuEntry>,
+    /// Open chain: selected row at each open level. Non-empty while Menu is open.
+    path: Vec<usize>,
+    /// Last rendered screen size, so `hover`/`point_in_menu` can recompute geometry.
+    last_w: std::cell::Cell<i32>,
+    last_h: std::cell::Cell<i32>,
 }
 
 /// A rendered launcher frame: layers plus the clickable regions for this frame.
@@ -49,7 +75,16 @@ pub struct Rendered {
 impl Launcher {
     /// Create a launcher offering `items`, initially closed.
     pub fn new(items: Vec<AppEntry>) -> Self {
-        Self { items, open: None, query: String::new(), selected: 0 }
+        Self {
+            items,
+            open: None,
+            query: String::new(),
+            selected: 0,
+            menu_root: Vec::new(),
+            path: vec![0],
+            last_w: std::cell::Cell::new(80),
+            last_h: std::cell::Cell::new(24),
+        }
     }
 
     /// Whether the launcher is currently visible.
@@ -70,8 +105,36 @@ impl Launcher {
 
     /// Open (or, if already in `Menu`, close) the dropdown menu.
     pub fn toggle_menu(&mut self) {
-        self.open = if self.open == Some(LauncherMode::Menu) { None } else { Some(LauncherMode::Menu) };
+        let opening = self.open != Some(LauncherMode::Menu);
+        self.open = if opening { Some(LauncherMode::Menu) } else { None };
         self.reset_selection();
+        if opening {
+            self.rebuild_menu();
+            self.path = vec![0];
+        }
+    }
+
+    /// Build the cascade root: one Submenu per category (sorted, "tuiui" first),
+    /// apps inside (sorted by name).
+    fn rebuild_menu(&mut self) {
+        use std::collections::BTreeMap;
+        let mut by_cat: BTreeMap<String, Vec<AppEntry>> = BTreeMap::new();
+        for a in &self.items {
+            by_cat.entry(cat_of(a)).or_default().push(a.clone());
+        }
+        let rank = |c: &str| if c == "tuiui" { 0 } else { 1 };
+        let mut cats: Vec<(String, Vec<AppEntry>)> = by_cat.into_iter().collect();
+        cats.sort_by(|(a, _), (b, _)| rank(a).cmp(&rank(b)).then_with(|| a.cmp(b)));
+        self.menu_root = cats
+            .into_iter()
+            .map(|(label, mut apps)| {
+                apps.sort_by(|x, y| x.name.to_lowercase().cmp(&y.name.to_lowercase()));
+                MenuEntry::Submenu {
+                    label,
+                    items: apps.into_iter().map(MenuEntry::Launch).collect(),
+                }
+            })
+            .collect();
     }
 
     /// Open (or, if already in `Spotlight`, close) the search overlay.
@@ -107,17 +170,127 @@ impl Launcher {
         }
     }
 
-    /// Move the highlight up (saturating).
+    /// Move the highlight up (saturating). Mode-aware: Menu walks `path`,
+    /// Spotlight walks `selected`.
     pub fn move_up(&mut self) {
-        self.selected = self.selected.saturating_sub(1);
+        if self.open == Some(LauncherMode::Menu) {
+            if let Some(last) = self.path.last_mut() {
+                *last = last.saturating_sub(1);
+            }
+        } else {
+            self.selected = self.selected.saturating_sub(1);
+        }
     }
 
-    /// Move the highlight down (clamped to the filtered list).
+    /// Move the highlight down (clamped). Mode-aware: Menu walks `path`,
+    /// Spotlight walks the filtered list.
     pub fn move_down(&mut self) {
-        let n = self.filtered().len();
-        if n > 0 && self.selected + 1 < n {
-            self.selected += 1;
+        if self.open == Some(LauncherMode::Menu) {
+            let n = self.focused_len();
+            if let Some(last) = self.path.last_mut() {
+                if n > 0 && *last + 1 < n {
+                    *last += 1;
+                }
+            }
+        } else {
+            let n = self.filtered().len();
+            if n > 0 && self.selected + 1 < n {
+                self.selected += 1;
+            }
         }
+    }
+
+    /// The visible panels: for each open level, (entries, selected_row). Includes a
+    /// final auto-expanded panel when the deepest selected entry is a Submenu.
+    fn levels(&self) -> Vec<(&[MenuEntry], usize)> {
+        let mut out: Vec<(&[MenuEntry], usize)> = Vec::new();
+        let mut entries: &[MenuEntry] = &self.menu_root;
+        for (k, &sel) in self.path.iter().enumerate() {
+            let sel = sel.min(entries.len().saturating_sub(1));
+            out.push((entries, sel));
+            match entries.get(sel) {
+                Some(MenuEntry::Submenu { items, .. }) if k + 1 < self.path.len() => entries = items,
+                Some(MenuEntry::Submenu { items, .. }) => {
+                    // deepest selected is a submenu → auto-expand one panel (row 0)
+                    out.push((items.as_slice(), 0));
+                    break;
+                }
+                _ => break,
+            }
+        }
+        out
+    }
+
+    fn focused_entry(&self) -> Option<&MenuEntry> {
+        let mut entries: &[MenuEntry] = &self.menu_root;
+        let mut last = None;
+        for &sel in &self.path {
+            let sel = sel.min(entries.len().saturating_sub(1));
+            last = entries.get(sel);
+            match entries.get(sel) {
+                Some(MenuEntry::Submenu { items, .. }) => entries = items,
+                _ => break,
+            }
+        }
+        last
+    }
+
+    fn focused_len(&self) -> usize {
+        // length of the list the focused index points into
+        let mut entries: &[MenuEntry] = &self.menu_root;
+        for (k, &sel) in self.path.iter().enumerate() {
+            if k + 1 == self.path.len() {
+                return entries.len();
+            }
+            match entries.get(sel.min(entries.len().saturating_sub(1))) {
+                Some(MenuEntry::Submenu { items, .. }) => entries = items,
+                _ => return entries.len(),
+            }
+        }
+        entries.len()
+    }
+
+    /// Descend into the focused submenu (if any, and non-empty).
+    pub fn expand(&mut self) {
+        if let Some(MenuEntry::Submenu { items, .. }) = self.focused_entry() {
+            if !items.is_empty() {
+                self.path.push(0);
+            }
+        }
+    }
+
+    /// Collapse one level (never past the root).
+    pub fn collapse(&mut self) {
+        if self.path.len() > 1 {
+            self.path.pop();
+        }
+    }
+
+    /// Activate the focused entry: descend into a submenu (return None) or launch a
+    /// leaf (return the app).
+    pub fn activate(&mut self) -> Option<AppEntry> {
+        match self.focused_entry().cloned() {
+            Some(MenuEntry::Submenu { .. }) => {
+                self.expand();
+                None
+            }
+            Some(MenuEntry::Launch(a)) => Some(a),
+            None => None,
+        }
+    }
+
+    // test/inspection helpers
+    #[doc(hidden)]
+    pub fn path_for_test(&self) -> Vec<usize> {
+        self.path.clone()
+    }
+    #[doc(hidden)]
+    pub fn menu_labels(&self) -> Vec<String> {
+        self.menu_root.iter().map(|e| e.label().to_string()).collect()
+    }
+    #[doc(hidden)]
+    pub fn focused_label(&self) -> Option<String> {
+        self.focused_entry().map(|e| e.label().to_string())
     }
 
     /// The apps matching the current query (all apps in `Menu` mode), sorted by
@@ -406,5 +579,37 @@ mod tests {
         let r = l.render(120, 40);
         assert!(r.items.is_empty());
         assert!(r.layers.is_empty());
+    }
+
+    #[test]
+    fn cascade_root_groups_by_category_and_navigates() {
+        let mut l = Launcher::new(vec![
+            app("Aaa", "Games"), app("Bbb", "Games"), app("Ccc", "Tools"),
+        ]);
+        l.toggle_menu();
+        // root has 2 category submenus (Games, Tools), sorted
+        assert_eq!(l.menu_labels(), vec!["Games", "Tools"]);
+        assert_eq!(l.path_for_test(), vec![0]); // first root row selected
+        // descend into Games → its apps
+        l.expand();
+        assert_eq!(l.path_for_test(), vec![0, 0]);
+        assert_eq!(l.focused_label(), Some("Aaa".to_string()));
+        l.move_down();
+        assert_eq!(l.focused_label(), Some("Bbb".to_string()));
+        // activate a leaf returns the app
+        assert_eq!(l.activate().map(|a| a.name), Some("Bbb".to_string()));
+        // collapse back to root
+        l.toggle_menu(); l.toggle_menu(); // reopen fresh
+        l.expand(); l.collapse();
+        assert_eq!(l.path_for_test(), vec![0]);
+    }
+
+    #[test]
+    fn activate_on_category_descends_not_launches() {
+        let mut l = Launcher::new(vec![app("Aaa", "Games")]);
+        l.toggle_menu();
+        assert!(l.activate().is_none()); // category → descend, no launch
+        assert_eq!(l.path_for_test(), vec![0, 0]);
+        assert_eq!(l.activate().map(|a| a.name), Some("Aaa".to_string())); // now the leaf
     }
 }
