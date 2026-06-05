@@ -249,3 +249,23 @@ fn preview_toggle_and_text_head() {
     assert!(lines.iter().any(|l| l.contains("line1")));
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn columns_view_cycles_and_renders() {
+    let d = tmp("cols");
+    fs::create_dir(d.join("sub")).unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    fm.set_view(ViewMode::Columns);
+    assert_eq!(fm.view(), ViewMode::Columns);
+    let buf = fm.render(100, 24);
+    assert_eq!(buf.width(), 100);
+    // cycle_view goes Icon -> List -> Columns -> Icon
+    let mut f2 = FileManager::new(d.clone(), BTreeMap::new());
+    f2.cycle_view();
+    assert_eq!(f2.view(), ViewMode::List);
+    f2.cycle_view();
+    assert_eq!(f2.view(), ViewMode::Columns);
+    f2.cycle_view();
+    assert_eq!(f2.view(), ViewMode::Icon);
+    let _ = fs::remove_dir_all(&d);
+}

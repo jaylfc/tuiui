@@ -803,6 +803,12 @@ mod tests {
         let d = tmp("toggle");
         let mut fm = FileManager::new(d.clone(), BTreeMap::new());
         assert_eq!(fm.view(), ViewMode::Icon);
+        fm.cycle_view();
+        assert_eq!(fm.view(), ViewMode::List);
+        fm.cycle_view();
+        assert_eq!(fm.view(), ViewMode::Columns);
+        fm.cycle_view();
+        assert_eq!(fm.view(), ViewMode::Icon);
         fm.set_view(ViewMode::List);
         assert_eq!(fm.view(), ViewMode::List);
         let _ = fs::remove_dir_all(&d);
