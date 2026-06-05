@@ -232,7 +232,7 @@
  },
  {
   "name": "CoreFreq",
-  "bin": "corefreq",
+  "bin": "corefreq-cli",
   "category": "Dashboards",
   "description": "CPU monitoring software designed for the 64-bits Processors",
   "homepage": "https://github.com/cyring/CoreFreq"
@@ -715,21 +715,21 @@
  },
  {
   "name": "Claude Code Bridge",
-  "bin": "claudecodebridge",
+  "bin": "ccb",
   "category": "Development",
   "description": "Real-time multi-AI collaboration between Claude, Codex and Gemini in terminal",
   "homepage": "https://github.com/bfly123/claude_code_bridge"
  },
  {
   "name": "Close Mongo Ops Manager",
-  "bin": "closemongoopsmanager",
+  "bin": "close-mongo-ops-manager",
   "category": "Development",
   "description": "Monitor and kill MongoDB operations",
   "homepage": "https://github.com/closeio/close-mongo-ops-manager"
  },
  {
   "name": "Cloud Code Usage Monitor",
-  "bin": "cloudcodeusagemonitor",
+  "bin": "claude-monitor",
   "category": "Development",
   "description": "Monitor Claude token usage",
   "homepage": "https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor"
@@ -1205,14 +1205,14 @@
  },
  {
   "name": "turbostream",
-  "bin": "turbostream",
+  "bin": "server",
   "category": "Development",
   "description": "Tool to extract key signals from high-velocity streaming data using AI Agents",
   "homepage": "https://github.com/turboline-ai/turbostream"
  },
  {
   "name": "Twig",
-  "bin": "twig",
+  "bin": "twg",
   "category": "Development",
   "description": "Terminal UI for interactively exploring JSON and YAML files.",
   "homepage": "https://github.com/workdone0/twig"
@@ -1450,7 +1450,7 @@
  },
  {
   "name": "C-Edit",
-  "bin": "c-edit",
+  "bin": "cedit",
   "category": "Editors",
   "description": "A text editor with drop down menus in the style of MS-DOS Editor",
   "homepage": "https://github.com/velorek1/c-edit"
@@ -1723,7 +1723,7 @@
  },
  {
   "name": "balatrotui",
-  "bin": "balatrotui",
+  "bin": "balatro_tui",
   "category": "Games",
   "description": "A TUI clone of Balatro",
   "homepage": "https://github.com/Passeriform/BalatroTUI"
@@ -1751,7 +1751,7 @@
  },
  {
   "name": "BrogueCE",
-  "bin": "broguece",
+  "bin": "brogue",
   "category": "Games",
   "description": "Beautiful roguelike dungeon crawler",
   "homepage": "https://github.com/tmewett/BrogueCE"
@@ -1793,7 +1793,7 @@
  },
  {
   "name": "Gameboy Emulator",
-  "bin": "gameboyemulator",
+  "bin": "php-gameboy",
   "category": "Games",
   "description": "A PHP Terminal GameBoy Emulator",
   "homepage": "https://github.com/gabrielrcouto/php-terminal-gameboy-emulator"
@@ -1814,7 +1814,7 @@
  },
  {
   "name": "gokemon",
-  "bin": "gokemon",
+  "bin": "poketerm",
   "category": "Games",
   "description": "A terminal based Pokemon battle simulator",
   "homepage": "https://github.com/nathanieltooley/gokemon"
@@ -1835,14 +1835,14 @@
  },
  {
   "name": "Maze TUI",
-  "bin": "mazetui",
+  "bin": "run_tui",
   "category": "Games",
   "description": "Build mazes and solve them with various algorithms.",
   "homepage": "https://github.com/agl-alexglopez/maze-tui"
  },
  {
   "name": "Micro Snake",
-  "bin": "microsnake",
+  "bin": "snake",
   "category": "Games",
   "description": "A small snake game, utilizing ANSI escape sequences to draw the board.",
   "homepage": "https://github.com/troglobit/snake"
@@ -2353,7 +2353,7 @@
  },
  {
   "name": "zulip-terminal",
-  "bin": "zulip-terminal",
+  "bin": "zulip-term",
   "category": "Messaging",
   "description": "Official Zulip terminal client (similar to matterhorn)",
   "homepage": "https://github.com/zulip/zulip-terminal"
@@ -2395,7 +2395,7 @@
  },
  {
   "name": "Captain's log",
-  "bin": "captainslog",
+  "bin": "caps-log",
   "category": "Miscellaneous",
   "description": "A small TUI journaling tool",
   "homepage": "https://github.com/NikolaDucak/caps-log"
@@ -2864,7 +2864,7 @@
  },
  {
   "name": "WG Commander",
-  "bin": "wgcommander",
+  "bin": "wg-cmd",
   "category": "Miscellaneous",
   "description": "A TUI for a simple WireGuard VPN setup: peer management, QR codes, setup wizard.",
   "homepage": "https://github.com/andrianbdn/wg-cmd"
@@ -3130,7 +3130,7 @@
  },
  {
   "name": "roku-cli",
-  "bin": "roku-cli",
+  "bin": "roku-tui",
   "category": "Multimedia",
   "description": "A command line TUI remote for Roku",
   "homepage": "https://github.com/winsbe01/roku-cli"
@@ -3536,7 +3536,7 @@
  },
  {
   "name": "kanban-python",
-  "bin": "kanban-python",
+  "bin": "kanban",
   "category": "Productivity",
   "description": "Kanban Terminal App written in Python",
   "homepage": "https://github.com/Zaloog/kanban-python"
@@ -3795,7 +3795,7 @@
  },
  {
   "name": "Toney",
-  "bin": "toney",
+  "bin": "Toney",
   "category": "Productivity",
   "description": "a fast, lightweight, terminal-based note-taking app for the modern developer.",
   "homepage": "https://github.com/SourcewareLab/Toney"
@@ -4012,7 +4012,7 @@
  },
  {
   "name": "haxor-news",
-  "bin": "haxor-news",
+  "bin": "hn",
   "category": "Web",
   "description": "Browse Hacker News like a haxor: A Hacker News command line interface (CLI)",
   "homepage": "https://github.com/donnemartin/haxor-news"
