@@ -115,6 +115,7 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             settings_focused: core.focused_is_settings(),
             settings_editing: core.settings_editing(),
             dirpicker_open: core.dirpicker_open(),
+            dirpicker_creating: core.dirpicker_creating(),
             help_open: core.help_open(),
             detach: core.quit_requested(),
         };

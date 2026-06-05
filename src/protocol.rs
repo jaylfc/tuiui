@@ -39,6 +39,8 @@ pub struct Flags {
     /// The working-directory picker overlay is open (the client routes navigation
     /// keys to it).
     pub dirpicker_open: bool,
+    /// The picker's new-folder name input is active (client forwards typed chars).
+    pub dirpicker_creating: bool,
     /// The keyboard-shortcut help overlay is showing (any key dismisses it).
     pub help_open: bool,
     /// The daemon asked the client to detach (e.g. the Quit button was clicked).

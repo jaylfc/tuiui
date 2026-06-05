@@ -14,12 +14,15 @@ pub struct PendingLaunch {
     pub args: Vec<String>,
 }
 
-/// Lists the sub-directories of a path. The real impl reads the filesystem;
-/// tests inject a fake.
+/// Lists and creates sub-directories of a path. The real impl touches the
+/// filesystem; tests inject a fake.
 pub trait DirLister: Send {
     /// Sub-directories of `path` as `(name, full_path)`, hidden ones included
     /// only when `show_hidden`.
     fn list_dirs(&self, path: &Path, show_hidden: bool) -> Vec<(String, PathBuf)>;
+
+    /// Create directory `name` inside `parent`, returning its full path.
+    fn create_dir(&self, parent: &Path, name: &str) -> std::io::Result<PathBuf>;
 }
 
 /// The real filesystem lister.
@@ -40,6 +43,12 @@ impl DirLister for FsLister {
         }
         v.sort_by_key(|(name, _)| name.to_lowercase());
         v
+    }
+
+    fn create_dir(&self, parent: &Path, name: &str) -> std::io::Result<PathBuf> {
+        let path = parent.join(name);
+        std::fs::create_dir(&path)?;
+        Ok(path)
     }
 }
 
@@ -70,6 +79,8 @@ pub struct DirPicker {
     selected: usize,
     show_hidden: bool,
     pending: PendingLaunch,
+    /// `Some(name_buffer)` while the user is typing a new folder name.
+    creating: Option<String>,
 }
 
 impl DirPicker {
@@ -87,9 +98,77 @@ impl DirPicker {
             selected: 0,
             show_hidden: false,
             pending,
+            creating: None,
         };
         p.roots = p.load_children(&root, 0);
         p
+    }
+
+    /// Whether the new-folder name input is active.
+    pub fn is_creating(&self) -> bool {
+        self.creating.is_some()
+    }
+
+    /// Begin creating a new folder inside the highlighted directory.
+    pub fn begin_create(&mut self) {
+        self.creating = Some(String::new());
+    }
+
+    /// Append a character to the new-folder name.
+    pub fn create_type(&mut self, c: char) {
+        if let Some(buf) = self.creating.as_mut() {
+            if c != '/' {
+                buf.push(c);
+            }
+        }
+    }
+
+    /// Delete the last character of the new-folder name.
+    pub fn create_backspace(&mut self) {
+        if let Some(buf) = self.creating.as_mut() {
+            buf.pop();
+        }
+    }
+
+    /// Abandon the new-folder input.
+    pub fn cancel_create(&mut self) {
+        self.creating = None;
+    }
+
+    /// Create the typed folder inside the highlighted directory (or the root when
+    /// the tree is empty), then expand the parent and select the new folder.
+    pub fn commit_create(&mut self) {
+        let Some(name) = self.creating.take() else { return };
+        let name = name.trim().to_string();
+        if name.is_empty() {
+            return;
+        }
+        match self.selected_arena_idx() {
+            Some(idx) => {
+                let (parent, depth) = (self.arena[idx].path.clone(), self.arena[idx].depth + 1);
+                if let Ok(newp) = self.lister.create_dir(&parent, &name) {
+                    let kids = self.load_children(&parent, depth);
+                    self.arena[idx].children = Some(kids);
+                    self.arena[idx].expanded = true;
+                    self.select_path(&newp);
+                }
+            }
+            None => {
+                let parent = self.root_path();
+                if let Ok(newp) = self.lister.create_dir(&parent, &name) {
+                    self.arena.clear();
+                    self.roots = self.load_children(&parent, 0);
+                    self.select_path(&newp);
+                }
+            }
+        }
+    }
+
+    /// Move the selection to the visible row with `path`, if present.
+    fn select_path(&mut self, path: &Path) {
+        if let Some(i) = self.visible().iter().position(|r| r.path == path) {
+            self.selected = i;
+        }
     }
 
     /// Load `path`'s sub-directories into the arena, returning their indices.
@@ -274,11 +353,15 @@ impl DirPicker {
         fill_box(&mut buf, box_w, box_h, &t);
 
         buf.write_str(2, 0, " Working directory ", t.accent, t.title_focus);
-        // Breadcrumb of the highlighted path.
-        let crumb = self.selected_path();
-        let crumb = crumb.to_string_lossy();
-        let crumb: String = crumb.chars().rev().take(box_w as usize - 4).collect::<Vec<_>>().into_iter().rev().collect();
-        buf.write_str(2, 1, &crumb, t.dim, t.window_bg);
+        // Row 1: the new-folder input when creating, else the path breadcrumb.
+        if let Some(name) = &self.creating {
+            buf.write_str(2, 1, &format!("New folder: {name}█"), t.accent, t.window_bg);
+        } else {
+            let crumb = self.selected_path();
+            let crumb = crumb.to_string_lossy();
+            let crumb: String = crumb.chars().rev().take(box_w as usize - 4).collect::<Vec<_>>().into_iter().rev().collect();
+            buf.write_str(2, 1, &crumb, t.dim, t.window_bg);
+        }
 
         let vis = self.visible();
         for row in 0..shown {
@@ -300,7 +383,12 @@ impl DirPicker {
             buf.write_str(name_x, y, &name, fg, bg);
         }
 
-        buf.write_str(2, box_h - 1, " Enter open · → expand · ← up · Esc cancel ", t.dim, t.window_bg);
+        let hint = if self.creating.is_some() {
+            " Enter create folder · Esc cancel "
+        } else {
+            " Enter open · →← expand · n new folder · Esc cancel "
+        };
+        buf.write_str(2, box_h - 1, hint, t.dim, t.window_bg);
         vec![Layer { z: 5200, origin, buf, opacity: 1.0, scissor: None }]
     }
 }

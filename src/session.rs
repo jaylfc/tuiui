@@ -170,6 +170,11 @@ pub enum ClientMsg {
     DirPickerConfirm,
     DirPickerCancel,
     DirPickerToggleHidden,
+    /// Picker: start the new-folder name input.
+    DirPickerNewFolder,
+    /// Picker: type / delete a character of the new-folder name.
+    DirPickerChar(char),
+    DirPickerBackspace,
     /// Shut down the daemon entirely (kills all apps). Sent by `tuiui kill`.
     Shutdown,
 }
@@ -269,6 +274,11 @@ impl SessionCore {
     /// Whether the working-directory picker overlay is open.
     pub fn dirpicker_open(&self) -> bool {
         self.dirpicker.is_some()
+    }
+
+    /// Whether the picker's new-folder name input is active.
+    pub fn dirpicker_creating(&self) -> bool {
+        self.dirpicker.as_ref().map(|d| d.is_creating()).unwrap_or(false)
     }
 
     /// Whether the keyboard-shortcut help overlay is showing.
@@ -543,8 +553,24 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             ClientMsg::DirPickerExpand => { if let Some(d) = self.dirpicker.as_mut() { d.expand(); } }
             ClientMsg::DirPickerCollapse => { if let Some(d) = self.dirpicker.as_mut() { d.collapse(); } }
             ClientMsg::DirPickerToggleHidden => { if let Some(d) = self.dirpicker.as_mut() { d.toggle_hidden(); } }
-            ClientMsg::DirPickerCancel => { self.dirpicker = None; }
-            ClientMsg::DirPickerConfirm => self.confirm_dirpicker(),
+            ClientMsg::DirPickerNewFolder => { if let Some(d) = self.dirpicker.as_mut() { d.begin_create(); } }
+            ClientMsg::DirPickerChar(c) => { if let Some(d) = self.dirpicker.as_mut() { d.create_type(c); } }
+            ClientMsg::DirPickerBackspace => { if let Some(d) = self.dirpicker.as_mut() { d.create_backspace(); } }
+            ClientMsg::DirPickerCancel => {
+                // Cancel the new-folder input first; only then close the picker.
+                match self.dirpicker.as_mut() {
+                    Some(d) if d.is_creating() => d.cancel_create(),
+                    _ => self.dirpicker = None,
+                }
+            }
+            ClientMsg::DirPickerConfirm => {
+                // Enter commits the new-folder name, else launches in the dir.
+                if self.dirpicker.as_ref().map(|d| d.is_creating()).unwrap_or(false) {
+                    if let Some(d) = self.dirpicker.as_mut() { d.commit_create(); }
+                } else {
+                    self.confirm_dirpicker();
+                }
+            }
             ClientMsg::Shutdown => self.shutdown = true,
         }
     }

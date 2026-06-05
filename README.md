@@ -42,7 +42,7 @@ Forget a shortcut? Press **`Ctrl+Space` then `?`** for the in-app cheatsheet.
 
 Set the grid (rows × columns), gap, and auto-tile from **Settings → Windows**.
 
-In the **working-directory picker** (opens when launching a coding agent): `↑`/`↓` to move, `→`/`←` to expand/collapse, `.` to toggle hidden dirs, `Enter` to open there, `Esc` to cancel.
+In the **working-directory picker** (opens when launching a coding agent): `↑`/`↓` to move, `→`/`←` to expand/collapse, `n` to make a new folder, `.` to toggle hidden dirs, `Enter` to open there, `Esc` to cancel.
 
 Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button (top-right) to exit, titlebar buttons (`– ▢ ✕`), drag titlebars/edges to move/resize, drag a window to a screen edge to snap it into a grid cell, click a tray indicator (clock/volume/WiFi/…) for its popover, and click dock pills to focus.
 
