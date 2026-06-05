@@ -20,6 +20,7 @@ pub mod poller;
 pub mod tray;
 pub mod dirpicker;
 pub mod help;
+pub mod imagestore;
 
 /// The crate version (from Cargo.toml).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
