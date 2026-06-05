@@ -262,3 +262,36 @@ fn idx_to_rgb(i: u8) -> Rgba {
     let s = |n: u8| if n == 0 { 0 } else { 55 + n * 40 };
     Rgba::rgb(s(r), s(g), s(b))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alacritty_terminal::vte::ansi::Processor;
+
+    /// Records the emulator's write-back replies.
+    #[derive(Clone)]
+    struct Rec(Arc<Mutex<Vec<String>>>);
+    impl EventListener for Rec {
+        fn send_event(&self, e: Event) {
+            if let Event::PtyWrite(s) = e {
+                self.0.lock().unwrap().push(s);
+            }
+        }
+    }
+
+    // Apps like tetris move the cursor to 999;999 and send ESC[6n to learn the
+    // terminal size from the cursor-position report. The emulator must answer.
+    #[test]
+    fn emulator_answers_cursor_position_query() {
+        let rec = Rec(Arc::new(Mutex::new(Vec::new())));
+        let mut term = Term::new(Config::default(), &TermSize::new(80, 24), rec.clone());
+        let mut parser = Processor::<StdSyncHandler>::new();
+        parser.advance(&mut term, b"\x1b[999;999H\x1b[6n");
+        let out = rec.0.lock().unwrap();
+        assert!(
+            out.iter().any(|s| s.starts_with("\x1b[") && s.ends_with('R')),
+            "expected a cursor-position report, got {:?}",
+            *out
+        );
+    }
+}
