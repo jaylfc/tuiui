@@ -75,6 +75,15 @@ pub struct Config {
     /// a later stage — stored here so the config round-trips.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filemanager_view: Option<String>,
+    /// Whether desktop icons are shown on the wallpaper.
+    #[serde(default = "default_true")]
+    pub desktop_enabled: bool,
+    /// Pinned desktop shortcuts (reuses AppEntry); shown alongside ~/Desktop files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub desktop_pins: Vec<AppEntry>,
+    /// Saved grid positions: key (abs path or pin command) → (col, row).
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub desktop_positions: std::collections::BTreeMap<String, (u16, u16)>,
 }
 
 impl Config {
@@ -110,9 +119,17 @@ impl Default for Config {
             launcher: vec![],
             default_apps: crate::openwith::default_handlers(),
             filemanager_view: None,
+            desktop_enabled: true,
+            desktop_pins: vec![
+                AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: None, requires_cwd: None, cwd: None },
+                AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: None, requires_cwd: None, cwd: None },
+            ],
+            desktop_positions: std::collections::BTreeMap::new(),
         }
     }
 }
+
+fn default_true() -> bool { true }
 
 fn default_shell() -> String { std::env::var("SHELL").unwrap_or_else(|_| "bash".into()) }
 

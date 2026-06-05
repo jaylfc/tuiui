@@ -58,3 +58,13 @@ fn default_apps_has_builtin_image_handler() {
     assert_eq!(c.default_apps.get("image").map(String::as_str), Some("@image"));
     assert_eq!(c.default_apps.get("directory").map(String::as_str), Some("@navigate"));
 }
+
+#[test]
+fn desktop_defaults_have_files_and_store_pins() {
+    let c = Config::default();
+    assert!(c.desktop_enabled);
+    let cmds: Vec<&str> = c.desktop_pins.iter().map(|p| p.command.as_str()).collect();
+    assert!(cmds.contains(&"@files"));
+    assert!(cmds.contains(&"@store"));
+    assert!(c.desktop_positions.is_empty());
+}
