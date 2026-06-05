@@ -68,6 +68,9 @@ pub struct Config {
     /// (via [`Config::launcher_apps`]) when left empty.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub launcher: Vec<AppEntry>,
+    /// File-role → handler map for opening files (see `openwith`).
+    #[serde(default)]
+    pub default_apps: std::collections::BTreeMap<String, String>,
 }
 
 impl Config {
@@ -101,6 +104,7 @@ impl Default for Config {
                 AppEntry { name: "shell".into(), command: default_shell(), args: vec![], category: Some("Shell".into()), requires_cwd: None, cwd: None },
             ],
             launcher: vec![],
+            default_apps: crate::openwith::default_handlers(),
         }
     }
 }

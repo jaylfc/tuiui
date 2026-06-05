@@ -51,3 +51,10 @@ fn config_defaults_grid_2x2() {
     assert_eq!(c.tile_gap, 0);
     assert!(!c.auto_tile);
 }
+
+#[test]
+fn default_apps_has_builtin_image_handler() {
+    let c = Config::default();
+    assert_eq!(c.default_apps.get("image").map(String::as_str), Some("@image"));
+    assert_eq!(c.default_apps.get("directory").map(String::as_str), Some("@navigate"));
+}
