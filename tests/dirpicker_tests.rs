@@ -54,3 +54,16 @@ fn confirm_returns_pending_and_selected_path() {
     let (_pending, path) = p.confirm();
     assert_eq!(path, PathBuf::from("/root/a"));
 }
+
+#[test]
+fn render_produces_a_layer() {
+    let p = picker();
+    assert!(!p.render(80, 24).is_empty());
+}
+
+#[test]
+fn row_at_round_trips_with_row_rect() {
+    let p = picker();
+    let r = p.row_rect(1, 80, 24).unwrap();
+    assert_eq!(p.row_at(r.center(), 80, 24), Some(1));
+}

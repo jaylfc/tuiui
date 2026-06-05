@@ -38,7 +38,7 @@ impl DirLister for FsLister {
                 }
             }
         }
-        v.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+        v.sort_by_key(|(name, _)| name.to_lowercase());
         v
     }
 }
@@ -209,4 +209,116 @@ impl DirPicker {
     pub fn pending(&self) -> &PendingLaunch {
         &self.pending
     }
+}
+
+// ── Rendering + hit-testing ───────────────────────────────────────────────────
+
+use crate::buffer::CellBuffer;
+use crate::cell::Cell;
+use crate::compositor::Layer;
+use crate::geometry::{Point, Rect};
+
+/// Maximum tree rows shown at once (the view scrolls to keep the selection in).
+const MAX_ROWS: usize = 14;
+
+impl DirPicker {
+    /// Box origin, width, height, scroll offset, and number of rows shown for a
+    /// `w × h` screen. Shared by `render` and `row_at` so they never disagree.
+    fn layout(&self, w: i32, h: i32) -> (Point, i32, i32, usize, usize) {
+        let vis_len = self.visible_indices().len();
+        let shown = vis_len.min(MAX_ROWS);
+        let offset = if self.selected >= MAX_ROWS { self.selected + 1 - MAX_ROWS } else { 0 };
+        let box_w = 54.min(w - 4).max(30);
+        let box_h = shown as i32 + 4;
+        let origin = Point::new((w - box_w) / 2, ((h - box_h) / 2).max(1));
+        (origin, box_w, box_h, offset, shown)
+    }
+
+    /// Screen rect of visible row `i` (absolute index), if currently on-screen.
+    pub fn row_rect(&self, i: usize, w: i32, h: i32) -> Option<Rect> {
+        let (origin, box_w, _bh, offset, shown) = self.layout(w, h);
+        if i < offset || i >= offset + shown {
+            return None;
+        }
+        let y = origin.y + 2 + (i - offset) as i32;
+        Some(Rect::new(origin.x + 1, y, box_w - 2, 1))
+    }
+
+    /// The visible-row index a click at `p` lands on, if any.
+    pub fn row_at(&self, p: Point, w: i32, h: i32) -> Option<usize> {
+        let (origin, box_w, _bh, offset, shown) = self.layout(w, h);
+        if p.x < origin.x || p.x >= origin.x + box_w {
+            return None;
+        }
+        let row = p.y - (origin.y + 2);
+        if row >= 0 && (row as usize) < shown {
+            Some(offset + row as usize)
+        } else {
+            None
+        }
+    }
+
+    /// Set the selection to visible row `i` (clamped).
+    pub fn select(&mut self, i: usize) {
+        let n = self.visible_indices().len();
+        if n > 0 {
+            self.selected = i.min(n - 1);
+        }
+    }
+
+    /// Render the picker overlay into compositor layers.
+    pub fn render(&self, w: i32, h: i32) -> Vec<Layer> {
+        let t = crate::theme::current();
+        let (origin, box_w, box_h, offset, shown) = self.layout(w, h);
+        let mut buf = CellBuffer::new(box_w, box_h);
+        fill_box(&mut buf, box_w, box_h, &t);
+
+        buf.write_str(2, 0, " Working directory ", t.accent, t.title_focus);
+        // Breadcrumb of the highlighted path.
+        let crumb = self.selected_path();
+        let crumb = crumb.to_string_lossy();
+        let crumb: String = crumb.chars().rev().take(box_w as usize - 4).collect::<Vec<_>>().into_iter().rev().collect();
+        buf.write_str(2, 1, &crumb, t.dim, t.window_bg);
+
+        let vis = self.visible();
+        for row in 0..shown {
+            let i = offset + row;
+            let Some(r) = vis.get(i) else { break };
+            let y = 2 + row as i32;
+            let sel = i == self.selected;
+            let (fg, bg) = if sel { (t.title_fg, t.active_bg) } else { (t.text, t.window_bg) };
+            for x in 1..box_w - 1 {
+                buf.set(x, y, Cell { ch: ' ', fg, bg, attrs: Default::default() });
+            }
+            let twig = if r.has_children { if r.expanded { "▾" } else { "▸" } } else { " " };
+            let indent = 1 + r.depth as i32 * 2;
+            buf.write_str(indent, y, twig, t.accent, bg);
+            buf.write_str(indent + 2, y, "📁", t.accent, bg);
+            let name_x = indent + 4;
+            let avail = (box_w - 1 - name_x).max(1) as usize;
+            let name: String = r.name.chars().take(avail).collect();
+            buf.write_str(name_x, y, &name, fg, bg);
+        }
+
+        buf.write_str(2, box_h - 1, " Enter open · → expand · ← up · Esc cancel ", t.dim, t.window_bg);
+        vec![Layer { z: 5200, origin, buf, opacity: 1.0, scissor: None }]
+    }
+}
+
+/// Fill a buffer with the window background and a rounded border + title bar.
+fn fill_box(buf: &mut CellBuffer, w: i32, h: i32, t: &crate::theme::Theme) {
+    buf.fill(Cell { ch: ' ', fg: t.text, bg: t.window_bg, attrs: Default::default() });
+    for x in 0..w {
+        buf.set(x, 0, Cell { ch: ' ', fg: t.title_fg, bg: t.title_focus, attrs: Default::default() });
+    }
+    let b = |ch: char| Cell { ch, fg: t.border, bg: t.window_bg, attrs: Default::default() };
+    for y in 1..h {
+        buf.set(0, y, b('│'));
+        buf.set(w - 1, y, b('│'));
+    }
+    for x in 0..w {
+        buf.set(x, h - 1, b('─'));
+    }
+    buf.set(0, h - 1, b('╰'));
+    buf.set(w - 1, h - 1, b('╯'));
 }
