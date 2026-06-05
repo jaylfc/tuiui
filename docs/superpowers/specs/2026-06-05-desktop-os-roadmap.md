@@ -115,6 +115,28 @@ Per subsystem: a `docs/superpowers/specs/…-design.md`, then a
 `docs/superpowers/plans/…md`, then TDD implementation with commits + push, exactly
 as A1→F. This roadmap is the umbrella; it is not itself a buildable spec.
 
+## Progress (2026-06-05)
+
+- **A1 — DONE.** Native image layer + `@image` viewer shipped (`imagestore.rs`,
+  `kitty.rs`, `imageview.rs`, frame placements, client reconcile). This is the
+  thumbnail engine for the file manager.
+- **B Default Apps — plan written, next to build:**
+  `docs/superpowers/plans/2026-06-05-default-apps.md` (5 TDD tasks). Resume here.
+- **C File Manager — spec written, plan pending:**
+  `docs/superpowers/specs/2026-06-05-file-manager-default-apps-design.md`
+  (icon-grid default + list/columns, full ops, Trash, thumbnails, tabs, preview
+  pane, MIME, Get-Info; split panes / content search / cloud mounts deferred to v2).
+- **D/E/F** — not started.
+
+## Parallel/future tracks (not in the A–F line)
+
+- **Live update / hot reload** — update the daemon and reload new code while
+  keeping running apps + windows alive (no `tuiui kill`). Proposed: re-exec with
+  PTY-fd + state handoff (nginx-style graceful reload). User-requested, needs its
+  own design.
+- **Tray system managers** (interactive WiFi/BT/audio), **audio transport over
+  SSH**, **Wayland/GUI mode** — all later.
+
 ## Open questions to resolve when each spec starts
 - **A1:** image cache/eviction policy; SSH bandwidth budget; placeholder style.
 - **B:** default role assignments per OS; how the app-picker UI looks.
