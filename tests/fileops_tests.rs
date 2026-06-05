@@ -93,3 +93,36 @@ fn unique_destination_suffixes_extension_correctly() {
 
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn trash_dir_is_os_appropriate() {
+    use tuiui::fileops::trash_dir;
+    let p = trash_dir().expect("home dir resolvable in test env");
+    let s = p.to_string_lossy();
+    if cfg!(target_os = "macos") {
+        assert!(s.ends_with("/.Trash"), "macOS trash is ~/.Trash, got {s}");
+    } else {
+        assert!(s.ends_with("Trash/files"), "Linux trash is XDG Trash/files, got {s}");
+    }
+}
+
+#[test]
+fn trash_moves_file_out_of_source_dir() {
+    // Verify trash() removes the source without hard-deleting. We point at the
+    // real OS trash but immediately clean up our marker file from it.
+    let d = tmp("trash");
+    let fs_ops = StdFs;
+    let marker = format!("tuiui-trash-marker-{}.txt", std::process::id());
+    let victim = d.join(&marker);
+    fs::write(&victim, b"bye").unwrap();
+
+    fs_ops.trash(&victim).unwrap();
+    assert!(!victim.exists(), "source file should be gone after trashing");
+
+    // Clean our marker out of the real trash so we don't litter.
+    if let Some(td) = tuiui::fileops::trash_dir() {
+        let _ = fs::remove_file(td.join(&marker));
+        let _ = fs::remove_file(td.join(format!("{marker} copy")));
+    }
+    let _ = fs::remove_dir_all(&d);
+}
