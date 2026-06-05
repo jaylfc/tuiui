@@ -184,6 +184,18 @@ impl GraphicsState {
     }
     pub fn png(&self, id: u32) -> Option<&[u8]> { self.images.get(&id).map(|v| v.as_slice()) }
 
+    /// Insert a decoded PNG under `id` directly (integration tests).
+    #[doc(hidden)]
+    pub fn insert_image_for_test(&mut self, id: u32, png: Vec<u8>) {
+        self.images.insert(id, png);
+    }
+
+    /// Push a placement directly (integration tests).
+    #[doc(hidden)]
+    pub fn push_placement_for_test(&mut self, p: Placement) {
+        self.placements.push(p);
+    }
+
     fn num(cmd: &GraphicsCmd, k: char, default: u32) -> u32 {
         cmd.get(k).and_then(|v| v.parse().ok()).unwrap_or(default)
     }

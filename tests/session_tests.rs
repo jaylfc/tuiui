@@ -183,6 +183,24 @@ fn desktop_image_icon_emits_thumbnail_placement() {
 }
 
 #[test]
+fn app_graphics_placement_is_emitted_in_frame() {
+    // Drive an AppInstance's GraphicsState directly, then assert build_frame emits it.
+    let mut core = SessionCore::new(100, 30, Config::default());
+    core.apply(ClientMsg::Launch { name: "sh".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    // Inject a placement+image into the launched app's graphics state via a test helper.
+    let png = {
+        let i = image::RgbaImage::from_pixel(2, 2, image::Rgba([1, 2, 3, 255]));
+        let mut b = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(i).write_to(&mut b, image::ImageFormat::Png).unwrap();
+        b.into_inner()
+    };
+    core.inject_app_graphics_for_test(&png);
+    let frame = core.build_frame();
+    assert!(frame.images.iter().any(|p| p.cols >= 1), "expected an app graphics placement");
+    core.shutdown();
+}
+
+#[test]
 fn cascade_keyboard_launches_app_from_submenu() {
     let mut core = SessionCore::new(120, 40, Config::default());
     core.apply(ClientMsg::ToggleMenu);

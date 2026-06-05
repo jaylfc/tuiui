@@ -108,6 +108,7 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
         }
 
         core.reap_dead();
+        core.refresh_app_graphics();
         let frame = core.build_frame();
         comp.composite(&frame.layers, frame.cursor);
         let changes = comp.diff();

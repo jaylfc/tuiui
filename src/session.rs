@@ -322,6 +322,9 @@ pub struct SessionCore {
     images: crate::imagestore::ImageStore,
     /// The wallpaper-level desktop icons (merged `~/Desktop` + pins).
     desktop: crate::desktop::DesktopIcons,
+    /// Maps a hosted app's Kitty image id `(window, kitty_id)` to the `ImageStore`
+    /// id its PNG was loaded under (populated by [`refresh_app_graphics`]).
+    app_image_ids: HashMap<(WindowId, u32), u64>,
 }
 
 impl SessionCore {
@@ -356,6 +359,7 @@ impl SessionCore {
             help_open: false,
             images: crate::imagestore::ImageStore::new(),
             desktop: crate::desktop::DesktopIcons::new(desktop_dir),
+            app_image_ids: HashMap::new(),
         };
         core.reload_desktop();
         core
@@ -449,6 +453,66 @@ impl SessionCore {
     /// blob bookkeeping).
     pub fn image_png(&self, id: u64) -> Option<Vec<u8>> {
         self.images.png_bytes(id).map(|b| b.to_vec())
+    }
+
+    /// Load any not-yet-loaded PNGs that hosted apps have transmitted into the
+    /// shared `ImageStore`, mapping each `(window, kitty_id)` to its store id.
+    ///
+    /// Called by the daemon once per frame, before [`build_frame`](Self::build_frame).
+    /// `build_frame` itself is `&self` and only reads the resulting map, so the
+    /// `&mut self` loading happens here.
+    pub fn refresh_app_graphics(&mut self) {
+        // First pass: collect the (window, kitty_id, png) we still need to load,
+        // cloning the PNG bytes so the app's graphics lock is released before we
+        // mutably borrow `self.images`.
+        let mut needed: Vec<(WindowId, u32, Vec<u8>)> = Vec::new();
+        for (id, content) in &self.contents {
+            if let WinContent::App(app) = content {
+                let g = app.graphics();
+                for pl in &g.placements {
+                    if self.app_image_ids.contains_key(&(*id, pl.image_id)) {
+                        continue;
+                    }
+                    if let Some(png) = g.png(pl.image_id) {
+                        needed.push((*id, pl.image_id, png.to_vec()));
+                    }
+                }
+            }
+        }
+        // Second pass: load + record (no app graphics borrow held).
+        let bound_w = (self.w.max(1) as u32) * 8;
+        let bound_h = (self.h.max(1) as u32) * 16;
+        for (win, kitty_id, png) in needed {
+            if let Some(img) = self.images.load_bytes(&png, bound_w, bound_h) {
+                self.app_image_ids.insert((win, kitty_id), img);
+            }
+        }
+    }
+
+    /// Inject a placement + image directly into the most-recently-launched app's
+    /// graphics state, then refresh the image map so a subsequent `build_frame`
+    /// emits it (integration tests).
+    #[doc(hidden)]
+    pub fn inject_app_graphics_for_test(&mut self, png: &[u8]) {
+        // `titles` preserves launch order; find the last id that is an App window.
+        let app_id = self
+            .titles
+            .iter()
+            .rev()
+            .map(|(id, _)| *id)
+            .find(|id| matches!(self.contents.get(id), Some(WinContent::App(_))));
+        if let Some(WinContent::App(app)) = app_id.and_then(|id| self.contents.get(&id)) {
+            let mut g = app.graphics();
+            g.insert_image_for_test(1, png.to_vec());
+            g.push_placement_for_test(crate::kittygfx::Placement {
+                image_id: 1,
+                col: 0,
+                row: 0,
+                cols: 2,
+                rows: 1,
+            });
+        }
+        self.refresh_app_graphics();
     }
 
     /// Whether the picker's new-folder name input is active.
@@ -1758,6 +1822,41 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     .any(|w| !w.minimized && w.rect.intersect(r).is_some())
             };
             images.extend(self.desktop.thumbnail_placements(|r| !occluded(r)));
+        }
+
+        // Image placements transmitted by hosted apps (A2 Kitty-graphics passthrough),
+        // offset to the window's content rect and clipped to it. The PNGs were loaded
+        // into `self.images` by `refresh_app_graphics` (called before this frame).
+        for w in self.wm.z_ordered() {
+            if w.minimized {
+                continue;
+            }
+            if let Some(WinContent::App(app)) = self.contents.get(&w.id) {
+                let g = app.graphics();
+                if g.placements.is_empty() {
+                    continue;
+                }
+                let cr = w.content_rect();
+                let vis = self.fully_unobstructed(w);
+                for pl in &g.placements {
+                    if let Some(&img) = self.app_image_ids.get(&(w.id, pl.image_id)) {
+                        let x = cr.x + pl.col as i32;
+                        let y = cr.y + pl.row as i32;
+                        if x >= cr.x + cr.w || y >= cr.y + cr.h {
+                            continue;
+                        }
+                        let cols = pl.cols.min((cr.x + cr.w - x).max(1) as u16);
+                        let rows = pl.rows.min((cr.y + cr.h - y).max(1) as u16);
+                        images.push(crate::protocol::ImagePlacement {
+                            id: img,
+                            rect: crate::geometry::Rect::new(x, y, cols as i32, rows as i32),
+                            cols,
+                            rows,
+                            visible: vis,
+                        });
+                    }
+                }
+            }
         }
 
         Frame { layers, cursor: Some(self.cursor), images }
