@@ -15,6 +15,8 @@ sysinfo = "0.33"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 infer = "0.16"
 mime_guess = "2"
+base64 = "0.22"
+flate2 = "1"
 
 [lib]
 name = "tuiui"

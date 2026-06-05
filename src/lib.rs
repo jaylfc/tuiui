@@ -22,6 +22,7 @@ pub mod dirpicker;
 pub mod help;
 pub mod imagestore;
 pub mod kitty;
+pub mod kittygfx;
 pub mod imageview;
 pub mod openwith;
 pub mod fileops;
