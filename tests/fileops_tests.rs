@@ -126,3 +126,51 @@ fn trash_moves_file_out_of_source_dir() {
     }
     let _ = fs::remove_dir_all(&d);
 }
+
+#[cfg(unix)]
+#[test]
+fn info_reports_size_and_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = tmp("info");
+    let f = d.join("data.bin");
+    fs::write(&f, b"abcd").unwrap();
+    fs::set_permissions(&f, fs::Permissions::from_mode(0o640)).unwrap();
+
+    let info = tuiui::fileops::info(&f).unwrap();
+    assert_eq!(info.size, 4);
+    assert!(!info.is_dir);
+    assert!(!info.is_symlink);
+    assert_eq!(info.mode & 0o777, 0o640);
+    assert_eq!(tuiui::fileops::mode_rwx(info.mode), "rw-r-----");
+
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[cfg(unix)]
+#[test]
+fn info_follows_symlink_reports_target() {
+    let d = tmp("link");
+    let target = d.join("real.txt");
+    fs::write(&target, b"x").unwrap();
+    let link = d.join("alias.txt");
+    std::os::unix::fs::symlink(&target, &link).unwrap();
+
+    let info = tuiui::fileops::info(&link).unwrap();
+    assert!(info.is_symlink);
+    assert_eq!(info.link_target.as_deref(), Some(target.as_path()));
+
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[cfg(unix)]
+#[test]
+fn set_permissions_changes_mode() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = tmp("chmod");
+    let f = d.join("s.sh");
+    fs::write(&f, b"#!/bin/sh\n").unwrap();
+    tuiui::fileops::StdFs.set_mode(&f, 0o755).unwrap();
+    let m = fs::metadata(&f).unwrap().permissions().mode();
+    assert_eq!(m & 0o777, 0o755);
+    let _ = fs::remove_dir_all(&d);
+}

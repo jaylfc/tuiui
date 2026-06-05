@@ -34,6 +34,8 @@ pub trait FsOps {
     fn move_to(&self, src: &Path, dst_dir: &Path) -> io::Result<PathBuf>;
     /// Move `path` to the OS Trash. Never hard-deletes.
     fn trash(&self, path: &Path) -> io::Result<()>;
+    /// Set Unix permission bits on `path` (no-op on non-unix).
+    fn set_mode(&self, path: &Path, mode: u32) -> io::Result<()>;
 }
 
 /// The production filesystem implementation.
@@ -132,6 +134,19 @@ impl FsOps for StdFs {
             }
         }
     }
+
+    fn set_mode(&self, path: &Path, mode: u32) -> io::Result<()> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))?;
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = (path, mode);
+        }
+        Ok(())
+    }
 }
 
 /// Recursively copy a file or directory tree from `src` to `dst`.
@@ -192,4 +207,58 @@ pub fn trash_dir() -> Option<PathBuf> {
     } else {
         Some(home.join(".local/share/Trash/files"))
     }
+}
+
+/// Detailed metadata for the Get-Info panel.
+#[derive(Clone, Debug)]
+pub struct FileInfo {
+    pub path: PathBuf,
+    pub size: u64,
+    pub modified: Option<SystemTime>,
+    pub is_dir: bool,
+    pub is_symlink: bool,
+    pub mode: u32,
+    pub link_target: Option<PathBuf>,
+}
+
+/// Gather metadata for `path` (following the link for size/mode, but recording
+/// whether the path itself is a symlink and where it points).
+pub fn info(path: &Path) -> io::Result<FileInfo> {
+    let lmeta = std::fs::symlink_metadata(path)?;
+    let is_symlink = lmeta.file_type().is_symlink();
+    let link_target = if is_symlink { std::fs::read_link(path).ok() } else { None };
+    // Follow for the real size/mode where possible; fall back to the link's own.
+    let meta = std::fs::metadata(path).unwrap_or(lmeta);
+    let mode = mode_of(&meta);
+    Ok(FileInfo {
+        path: path.to_path_buf(),
+        size: meta.len(),
+        modified: meta.modified().ok(),
+        is_dir: meta.is_dir(),
+        is_symlink,
+        mode,
+        link_target,
+    })
+}
+
+#[cfg(unix)]
+fn mode_of(meta: &std::fs::Metadata) -> u32 {
+    use std::os::unix::fs::PermissionsExt;
+    meta.permissions().mode()
+}
+#[cfg(not(unix))]
+fn mode_of(_meta: &std::fs::Metadata) -> u32 {
+    0
+}
+
+/// Render the low 9 mode bits as `rwxr-xr-x`.
+pub fn mode_rwx(mode: u32) -> String {
+    let bit = |shift: u32, ch: char| if mode & (1 << shift) != 0 { ch } else { '-' };
+    let mut s = String::with_capacity(9);
+    for (r, w, x) in [(8, 7, 6), (5, 4, 3), (2, 1, 0)] {
+        s.push(bit(r, 'r'));
+        s.push(bit(w, 'w'));
+        s.push(bit(x, 'x'));
+    }
+    s
 }
