@@ -215,3 +215,237 @@ impl<F: FsOps> FileManager<F> {
         }
     }
 }
+
+use crate::buffer::CellBuffer;
+use crate::cell::{Cell, Rgba};
+use crate::geometry::Point;
+
+const BG: Rgba = Rgba { r: 17, g: 20, b: 29, a: 255 };
+const FG: Rgba = Rgba { r: 200, g: 208, b: 220, a: 255 };
+const DIM: Rgba = Rgba { r: 120, g: 130, b: 150, a: 255 };
+const SEL_BG: Rgba = Rgba { r: 45, g: 58, b: 85, a: 255 };
+const ACCENT: Rgba = Rgba { r: 108, g: 182, b: 255, a: 255 };
+
+const SIDEBAR_W: i32 = 16; // left shortcuts column
+const TOOLBAR_Y: i32 = 0;  // breadcrumb/toolbar row
+const LIST_TOP: i32 = 2;   // first entry row (below toolbar + spacer)
+const TILE_W: i32 = 14;    // icon-grid tile width
+const TILE_H: i32 = 3;     // icon-grid tile height (glyph row + name row + gap)
+
+/// A click target inside the file-manager content area.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Target {
+    Entry(usize),
+    Sidebar(usize),
+    Back,
+    Forward,
+    Up,
+    ToggleView,
+    Crumb(usize),
+}
+
+impl<F: FsOps> FileManager<F> {
+    /// Sidebar shortcut destinations (label, path), home-relative.
+    fn sidebar(&self) -> Vec<(String, PathBuf)> {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"));
+        [
+            ("Home", home.clone()),
+            ("Desktop", home.join("Desktop")),
+            ("Documents", home.join("Documents")),
+            ("Downloads", home.join("Downloads")),
+            ("Pictures", home.join("Pictures")),
+        ]
+        .iter()
+        .map(|(l, p)| (l.to_string(), p.clone()))
+        .collect()
+    }
+
+    fn glyph(entry: &Entry) -> char {
+        use crate::openwith::Role::*;
+        match entry.role {
+            Directory => '\u{1F4C1}', // 📁
+            Image => '\u{1F5BC}',     // 🖼
+            Audio => '\u{1F3B5}',     // 🎵
+            Video => '\u{1F3AC}',     // 🎬
+            Archive => '\u{1F4E6}',   // 📦
+            Pdf => '\u{1F4D5}',       // 📕
+            Code => '\u{1F4C4}',      // 📄
+            _ => '\u{1F4C4}',         // 📄
+        }
+    }
+
+    pub fn render(&self, w: i32, h: i32) -> CellBuffer {
+        let mut buf = CellBuffer::new(w, h);
+        buf.fill(Cell { ch: ' ', fg: FG, bg: BG, attrs: Default::default() });
+
+        // Toolbar: back/forward/up + breadcrumb + view toggle.
+        buf.write_str(0, TOOLBAR_Y, "\u{25C2} \u{25B8} \u{25B2}", ACCENT, BG); // ◂ ▸ ▲
+        let crumb = self.cwd.to_string_lossy().to_string();
+        buf.write_str(8, TOOLBAR_Y, &crumb, FG, BG);
+        let toggle = match self.view { ViewMode::Icon => "[grid]", ViewMode::List => "[list]" };
+        buf.write_str((w - toggle.len() as i32 - 1).max(0), TOOLBAR_Y, toggle, DIM, BG);
+
+        // Sidebar.
+        for (i, (label, _)) in self.sidebar().iter().enumerate() {
+            buf.write_str(0, LIST_TOP + i as i32, label, DIM, BG);
+        }
+
+        let area_x = SIDEBAR_W;
+        let area_w = (w - SIDEBAR_W).max(1);
+
+        match self.view {
+            ViewMode::List => {
+                for (i, e) in self.entries.iter().enumerate() {
+                    let y = LIST_TOP + i as i32;
+                    if y >= h - 1 { break; }
+                    let selected = self.selection.contains(&i);
+                    let focused = i == self.cursor;
+                    let bg = if selected || focused { SEL_BG } else { BG };
+                    for x in area_x..w { buf.set(x, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() }); }
+                    let mark = if e.is_dir { '\u{1F4C1}' } else { Self::glyph(e) };
+                    buf.write_str(area_x, y, &format!("{mark} {}", e.name), if focused { ACCENT } else { FG }, bg);
+                }
+            }
+            ViewMode::Icon => {
+                let cols = (area_w / TILE_W).max(1);
+                self.cols_per_row.set(cols);
+                for (i, e) in self.entries.iter().enumerate() {
+                    let col = i as i32 % cols;
+                    let row = i as i32 / cols;
+                    let x = area_x + col * TILE_W;
+                    let y = LIST_TOP + row * TILE_H;
+                    if y >= h - 1 { break; }
+                    let selected = self.selection.contains(&i);
+                    let focused = i == self.cursor;
+                    let bg = if selected || focused { SEL_BG } else { BG };
+                    buf.set(x + TILE_W / 2, y, Cell { ch: Self::glyph(e), fg: FG, bg, attrs: Default::default() });
+                    let name: String = e.name.chars().take((TILE_W - 1) as usize).collect();
+                    buf.write_str(x, y + 1, &name, if focused { ACCENT } else { FG }, bg);
+                }
+            }
+        }
+
+        // Status line.
+        if !self.status.is_empty() {
+            buf.write_str(0, h - 1, &self.status, ACCENT, BG);
+        } else {
+            let info = format!("{} items", self.entries.len());
+            buf.write_str(0, h - 1, &info, DIM, BG);
+        }
+
+        // Overlays render on top (Task 7 adds NewFolder/Rename/Confirm/Context/OpenWith/Error).
+        self.render_overlay(&mut buf, w, h);
+        buf
+    }
+
+    /// Map a content-local click to a target. Mirrors the render layout.
+    pub fn hit_test(&self, p: Point, w: i32, _h: i32) -> Option<Target> {
+        if p.y == TOOLBAR_Y {
+            return match p.x {
+                0 => Some(Target::Back),
+                2 => Some(Target::Forward),
+                4 => Some(Target::Up),
+                x if x >= w - 7 => Some(Target::ToggleView),
+                _ => None,
+            };
+        }
+        if p.x < SIDEBAR_W && p.y >= LIST_TOP {
+            let i = (p.y - LIST_TOP) as usize;
+            if i < self.sidebar().len() { return Some(Target::Sidebar(i)); }
+            return None;
+        }
+        // Entry area.
+        let area_x = SIDEBAR_W;
+        let area_w = (w - SIDEBAR_W).max(1);
+        match self.view {
+            ViewMode::List => {
+                let i = (p.y - LIST_TOP) as usize;
+                if p.y >= LIST_TOP && i < self.entries.len() { Some(Target::Entry(i)) } else { None }
+            }
+            ViewMode::Icon => {
+                let cols = (area_w / TILE_W).max(1);
+                if p.y < LIST_TOP { return None; }
+                let col = (p.x - area_x) / TILE_W;
+                let row = (p.y - LIST_TOP) / TILE_H;
+                if col < 0 || col >= cols { return None; }
+                let i = (row * cols + col) as usize;
+                if i < self.entries.len() { Some(Target::Entry(i)) } else { None }
+            }
+        }
+    }
+
+    /// Handle a content-local left click. `ctrl`/`shift` modify selection; a click
+    /// on a toolbar/sidebar target navigates. Returns true if anything changed.
+    pub fn handle_click(&mut self, p: Point, w: i32, h: i32, ctrl: bool, shift: bool) -> bool {
+        match self.hit_test(p, w, h) {
+            Some(Target::Entry(i)) => { self.select_at(i, ctrl, shift); true }
+            Some(Target::Back) => { self.go_back(); true }
+            Some(Target::Forward) => { self.go_forward(); true }
+            Some(Target::Up) => { self.go_parent(); true }
+            Some(Target::ToggleView) => {
+                self.view = match self.view { ViewMode::Icon => ViewMode::List, ViewMode::List => ViewMode::Icon };
+                true
+            }
+            Some(Target::Sidebar(i)) => {
+                if let Some((_, path)) = self.sidebar().get(i) {
+                    if path.is_dir() { self.navigate_to(path.clone()); }
+                }
+                true
+            }
+            Some(Target::Crumb(_)) | None => false,
+        }
+    }
+
+    /// Placeholder overlay renderer (real overlays land in Task 7).
+    fn render_overlay(&self, _buf: &mut CellBuffer, _w: i32, _h: i32) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+    use std::fs;
+
+    fn tmp(tag: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("tuiui-fmu-{}-{}", tag, std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn render_returns_sized_buffer() {
+        let d = tmp("render");
+        fs::write(d.join("a.txt"), b"x").unwrap();
+        let fm = FileManager::new(d.clone(), BTreeMap::new());
+        let buf = fm.render(80, 24);
+        assert_eq!(buf.width(), 80);
+        assert_eq!(buf.height(), 24);
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn view_toggle_switches_modes() {
+        let d = tmp("toggle");
+        let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+        assert_eq!(fm.view(), ViewMode::Icon);
+        fm.set_view(ViewMode::List);
+        assert_eq!(fm.view(), ViewMode::List);
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn click_on_entry_selects_it() {
+        let d = tmp("click");
+        for n in ["a", "b", "c"] { fs::write(d.join(n), b"").unwrap(); }
+        let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+        fm.set_view(ViewMode::List); // deterministic 1-per-row layout
+        let _ = fm.render(80, 24);   // establish layout rects
+        // List rows start at LIST_TOP; second row → index 1. The click x must be
+        // inside the entry area (x >= SIDEBAR_W); x < SIDEBAR_W hits the sidebar.
+        let target = crate::geometry::Point::new(SIDEBAR_W + 2, LIST_TOP + 1);
+        let hit = fm.hit_test(target, 80, 24);
+        assert_eq!(hit, Some(Target::Entry(1)));
+        let _ = fs::remove_dir_all(&d);
+    }
+}
