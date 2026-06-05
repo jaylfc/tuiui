@@ -36,6 +36,8 @@ enum WinContent {
     Store(Store),
     /// The native settings panel.
     Settings(Settings),
+    /// A native image viewer (placeholder cells + a Kitty graphics placement).
+    ImageView(crate::imageview::ImageView),
 }
 
 impl WinContent {
@@ -44,6 +46,7 @@ impl WinContent {
             WinContent::App(a) => a.snapshot(),
             WinContent::Store(s) => s.render(w, h),
             WinContent::Settings(s) => s.render(w, h),
+            WinContent::ImageView(v) => v.render(w, h),
         }
     }
     fn resize(&mut self, w: i32, h: i32) {
@@ -59,7 +62,7 @@ impl WinContent {
     fn is_alive(&mut self) -> bool {
         match self {
             WinContent::App(a) => a.is_alive(),
-            WinContent::Store(_) | WinContent::Settings(_) => true,
+            WinContent::Store(_) | WinContent::Settings(_) | WinContent::ImageView(_) => true,
         }
     }
     fn kill(&mut self) {
@@ -162,6 +165,8 @@ pub enum ClientMsg {
     SettingsClose,
     /// Toggle the keyboard-shortcut help overlay.
     ToggleHelp,
+    /// Open an image file in a native image-viewer window.
+    OpenImage(String),
     /// Working-directory picker: navigation, expand/collapse, confirm, cancel.
     DirPickerUp,
     DirPickerDown,
@@ -238,6 +243,8 @@ pub struct SessionCore {
     dirpicker: Option<crate::dirpicker::DirPicker>,
     /// Whether the keyboard-shortcut help overlay is showing.
     help_open: bool,
+    /// Decoded-image cache for ImageView windows (the native image layer).
+    images: crate::imagestore::ImageStore,
 }
 
 impl SessionCore {
@@ -268,7 +275,23 @@ impl SessionCore {
             drag_preview: None,
             dirpicker: None,
             help_open: false,
+            images: crate::imagestore::ImageStore::new(),
         }
+    }
+
+    /// Open an image file in a new ImageView window.
+    fn open_image(&mut self, path: String) {
+        let expanded = expand_tilde(&path);
+        // Bound the decode to a screen-sized image (assume an 8×16 px cell).
+        let id = self.images.load(&expanded, (self.w.max(1) as u32) * 8, (self.h.max(1) as u32) * 16);
+        let dims = id.and_then(|i| self.images.dimensions(i)).unwrap_or((0, 0));
+        let w = 60.min((self.w - 4).max(20));
+        let h = 24.min((self.h - 4).max(8));
+        let rect = Rect::new((self.w - w) / 2, 2, w, h);
+        let label = format!("image: {}", path.rsplit('/').next().unwrap_or(&path));
+        let id_win = self.wm.add_window(label.clone(), rect);
+        self.contents.insert(id_win, WinContent::ImageView(crate::imageview::ImageView::new(path, id, dims)));
+        self.titles.push((id_win, label));
     }
 
     /// Whether the working-directory picker overlay is open.
@@ -563,6 +586,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 }
             }
             ClientMsg::ToggleHelp => self.help_open = !self.help_open,
+            ClientMsg::OpenImage(p) => self.open_image(p),
             ClientMsg::DirPickerUp => { if let Some(d) = self.dirpicker.as_mut() { d.move_up(); } }
             ClientMsg::DirPickerDown => { if let Some(d) = self.dirpicker.as_mut() { d.move_down(); } }
             ClientMsg::DirPickerExpand => { if let Some(d) = self.dirpicker.as_mut() { d.expand(); } }
@@ -758,6 +782,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         match e.command.as_str() {
             "@store" => self.open_store(),
             "@settings" => self.open_settings(),
+            "@image" => { if let Some(p) = e.args.first().cloned() { self.open_image(p); } }
             _ => self.launch_maybe_cwd(e.name, e.command, e.args, e.requires_cwd.unwrap_or(false), e.cwd),
         }
     }
