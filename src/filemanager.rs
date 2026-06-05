@@ -214,6 +214,103 @@ impl<F: FsOps> FileManager<F> {
             self.reload();
         }
     }
+
+    // ---- overlay lifecycle -------------------------------------------------
+
+    pub fn begin_new_folder(&mut self) { self.overlay = Some(Overlay::NewFolder { name: String::new() }); }
+
+    pub fn begin_rename(&mut self) {
+        if let Some(e) = self.entries.get(self.cursor) {
+            self.overlay = Some(Overlay::Rename { idx: self.cursor, name: e.name.clone() });
+        }
+    }
+
+    pub fn begin_delete(&mut self) {
+        let count = if self.selection.is_empty() { 1 } else { self.selection.len() };
+        self.overlay = Some(Overlay::ConfirmDelete { count });
+    }
+
+    pub fn begin_context(&mut self) {
+        self.overlay = Some(Overlay::Context { idx: self.cursor });
+    }
+
+    pub fn cancel_overlay(&mut self) { self.overlay = None; }
+
+    pub fn overlay_char(&mut self, c: char) {
+        match &mut self.overlay {
+            Some(Overlay::NewFolder { name }) | Some(Overlay::Rename { name, .. }) => name.push(c),
+            _ => {}
+        }
+    }
+
+    pub fn overlay_backspace(&mut self) {
+        match &mut self.overlay {
+            Some(Overlay::NewFolder { name }) | Some(Overlay::Rename { name, .. }) => { name.pop(); }
+            _ => {}
+        }
+    }
+
+    /// Commit a NewFolder or Rename overlay.
+    pub fn overlay_commit(&mut self) {
+        match self.overlay.take() {
+            Some(Overlay::NewFolder { name }) if !name.trim().is_empty() => {
+                if let Err(e) = self.fs.mkdir(&self.cwd, name.trim()) {
+                    self.status = format!("New folder failed: {e}");
+                }
+                self.reload();
+            }
+            Some(Overlay::Rename { idx, name }) if !name.trim().is_empty() => {
+                if let Some(entry) = self.entries.get(idx) {
+                    if let Err(e) = self.fs.rename(&entry.path.clone(), name.trim()) {
+                        self.status = format!("Rename failed: {e}");
+                    }
+                }
+                self.reload();
+            }
+            _ => {}
+        }
+    }
+
+    // ---- clipboard ---------------------------------------------------------
+
+    fn selected_paths(&self) -> Vec<PathBuf> {
+        if self.selection.is_empty() {
+            self.entries.get(self.cursor).map(|e| vec![e.path.clone()]).unwrap_or_default()
+        } else {
+            self.selection.iter().filter_map(|&i| self.entries.get(i)).map(|e| e.path.clone()).collect()
+        }
+    }
+
+    pub fn copy_selection(&mut self) {
+        let paths = self.selected_paths();
+        if !paths.is_empty() { self.clipboard = Some(Clipboard { paths, cut: false }); }
+    }
+
+    pub fn cut_selection(&mut self) {
+        let paths = self.selected_paths();
+        if !paths.is_empty() { self.clipboard = Some(Clipboard { paths, cut: true }); }
+    }
+
+    pub fn paste(&mut self) {
+        let Some(cb) = self.clipboard.clone() else { return; };
+        for src in &cb.paths {
+            let r = if cb.cut { self.fs.move_to(src, &self.cwd) } else { self.fs.copy(src, &self.cwd) };
+            if let Err(e) = r { self.status = format!("Paste failed: {e}"); }
+        }
+        if cb.cut { self.clipboard = None; }
+        self.reload();
+    }
+
+    // ---- delete ------------------------------------------------------------
+
+    pub fn confirm_delete(&mut self) {
+        if !matches!(self.overlay, Some(Overlay::ConfirmDelete { .. })) { return; }
+        self.overlay = None;
+        for src in self.selected_paths() {
+            if let Err(e) = self.fs.trash(&src) { self.status = format!("Trash failed: {e}"); }
+        }
+        self.reload();
+    }
 }
 
 use crate::buffer::CellBuffer;
@@ -396,8 +493,27 @@ impl<F: FsOps> FileManager<F> {
         }
     }
 
-    /// Placeholder overlay renderer (real overlays land in Task 7).
-    fn render_overlay(&self, _buf: &mut CellBuffer, _w: i32, _h: i32) {}
+    fn render_overlay(&self, buf: &mut CellBuffer, w: i32, h: i32) {
+        let Some(ov) = &self.overlay else { return; };
+        let (title, body): (String, String) = match ov {
+            Overlay::NewFolder { name } => ("New folder".into(), format!("Name: {name}\u{2588}")),
+            Overlay::Rename { name, .. } => ("Rename".into(), format!("Name: {name}\u{2588}")),
+            Overlay::ConfirmDelete { count } => ("Move to Trash".into(), format!("Trash {count} item(s)? [Enter] Yes  [Esc] No")),
+            Overlay::Context { .. } => ("Actions".into(), "Open  Rename  Copy  Cut  Delete".into()),
+            Overlay::OpenWith { .. } => ("Open with".into(), "Pick an app (Enter), Esc to cancel".into()),
+            Overlay::Error { message } => ("Error".into(), message.clone()),
+        };
+        let bw = (title.len().max(body.len()) as i32 + 4).min(w - 2);
+        let bx = (w - bw) / 2;
+        let by = h / 2 - 1;
+        for y in by..by + 4 {
+            for x in bx..bx + bw {
+                buf.set(x, y, Cell { ch: ' ', fg: FG, bg: SEL_BG, attrs: Default::default() });
+            }
+        }
+        buf.write_str(bx + 2, by, &title, ACCENT, SEL_BG);
+        buf.write_str(bx + 2, by + 2, &body, FG, SEL_BG);
+    }
 }
 
 #[cfg(test)]

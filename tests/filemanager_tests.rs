@@ -126,3 +126,69 @@ fn activate_image_requests_open_image() {
     assert!(matches!(fm.take_action(), Some(FileManagerAction::OpenImage(_))));
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn new_folder_overlay_creates_directory() {
+    let d = tmp("mkdir");
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    fm.begin_new_folder();
+    assert!(fm.is_editing());
+    for c in "Projects".chars() { fm.overlay_char(c); }
+    fm.overlay_commit();
+    assert!(!fm.is_editing());
+    assert!(d.join("Projects").is_dir());
+    assert!(fm.entries().iter().any(|e| e.name == "Projects"));
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn rename_overlay_renames_focused() {
+    let d = tmp("rename");
+    fs::write(d.join("old.txt"), b"x").unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    fm.select_at(0, false, false);
+    fm.begin_rename();
+    for _ in 0.."old.txt".len() { fm.overlay_backspace(); }
+    for c in "new.txt".chars() { fm.overlay_char(c); }
+    fm.overlay_commit();
+    assert!(d.join("new.txt").exists());
+    assert!(!d.join("old.txt").exists());
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn copy_paste_duplicates_into_cwd() {
+    let d = tmp("paste");
+    fs::write(d.join("f.txt"), b"x").unwrap();
+    let sub = d.join("sub");
+    fs::create_dir(&sub).unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    // select f.txt (index 1: sub dir first, then f.txt)
+    let i = fm.entries().iter().position(|e| e.name == "f.txt").unwrap();
+    fm.select_at(i, false, false);
+    fm.copy_selection();
+    // enter sub and paste
+    let si = fm.entries().iter().position(|e| e.name == "sub").unwrap();
+    fm.select_at(si, false, false);
+    fm.activate();
+    fm.paste();
+    assert!(sub.join("f.txt").exists());
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn delete_moves_to_trash_after_confirm() {
+    let d = tmp("del");
+    let marker = format!("tuiui-fm-del-{}.txt", std::process::id());
+    fs::write(d.join(&marker), b"x").unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    fm.select_at(0, false, false);
+    fm.begin_delete();
+    assert!(matches!(fm.overlay(), Some(tuiui::filemanager::Overlay::ConfirmDelete { .. })));
+    fm.confirm_delete();
+    assert!(!d.join(&marker).exists());
+    if let Some(td) = tuiui::fileops::trash_dir() {
+        let _ = fs::remove_file(td.join(&marker));
+    }
+    let _ = fs::remove_dir_all(&d);
+}
