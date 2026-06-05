@@ -80,3 +80,22 @@ fn double_click_pin_runs_command() {
     assert_eq!(dt.take_action(), Some(DesktopAction::Run { command: "@files".into(), args: vec![] }));
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn drag_snaps_to_target_cell_and_reports_position() {
+    let d = tmp("drag");
+    fs::create_dir(d.join("proj")).unwrap();
+    let mut dt = DesktopIcons::new(d.clone());
+    dt.reload(&[], &BTreeMap::new());
+    dt.layout(100, 30);
+    // proj starts at (0,0); grab it and drop at a point inside cell (2,1)
+    dt.begin_drag(Point::new(2, 1));
+    let drop = Point::new(2 * 14 + 3, 1 + 3 + 1); // inside cell (2,1): GRID_TOP + 1*ICON_H + 1
+    let moved = dt.end_drag(drop);
+    assert!(moved); // a move happened
+    let key = dt.icon_key(0).unwrap();
+    assert_eq!(dt.icons()[0].cell, (2, 1));
+    // the model exposes the position to persist
+    assert_eq!(dt.position_of(&key), Some((2, 1)));
+    let _ = fs::remove_dir_all(&d);
+}

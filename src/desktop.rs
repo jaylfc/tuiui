@@ -277,6 +277,87 @@ impl<F: FsOps> DesktopIcons<F> {
         }
         buf
     }
+
+    pub fn begin_drag(&mut self, p: Point) {
+        if let Some(i) = self.icon_at(p) {
+            let r = Self::tile_rect(self.icons[i].cell);
+            self.drag = Some((i, Point::new(p.x - r.x, p.y - r.y)));
+            self.selection.clear();
+            self.selection.insert(i);
+        }
+    }
+
+    pub fn drag_to(&mut self, _p: Point) { /* ghost position is render-only; no-op for state */
+    }
+
+    /// Finish a drag: snap the dragged icon to the nearest free cell under `p`.
+    /// Returns true if its cell changed.
+    pub fn end_drag(&mut self, p: Point) -> bool {
+        let Some((i, _grab)) = self.drag.take() else {
+            return false;
+        };
+        let col = ((p.x / ICON_W).clamp(0, self.cols.max(1) as i32 - 1)) as u16;
+        let row = (((p.y - GRID_TOP) / ICON_H).clamp(0, self.rows.max(1) as i32 - 1)) as u16;
+        let target = self.nearest_free((col, row), i);
+        let changed = self.icons[i].cell != target;
+        self.icons[i].cell = target;
+        changed
+    }
+
+    /// The cell `(col,row)` if free, else the nearest free cell (spiral-ish scan).
+    fn nearest_free(&self, want: (u16, u16), ignore: usize) -> (u16, u16) {
+        let occupied = |c: (u16, u16)| {
+            self.icons
+                .iter()
+                .enumerate()
+                .any(|(j, ic)| j != ignore && ic.cell == c)
+        };
+        if !occupied(want) {
+            return want;
+        }
+        for radius in 1..(self.cols.max(self.rows) as i32 + 1) {
+            for dc in -radius..=radius {
+                for dr in -radius..=radius {
+                    let c = (want.0 as i32 + dc, want.1 as i32 + dr);
+                    if c.0 < 0 || c.1 < 0 || c.0 >= self.cols as i32 || c.1 >= self.rows as i32 {
+                        continue;
+                    }
+                    let cell = (c.0 as u16, c.1 as u16);
+                    if !occupied(cell) {
+                        return cell;
+                    }
+                }
+            }
+        }
+        want
+    }
+
+    /// The current cell of the icon with key `key` (for persistence).
+    pub fn position_of(&self, key: &str) -> Option<(u16, u16)> {
+        self.icons
+            .iter()
+            .find(|i| Self::key_of(i) == key)
+            .map(|i| i.cell)
+    }
+
+    /// All current positions (for bulk persistence after Clean Up).
+    pub fn positions(&self) -> BTreeMap<String, (u16, u16)> {
+        self.icons.iter().map(|i| (Self::key_of(i), i.cell)).collect()
+    }
+
+    /// Re-flow every icon to column-major order (Clean Up).
+    pub fn clean_up(&mut self) {
+        let mut taken = BTreeSet::new();
+        for icon in &mut self.icons {
+            let cell = Self::first_free(&taken, self.cols.max(1), self.rows.max(1));
+            icon.cell = cell;
+            taken.insert(cell);
+        }
+    }
+
+    pub fn dragging(&self) -> bool {
+        self.drag.is_some()
+    }
 }
 
 fn glyph_for(role: Role) -> char {
