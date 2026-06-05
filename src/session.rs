@@ -196,6 +196,8 @@ pub struct Frame {
     pub layers: Vec<Layer>,
     /// Screen-space cursor position, or `None` if the cursor is hidden.
     pub cursor: Option<Point>,
+    /// Image placements (Kitty graphics) for the visible ImageView windows.
+    pub images: Vec<crate::protocol::ImagePlacement>,
 }
 
 // ── Session core ──────────────────────────────────────────────────────────────
@@ -297,6 +299,21 @@ impl SessionCore {
     /// Whether the working-directory picker overlay is open.
     pub fn dirpicker_open(&self) -> bool {
         self.dirpicker.is_some()
+    }
+
+    /// Whether `win`'s content rect is fully unobstructed by any higher window
+    /// (used to decide if an image placement is visible).
+    fn fully_unobstructed(&self, win: &crate::window::Window) -> bool {
+        let cr = win.content_rect();
+        !self.wm.z_ordered().iter().any(|o| {
+            !o.minimized && o.z > win.z && o.rect.intersect(cr).is_some()
+        })
+    }
+
+    /// PNG bytes for an image id currently held in the store (for the daemon's
+    /// blob bookkeeping).
+    pub fn image_png(&self, id: u64) -> Option<Vec<u8>> {
+        self.images.png_bytes(id).map(|b| b.to_vec())
     }
 
     /// Whether the picker's new-folder name input is active.
@@ -1134,7 +1151,30 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             layers.extend(crate::help::render_help(self.w, self.h));
         }
 
-        Frame { layers, cursor: Some(self.cursor) }
+        // Image placements for ImageView windows (visible only when their content
+        // rect is fully unobstructed; the placeholder cells show otherwise).
+        let mut images = Vec::new();
+        for w in self.wm.z_ordered() {
+            if w.minimized {
+                continue;
+            }
+            let id = match self.contents.get(&w.id) {
+                Some(WinContent::ImageView(v)) => v.image_id(),
+                _ => None,
+            };
+            if let Some(id) = id {
+                let cr = w.content_rect();
+                images.push(crate::protocol::ImagePlacement {
+                    id,
+                    rect: cr,
+                    cols: cr.w.max(1) as u16,
+                    rows: cr.h.max(1) as u16,
+                    visible: self.fully_unobstructed(w),
+                });
+            }
+        }
+
+        Frame { layers, cursor: Some(self.cursor), images }
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────

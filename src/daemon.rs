@@ -86,6 +86,9 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
 
     // Force a full repaint for the freshly attached client.
     comp.resize(comp.width(), comp.height());
+    // Image ids whose bytes this client has already received (reset per attach,
+    // mirroring the full cell-repaint above).
+    let mut sent_image_ids: std::collections::HashSet<u64> = std::collections::HashSet::new();
 
     loop {
         // Apply all pending input.
@@ -119,12 +122,25 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             help_open: core.help_open(),
             detach: core.quit_requested(),
         };
+        // Send PNG bytes once per image id (base64); later frames carry only the
+        // small placement list.
+        let mut image_data = Vec::new();
+        for p in &frame.images {
+            if p.visible && sent_image_ids.insert(p.id) {
+                if let Some(png) = core.image_png(p.id) {
+                    image_data.push(crate::protocol::ImageBlob {
+                        id: p.id,
+                        png_base64: crate::kitty::b64(&png),
+                    });
+                }
+            }
+        }
         let mut buf = serde_json::to_vec(&FrameMsg {
             changes,
             cursor: frame.cursor,
             flags,
-            images: Vec::new(),
-            image_data: Vec::new(),
+            images: frame.images.clone(),
+            image_data,
         })
             .unwrap_or_default();
         buf.push(b'\n');

@@ -74,3 +74,22 @@ fn open_settings_creates_focused_settings_window() {
     assert!(!core.focused_is_settings());
     core.shutdown();
 }
+
+#[test]
+fn image_window_emits_a_visible_placement() {
+    // Write a tiny real PNG to a temp file.
+    let dir = std::env::temp_dir().join(format!("tuiui-img-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("x.png");
+    let img = image::RgbaImage::from_pixel(8, 8, image::Rgba([10, 20, 30, 255]));
+    image::DynamicImage::ImageRgba8(img).save(&path).unwrap();
+
+    let mut core = SessionCore::new(80, 24, Config { apps: vec![], ..Config::default() });
+    core.apply(ClientMsg::OpenImage(path.to_string_lossy().to_string()));
+    let frame = core.build_frame();
+    assert_eq!(frame.images.len(), 1, "one image placement");
+    assert!(frame.images[0].visible, "unobstructed → visible");
+    assert!(frame.images[0].cols >= 1 && frame.images[0].rows >= 1);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
