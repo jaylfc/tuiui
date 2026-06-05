@@ -25,6 +25,7 @@ pub mod kitty;
 pub mod imageview;
 pub mod openwith;
 pub mod fileops;
+pub mod filemanager;
 
 /// The crate version (from Cargo.toml).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
