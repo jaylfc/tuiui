@@ -160,6 +160,8 @@ pub enum ClientMsg {
     SettingsCancelEdit,
     /// Settings: close the settings window (Escape).
     SettingsClose,
+    /// Toggle the keyboard-shortcut help overlay.
+    ToggleHelp,
     /// Working-directory picker: navigation, expand/collapse, confirm, cancel.
     DirPickerUp,
     DirPickerDown,
@@ -229,6 +231,8 @@ pub struct SessionCore {
     drag_preview: Option<Rect>,
     /// The working-directory picker, open while a flagged launch awaits a dir.
     dirpicker: Option<crate::dirpicker::DirPicker>,
+    /// Whether the keyboard-shortcut help overlay is showing.
+    help_open: bool,
 }
 
 impl SessionCore {
@@ -258,12 +262,18 @@ impl SessionCore {
             backend: crate::system::backend(),
             drag_preview: None,
             dirpicker: None,
+            help_open: false,
         }
     }
 
     /// Whether the working-directory picker overlay is open.
     pub fn dirpicker_open(&self) -> bool {
         self.dirpicker.is_some()
+    }
+
+    /// Whether the keyboard-shortcut help overlay is showing.
+    pub fn help_open(&self) -> bool {
+        self.help_open
     }
 
     /// The current tray segments, laid out from the live snapshot.
@@ -527,6 +537,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     }
                 }
             }
+            ClientMsg::ToggleHelp => self.help_open = !self.help_open,
             ClientMsg::DirPickerUp => { if let Some(d) = self.dirpicker.as_mut() { d.move_up(); } }
             ClientMsg::DirPickerDown => { if let Some(d) = self.dirpicker.as_mut() { d.move_down(); } }
             ClientMsg::DirPickerExpand => { if let Some(d) = self.dirpicker.as_mut() { d.expand(); } }
@@ -745,6 +756,12 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
 
     /// Route a mouse event through dock hit-testing then the WM input router.
     fn handle_mouse(&mut self, kind: MouseKind, p: Point) {
+        // The help overlay is modal: any click dismisses it.
+        if kind == MouseKind::Down && self.help_open {
+            self.help_open = false;
+            return;
+        }
+
         // The working-directory picker captures clicks while open: a click on a
         // row selects + expands it; a click outside the box cancels.
         if kind == MouseKind::Down && self.dirpicker.is_some() {
@@ -1034,6 +1051,11 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         // The working-directory picker renders on top of the whole desktop.
         if let Some(d) = &self.dirpicker {
             layers.extend(d.render(self.w, self.h));
+        }
+
+        // The help overlay is the topmost layer of all.
+        if self.help_open {
+            layers.extend(crate::help::render_help(self.w, self.h));
         }
 
         Frame { layers, cursor: Some(self.cursor) }

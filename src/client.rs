@@ -81,6 +81,7 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             KeyCode::Char(']') | KeyCode::Right => send(&mut out_stream, &ClientMsg::SnapFocused(SnapZone::Right))?,
                             KeyCode::Char('s') | KeyCode::Char('S') => send(&mut out_stream, &ClientMsg::OpenStore)?,
                             KeyCode::Char(',') => send(&mut out_stream, &ClientMsg::OpenSettings)?,
+                            KeyCode::Char('?') | KeyCode::Char('h') => send(&mut out_stream, &ClientMsg::ToggleHelp)?,
                             KeyCode::Char('t') => send(&mut out_stream, &ClientMsg::TileAll)?,
                             KeyCode::Char('T') => send(&mut out_stream, &ClientMsg::ToggleAutoTile)?,
                             KeyCode::Char(c @ '1'..='9') => send(&mut out_stream, &ClientMsg::SendToCell(c as u8 - b'0'))?,
@@ -88,6 +89,9 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             KeyCode::Char('Q') => { send(&mut out_stream, &ClientMsg::Shutdown)?; break; }
                             _ => {}
                         }
+                    } else if f.help_open {
+                        // The help overlay is modal: any key dismisses it.
+                        send(&mut out_stream, &ClientMsg::ToggleHelp)?;
                     } else if f.launcher_open {
                         match k.code {
                             KeyCode::Esc => send(&mut out_stream, &ClientMsg::LauncherEsc)?,

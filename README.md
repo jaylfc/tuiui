@@ -35,7 +35,10 @@ tuiui uses a **leader key** (`Ctrl+Space`) so its shortcuts never collide with m
 | `Ctrl+Space` then `T` | Toggle auto-tile mode |
 | `Ctrl+Space` then `1`–`9` | Send focused window to grid cell N |
 | `Ctrl+Space` then `s` / `,` | Open the Store / Settings |
+| `Ctrl+Space` then `?` | **Help** — show this shortcut cheatsheet in-app (any key dismisses) |
 | `Ctrl+Space` then `q` / `Q` | Detach (keep running) / shut down the daemon |
+
+Forget a shortcut? Press **`Ctrl+Space` then `?`** for the in-app cheatsheet.
 
 Set the grid (rows × columns), gap, and auto-tile from **Settings → Windows**.
 
