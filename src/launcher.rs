@@ -128,7 +128,7 @@ impl Launcher {
         self.menu_root = cats
             .into_iter()
             .map(|(label, mut apps)| {
-                apps.sort_by(|x, y| x.name.to_lowercase().cmp(&y.name.to_lowercase()));
+                apps.sort_by_key(|x| x.name.to_lowercase());
                 MenuEntry::Submenu {
                     label,
                     items: apps.into_iter().map(MenuEntry::Launch).collect(),
@@ -321,6 +321,8 @@ impl Launcher {
 
     /// Render the launcher for a `w × h` screen.
     pub fn render(&self, w: i32, h: i32) -> Rendered {
+        self.last_w.set(w);
+        self.last_h.set(h);
         match self.open {
             Some(LauncherMode::Menu) => self.render_menu(w, h),
             Some(LauncherMode::Spotlight) => self.render_spotlight(w, h),
@@ -343,85 +345,122 @@ impl Launcher {
         out
     }
 
-    /// Render the dropdown as a multi-column grid of category blocks, fanning
-    /// categories across as many columns as fit under the menubar (Windows
-    /// Start-menu style). Columns are height-balanced by greedy packing.
-    fn render_menu(&self, w: i32, _h: i32) -> Rendered {
-        let filtered = self.filtered();
-        let origin = Point::new(0, 1); // directly under the menubar brand
-        if filtered.is_empty() {
-            let (box_w, box_h) = (18, 3);
-            let mut buf = CellBuffer::new(box_w, box_h);
-            fill_box(&mut buf, box_w, box_h);
-            draw_row(&mut buf, 1, box_w - 2, 1, "(no apps)", false, false);
+    /// One rendered panel: its box rect and the per-row rects.
+    /// Returns `(level, panel_rect, row_rects)` — the single geometry source shared
+    /// by `render_menu`, `hover`, `click`, and `point_in_menu`.
+    fn panel_geometry(&self, w: i32, h: i32) -> Vec<(usize, Rect, Vec<Rect>)> {
+        let levels = self.levels();
+        let mut out = Vec::new();
+        let mut x = 0;
+        let mut prev_sel_y = 1; // panel 0 top
+        for (k, (entries, sel)) in levels.iter().enumerate() {
+            let label_w = entries.iter().map(|e| e.label().chars().count()).max().unwrap_or(6) as i32;
+            let pw = (label_w + 4).clamp(12, 30); // +marker/padding/border
+            let ph = entries.len() as i32 + 2; // border top/bottom
+            let px = if k == 0 { 0 } else { x };
+            // clamp horizontally on screen
+            let px = px.min((w - pw).max(0));
+            let py = if k == 0 { 1 } else { prev_sel_y };
+            let py = py.min((h - ph).max(1)).max(1);
+            let mut rows = Vec::new();
+            for i in 0..entries.len() {
+                rows.push(Rect::new(px + 1, py + 1 + i as i32, pw - 2, 1));
+            }
+            out.push((k, Rect::new(px, py, pw, ph), rows));
+            // next panel starts to the right; anchored at this panel's selected row
+            x = px + pw;
+            prev_sel_y = py + 1 + (*sel as i32);
+        }
+        out
+    }
+
+    /// Render the cascade: one offset panel per open level, the deepest selected
+    /// submenu auto-expanded. Leaf (launchable) rows are collected into
+    /// `Rendered.items` for click compatibility.
+    fn render_menu(&self, w: i32, h: i32) -> Rendered {
+        if self.menu_root.is_empty() {
+            let (bw, bh) = (18, 3);
+            let mut buf = CellBuffer::new(bw, bh);
+            fill_box(&mut buf, bw, bh);
+            draw_row(&mut buf, 1, bw - 2, 1, "(no apps)", false, false);
             return Rendered {
-                layers: vec![Layer { z: 5000, origin, buf, opacity: 1.0, scissor: None }],
+                layers: vec![Layer { z: 5000, origin: Point::new(0, 1), buf, opacity: 1.0, scissor: None }],
                 items: Vec::new(),
             };
         }
-
-        let blocks = self.blocks(&filtered);
-        let name_w = filtered.iter().map(|e| e.name.chars().count()).max().unwrap_or(8) as i32;
-        let col_w = (name_w + 4).clamp(14, 26);
-        const GAP: i32 = 2;
-
-        // Number of columns that fit under the menubar (anchored at x = 0).
-        let avail = (w - 2).max(col_w);
-        let ncols = (((avail + GAP) / (col_w + GAP)).max(1) as usize).min(blocks.len());
-
-        // Greedily pack each block into the currently-shortest column. A block is
-        // 1 header + its items + a trailing spacer row.
-        let mut col_blocks: Vec<Vec<&Block>> = vec![Vec::new(); ncols];
-        let mut col_h: Vec<i32> = vec![0; ncols];
-        for b in &blocks {
-            let bh = 1 + b.items.len() as i32 + 1;
-            let c = (0..ncols).min_by_key(|&c| col_h[c]).unwrap();
-            col_blocks[c].push(b);
-            col_h[c] += bh;
-        }
-
-        // Tallest column drives the height (drop its trailing spacer).
-        let content_h = col_h.iter().copied().max().unwrap_or(1).saturating_sub(1).max(1);
-        let box_w = 2 + ncols as i32 * col_w + (ncols as i32 - 1) * GAP;
-        let box_h = content_h + 2;
-
-        let mut buf = CellBuffer::new(box_w, box_h);
-        fill_box(&mut buf, box_w, box_h);
-
-        let mut items = Vec::new();
-        for (ci, blocks_in_col) in col_blocks.iter().enumerate() {
-            let x0 = 1 + ci as i32 * (col_w + GAP);
-            let mut y = 1;
-            for b in blocks_in_col {
-                draw_header(&mut buf, x0, col_w, y, &b.header);
-                y += 1;
-                for &i in &b.items {
-                    let e = &filtered[i];
-                    draw_row(&mut buf, x0, col_w, y, &e.name, i == self.selected, false);
-                    items.push((e.clone(), Rect::new(origin.x + x0, origin.y + y, col_w, 1)));
-                    y += 1;
+        let levels = self.levels();
+        let geom = self.panel_geometry(w, h);
+        let mut layers = Vec::new();
+        let mut items: Vec<(AppEntry, Rect)> = Vec::new();
+        for ((k, panel, rows), (entries, sel)) in geom.iter().zip(levels.iter()) {
+            let mut buf = CellBuffer::new(panel.w, panel.h);
+            fill_box(&mut buf, panel.w, panel.h);
+            for (i, e) in entries.iter().enumerate() {
+                let highlighted = i == *sel;
+                let label = e.label();
+                draw_row(&mut buf, 1, panel.w - 2, 1 + i as i32, label, highlighted, false);
+                if e.is_submenu() {
+                    // submenu marker at the right edge of the row
+                    let (fg, bg) = if highlighted { (SEL_FG, SEL_BG) } else { (ACCENT, MENU_BG) };
+                    buf.set(
+                        panel.w - 2,
+                        1 + i as i32,
+                        Cell { ch: '\u{25B8}', fg, bg, attrs: Default::default() },
+                    );
                 }
-                y += 1; // spacer between blocks
+                if let MenuEntry::Launch(a) = e {
+                    items.push((a.clone(), rows[i]));
+                }
             }
+            layers.push(Layer { z: 5000 + *k as i32, origin: Point::new(panel.x, panel.y), buf, opacity: 1.0, scissor: None });
         }
+        Rendered { layers, items }
+    }
 
-        Rendered {
-            layers: vec![Layer { z: 5000, origin, buf, opacity: 1.0, scissor: None }],
-            items,
+    /// Mouse-move: select the (level,row) under `p`, truncating deeper levels.
+    pub fn hover(&mut self, p: Point) {
+        if self.open != Some(LauncherMode::Menu) {
+            return;
+        }
+        let geom = self.panel_geometry(self.last_w.get(), self.last_h.get());
+        for (k, _panel, rows) in &geom {
+            for (i, r) in rows.iter().enumerate() {
+                if r.contains(p) {
+                    let mut np: Vec<usize> = self.path.iter().take(*k).copied().collect();
+                    np.push(i);
+                    self.path = np;
+                    return;
+                }
+            }
         }
     }
 
-    /// Group `filtered` into contiguous category blocks (header + item indices).
-    fn blocks(&self, filtered: &[AppEntry]) -> Vec<Block> {
-        let mut out: Vec<Block> = Vec::new();
-        for (i, e) in filtered.iter().enumerate() {
-            let c = cat_of(e);
-            if out.last().map(|b| b.header.as_str()) != Some(c.as_str()) {
-                out.push(Block { header: c, items: Vec::new() });
-            }
-            out.last_mut().unwrap().items.push(i);
+    /// Mouse-click: hover then activate (descend a submenu, or launch a leaf).
+    pub fn click(&mut self, p: Point) -> Option<AppEntry> {
+        if self.open != Some(LauncherMode::Menu) {
+            return None;
         }
-        out
+        self.hover(p);
+        self.activate()
+    }
+
+    /// Whether `p` is inside any visible panel (so an outside click should close).
+    pub fn point_in_menu(&self, p: Point) -> bool {
+        self.panel_geometry(self.last_w.get(), self.last_h.get())
+            .iter()
+            .any(|(_, panel, _)| panel.contains(p))
+    }
+
+    #[doc(hidden)]
+    pub fn panel_count_for_test(&self, w: i32, h: i32) -> usize {
+        self.panel_geometry(w, h).len()
+    }
+    #[doc(hidden)]
+    pub fn panel_rects_for_test(&self, w: i32, h: i32) -> Vec<(usize, usize, Rect)> {
+        self.panel_geometry(w, h)
+            .into_iter()
+            .flat_map(|(k, _p, rows)| rows.into_iter().enumerate().map(move |(i, r)| (k, i, r)))
+            .collect()
     }
 
     fn render_spotlight(&self, w: i32, _h: i32) -> Rendered {
@@ -470,12 +509,6 @@ impl Launcher {
 enum Row {
     Header(String),
     Item(usize),
-}
-
-/// A category block for grid layout: a header and the `filtered` indices under it.
-struct Block {
-    header: String,
-    items: Vec<usize>,
 }
 
 /// The category an entry belongs to ("Apps" when unset).
@@ -546,31 +579,31 @@ mod tests {
     }
 
     #[test]
-    fn menu_grid_renders_every_app() {
-        let mut l = Launcher::new(many());
+    fn cascade_renders_root_then_submenu_on_hover() {
+        let mut l = Launcher::new(vec![app("Aaa", "Games"), app("Bbb", "Tools")]);
         l.toggle_menu();
         let r = l.render(120, 40);
-        // Every entry is clickable exactly once.
-        assert_eq!(r.items.len(), many().len());
+        assert!(!r.layers.is_empty());
+        // root panel + auto-expanded submenu of the selected category = 2 panels
+        assert_eq!(l.panel_count_for_test(120, 40), 2);
+        // hovering the "Tools" root row (second row) selects it
+        let rects = l.panel_rects_for_test(120, 40);
+        let tools_row = rects.iter().find(|(lvl, row, _)| *lvl == 0 && *row == 1).map(|(_, _, r)| *r).unwrap();
+        let _ = l.render(120, 40); // ensure last_w/last_h match the hover geometry
+        l.hover(Point::new(tools_row.x + 1, tools_row.y));
+        assert_eq!(l.focused_label(), Some("Tools".to_string()));
     }
 
     #[test]
-    fn wide_menu_uses_multiple_columns() {
-        let mut l = Launcher::new(many());
+    fn click_launches_leaf_and_descends_submenu() {
+        let mut l = Launcher::new(vec![app("Aaa", "Games")]);
         l.toggle_menu();
-        let r = l.render(120, 40);
-        let columns: std::collections::BTreeSet<i32> = r.items.iter().map(|(_, rect)| rect.x).collect();
-        assert!(columns.len() > 1, "wide screen should fan categories across columns");
-    }
-
-    #[test]
-    fn narrow_menu_collapses_to_one_column() {
-        let mut l = Launcher::new(many());
-        l.toggle_menu();
-        let r = l.render(20, 40);
-        let columns: std::collections::BTreeSet<i32> = r.items.iter().map(|(_, rect)| rect.x).collect();
-        assert_eq!(columns.len(), 1, "narrow screen should use a single column");
-        assert_eq!(r.items.len(), many().len());
+        let _ = l.render(120, 40);
+        let rects = l.panel_rects_for_test(120, 40);
+        // level 1 row 0 is the leaf "Aaa" (auto-expanded under the only category)
+        let leaf = rects.iter().find(|(lvl, row, _)| *lvl == 1 && *row == 0).map(|(_, _, r)| *r).unwrap();
+        let got = l.click(Point::new(leaf.x + 1, leaf.y));
+        assert_eq!(got.map(|a| a.name), Some("Aaa".to_string()));
     }
 
     #[test]
