@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 pub enum ViewMode {
     Icon,
     List,
+    Columns,
 }
 
 /// What the widget asks the session to do (the session owns windows/PTYs).
@@ -60,6 +61,8 @@ pub struct FileManager<F: FsOps = StdFs> {
     cols_per_row: std::cell::Cell<i32>,
     /// Entry index → loaded thumbnail ImageId (filled by the session).
     thumbs: std::collections::HashMap<usize, u64>,
+    /// Whether the right-hand preview pane is open.
+    preview: bool,
 }
 
 impl FileManager<StdFs> {
@@ -89,6 +92,7 @@ impl<F: FsOps> FileManager<F> {
             action: None,
             cols_per_row: std::cell::Cell::new(1),
             thumbs: std::collections::HashMap::new(),
+            preview: false,
         };
         me.reload();
         me
@@ -133,6 +137,43 @@ impl<F: FsOps> FileManager<F> {
 
     pub fn set_view(&mut self, v: ViewMode) { self.view = v; }
 
+    /// Cycle Icon -> List -> Columns -> Icon.
+    pub fn cycle_view(&mut self) {
+        self.view = match self.view {
+            ViewMode::Icon => ViewMode::List,
+            ViewMode::List => ViewMode::Columns,
+            ViewMode::Columns => ViewMode::Icon,
+        };
+    }
+
+    pub fn preview_open(&self) -> bool { self.preview }
+    pub fn toggle_preview(&mut self) { self.preview = !self.preview; }
+
+    /// Width (cells) reserved for the preview pane when it is open.
+    fn preview_reserve(&self, w: i32) -> i32 {
+        if self.preview { (w / 3).clamp(20, 48) } else { 0 }
+    }
+
+    /// The preview body for the focused entry (≤ `max` lines).
+    pub fn preview_lines(&self, max: usize) -> Vec<String> {
+        let Some(e) = self.entries.get(self.cursor) else { return vec![]; };
+        use crate::openwith::Role::*;
+        match e.role {
+            Text | Code => read_head(&e.path, max),
+            Pdf => pdf_preview(&e.path, max),
+            Directory => vec![format!("{} \u{2014} folder", e.name)],
+            _ => {
+                let mut v = vec![
+                    format!("Name: {}", e.name),
+                    format!("Kind: {}", e.role.label()),
+                    format!("Size: {} bytes", e.size),
+                ];
+                v.truncate(max);
+                v
+            }
+        }
+    }
+
     /// Image entries (index, path) in the current view that should have a thumbnail.
     pub fn thumbnail_requests(&self) -> Vec<(usize, std::path::PathBuf)> {
         self.entries
@@ -160,7 +201,7 @@ impl<F: FsOps> FileManager<F> {
             return Vec::new();
         }
         let area_x = SIDEBAR_W;
-        let area_w = (content.w - SIDEBAR_W).max(1);
+        let area_w = (content.w - SIDEBAR_W - self.preview_reserve(content.w)).max(1);
         let cols = (area_w / TILE_W).max(1);
         let mut out = Vec::new();
         for (&idx, &id) in &self.thumbs {
@@ -194,7 +235,7 @@ impl<F: FsOps> FileManager<F> {
         let n = self.entries.len() as i32;
         let cur = self.cursor as i32;
         let next = match self.view {
-            ViewMode::List => cur + dx.signum() + dy.signum(),
+            ViewMode::List | ViewMode::Columns => cur + dx.signum() + dy.signum(),
             ViewMode::Icon => {
                 let cols = self.cols_per_row.get().max(1);
                 cur + dx.signum() + dy.signum() * cols
@@ -376,6 +417,34 @@ impl<F: FsOps> FileManager<F> {
     }
 }
 
+fn read_head(path: &std::path::Path, max: usize) -> Vec<String> {
+    match std::fs::read_to_string(path) {
+        Ok(s) => s.lines().take(max).map(|l| l.chars().take(200).collect()).collect(),
+        Err(_) => vec!["(binary or unreadable)".into()],
+    }
+}
+
+fn pdf_preview(path: &std::path::Path, max: usize) -> Vec<String> {
+    for tool in ["pdftotext", "mutool"] {
+        if crate::catalog::is_installed(tool) {
+            let args: Vec<String> = if tool == "pdftotext" {
+                vec![path.to_string_lossy().into(), "-".into()]
+            } else {
+                vec!["draw".into(), "-F".into(), "txt".into(), path.to_string_lossy().into()]
+            };
+            if let Ok(out) = std::process::Command::new(tool).args(&args).output() {
+                let text = String::from_utf8_lossy(&out.stdout);
+                let lines: Vec<String> =
+                    text.lines().take(max).map(|l| l.chars().take(200).collect()).collect();
+                if !lines.is_empty() {
+                    return lines;
+                }
+            }
+        }
+    }
+    vec!["PDF (install pdftotext or mutool for a text preview)".into()]
+}
+
 use crate::buffer::CellBuffer;
 use crate::cell::{Cell, Rgba};
 use crate::geometry::Point;
@@ -442,7 +511,11 @@ impl<F: FsOps> FileManager<F> {
         buf.write_str(0, TOOLBAR_Y, "\u{25C2} \u{25B8} \u{25B2}", ACCENT, BG); // ◂ ▸ ▲
         let crumb = self.cwd.to_string_lossy().to_string();
         buf.write_str(8, TOOLBAR_Y, &crumb, FG, BG);
-        let toggle = match self.view { ViewMode::Icon => "[grid]", ViewMode::List => "[list]" };
+        let toggle = match self.view {
+            ViewMode::Icon => "[grid]",
+            ViewMode::List => "[list]",
+            ViewMode::Columns => "[cols]",
+        };
         buf.write_str((w - toggle.len() as i32 - 1).max(0), TOOLBAR_Y, toggle, DIM, BG);
 
         // Sidebar.
@@ -451,7 +524,9 @@ impl<F: FsOps> FileManager<F> {
         }
 
         let area_x = SIDEBAR_W;
-        let area_w = (w - SIDEBAR_W).max(1);
+        let preview_w = self.preview_reserve(w);
+        let area_right = (w - preview_w).max(area_x + 1);
+        let area_w = (area_right - SIDEBAR_W).max(1);
 
         match self.view {
             ViewMode::List => {
@@ -461,10 +536,13 @@ impl<F: FsOps> FileManager<F> {
                     let selected = self.selection.contains(&i);
                     let focused = i == self.cursor;
                     let bg = if selected || focused { SEL_BG } else { BG };
-                    for x in area_x..w { buf.set(x, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() }); }
+                    for x in area_x..area_right { buf.set(x, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() }); }
                     let mark = if e.is_dir { '\u{1F4C1}' } else { Self::glyph(e) };
                     buf.write_str(area_x, y, &format!("{mark} {}", e.name), if focused { ACCENT } else { FG }, bg);
                 }
+            }
+            ViewMode::Columns => {
+                self.render_columns(&mut buf, area_x, area_right, h);
             }
             ViewMode::Icon => {
                 let cols = (area_w / TILE_W).max(1);
@@ -485,6 +563,22 @@ impl<F: FsOps> FileManager<F> {
             }
         }
 
+        // Preview pane (Icon / List): a vertical separator then the entry's body.
+        if preview_w > 0 && self.view != ViewMode::Columns {
+            let sep_x = area_right;
+            for y in LIST_TOP..h - 1 {
+                buf.set(sep_x, y, Cell { ch: '\u{2502}', fg: DIM, bg: BG, attrs: Default::default() });
+            }
+            let pane_x = sep_x + 2;
+            let max = (h - LIST_TOP - 1).max(0) as usize;
+            for (i, line) in self.preview_lines(max).iter().enumerate() {
+                let y = LIST_TOP + i as i32;
+                if y >= h - 1 { break; }
+                let text: String = line.chars().take((preview_w - 2).max(1) as usize).collect();
+                buf.write_str(pane_x, y, &text, FG, BG);
+            }
+        }
+
         // Status line.
         if !self.status.is_empty() {
             buf.write_str(0, h - 1, &self.status, ACCENT, BG);
@@ -496,6 +590,53 @@ impl<F: FsOps> FileManager<F> {
         // Overlays render on top (Task 7 adds NewFolder/Rename/Confirm/Context/OpenWith/Error).
         self.render_overlay(&mut buf, w, h);
         buf
+    }
+
+    /// Render the Miller-columns layout: parent | current | preview-of-focused.
+    fn render_columns(&self, buf: &mut CellBuffer, area_x: i32, area_right: i32, h: i32) {
+        let area_w = (area_right - area_x).max(1);
+        let col_w = (area_w / 3).max(1);
+        let mid_x = area_x + col_w;
+        let right_x = area_x + 2 * col_w;
+
+        // Left: parent directory listing, the current folder highlighted.
+        if let Some(parent) = self.cwd.parent() {
+            if let Ok(es) = self.fs.list(parent, self.show_hidden) {
+                for (i, e) in es.iter().enumerate() {
+                    let y = LIST_TOP + i as i32;
+                    if y >= h - 1 { break; }
+                    let here = e.path == self.cwd;
+                    let bg = if here { SEL_BG } else { BG };
+                    for x in area_x..mid_x { buf.set(x, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() }); }
+                    let name: String = e.name.chars().take((col_w - 1).max(1) as usize).collect();
+                    buf.write_str(area_x, y, &name, if here { ACCENT } else { DIM }, bg);
+                }
+            }
+        }
+
+        // Middle: current entries, cursor highlighted.
+        for (i, e) in self.entries.iter().enumerate() {
+            let y = LIST_TOP + i as i32;
+            if y >= h - 1 { break; }
+            let selected = self.selection.contains(&i);
+            let focused = i == self.cursor;
+            let bg = if selected || focused { SEL_BG } else { BG };
+            for x in mid_x..right_x { buf.set(x, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() }); }
+            let mark = if e.is_dir { '\u{1F4C1}' } else { Self::glyph(e) };
+            let label = format!("{mark} {}", e.name);
+            let label: String = label.chars().take((col_w - 1).max(1) as usize).collect();
+            buf.write_str(mid_x, y, &label, if focused { ACCENT } else { FG }, bg);
+        }
+
+        // Right: preview of the focused entry.
+        for x in right_x - 1..right_x { buf.set(x, LIST_TOP, Cell { ch: ' ', fg: FG, bg: BG, attrs: Default::default() }); }
+        let max = (h - LIST_TOP - 1).max(0) as usize;
+        for (i, line) in self.preview_lines(max).iter().enumerate() {
+            let y = LIST_TOP + i as i32;
+            if y >= h - 1 { break; }
+            let text: String = line.chars().take((area_right - right_x).max(1) as usize).collect();
+            buf.write_str(right_x, y, &text, FG, BG);
+        }
     }
 
     /// Map a content-local click to a target. Mirrors the render layout.
@@ -516,11 +657,22 @@ impl<F: FsOps> FileManager<F> {
         }
         // Entry area.
         let area_x = SIDEBAR_W;
-        let area_w = (w - SIDEBAR_W).max(1);
+        let area_right = (w - self.preview_reserve(w)).max(area_x + 1);
+        let area_w = (area_right - SIDEBAR_W).max(1);
         match self.view {
             ViewMode::List => {
                 let i = (p.y - LIST_TOP) as usize;
                 if p.y >= LIST_TOP && i < self.entries.len() { Some(Target::Entry(i)) } else { None }
+            }
+            ViewMode::Columns => {
+                // Only the middle column maps to entries; left/right are visual.
+                let col_w = (area_w / 3).max(1);
+                let mid_x = area_x + col_w;
+                if p.y < LIST_TOP || p.x < mid_x || p.x >= mid_x + col_w {
+                    return None;
+                }
+                let i = (p.y - LIST_TOP) as usize;
+                if i < self.entries.len() { Some(Target::Entry(i)) } else { None }
             }
             ViewMode::Icon => {
                 let cols = (area_w / TILE_W).max(1);
@@ -542,10 +694,7 @@ impl<F: FsOps> FileManager<F> {
             Some(Target::Back) => { self.go_back(); true }
             Some(Target::Forward) => { self.go_forward(); true }
             Some(Target::Up) => { self.go_parent(); true }
-            Some(Target::ToggleView) => {
-                self.view = match self.view { ViewMode::Icon => ViewMode::List, ViewMode::List => ViewMode::Icon };
-                true
-            }
+            Some(Target::ToggleView) => { self.cycle_view(); true }
             Some(Target::Sidebar(i)) => {
                 if let Some((_, path)) = self.sidebar().get(i) {
                     if path.is_dir() { self.navigate_to(path.clone()); }

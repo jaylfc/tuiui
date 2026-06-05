@@ -234,3 +234,18 @@ fn set_thumb_then_placement_is_reported() {
     assert!(places[0].visible);
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn preview_toggle_and_text_head() {
+    let d = tmp("preview");
+    fs::write(d.join("a.txt"), b"line1\nline2\nline3\n").unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    fm.set_view(ViewMode::List);
+    fm.select_at(0, false, false);
+    assert!(!fm.preview_open());
+    fm.toggle_preview();
+    assert!(fm.preview_open());
+    let lines = fm.preview_lines(20);
+    assert!(lines.iter().any(|l| l.contains("line1")));
+    let _ = fs::remove_dir_all(&d);
+}

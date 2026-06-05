@@ -190,8 +190,10 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             (KeyCode::Char('n'), true) => send(&mut out_stream, &ClientMsg::FileManagerNewFolder)?,
                             (KeyCode::Delete, _) => send(&mut out_stream, &ClientMsg::FileManagerDelete)?,
                             (KeyCode::F(2), _) => send(&mut out_stream, &ClientMsg::FileManagerRename)?,
-                            (KeyCode::Char('1'), false) => send(&mut out_stream, &ClientMsg::FileManagerToggleView)?,
-                            (KeyCode::Char('2'), false) => send(&mut out_stream, &ClientMsg::FileManagerToggleView)?,
+                            (KeyCode::Char('1'), false) => send(&mut out_stream, &ClientMsg::FileManagerViewIcon)?,
+                            (KeyCode::Char('2'), false) => send(&mut out_stream, &ClientMsg::FileManagerViewList)?,
+                            (KeyCode::Char('3'), false) => send(&mut out_stream, &ClientMsg::FileManagerViewColumns)?,
+                            (KeyCode::Char(' '), false) => send(&mut out_stream, &ClientMsg::FileManagerTogglePreview)?,
                             (KeyCode::Char('.'), false) => send(&mut out_stream, &ClientMsg::FileManagerToggleHidden)?,
                             _ => {}
                         }

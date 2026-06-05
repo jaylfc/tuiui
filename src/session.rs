@@ -182,8 +182,14 @@ pub enum ClientMsg {
     FileManagerBack,
     /// File manager: navigate to the parent directory.
     FileManagerParent,
-    /// File manager: toggle Icon / List view.
+    /// File manager: cycle Icon / List / Columns view.
     FileManagerToggleView,
+    /// File manager: set the view directly.
+    FileManagerViewIcon,
+    FileManagerViewList,
+    FileManagerViewColumns,
+    /// File manager: toggle the preview pane.
+    FileManagerTogglePreview,
     /// File manager: toggle hidden (dot) entries.
     FileManagerToggleHidden,
     /// File manager: begin the new-folder overlay.
@@ -661,13 +667,25 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             ClientMsg::FileManagerBack => { if let Some(f) = self.focused_filemanager_mut() { f.go_back(); } }
             ClientMsg::FileManagerParent => { if let Some(f) = self.focused_filemanager_mut() { f.go_parent(); } }
             ClientMsg::FileManagerToggleView => {
+                if let Some(f) = self.focused_filemanager_mut() { f.cycle_view(); }
+            }
+            ClientMsg::FileManagerViewIcon => {
                 if let Some(f) = self.focused_filemanager_mut() {
-                    let v = match f.view() {
-                        crate::filemanager::ViewMode::Icon => crate::filemanager::ViewMode::List,
-                        crate::filemanager::ViewMode::List => crate::filemanager::ViewMode::Icon,
-                    };
-                    f.set_view(v);
+                    f.set_view(crate::filemanager::ViewMode::Icon);
                 }
+            }
+            ClientMsg::FileManagerViewList => {
+                if let Some(f) = self.focused_filemanager_mut() {
+                    f.set_view(crate::filemanager::ViewMode::List);
+                }
+            }
+            ClientMsg::FileManagerViewColumns => {
+                if let Some(f) = self.focused_filemanager_mut() {
+                    f.set_view(crate::filemanager::ViewMode::Columns);
+                }
+            }
+            ClientMsg::FileManagerTogglePreview => {
+                if let Some(f) = self.focused_filemanager_mut() { f.toggle_preview(); }
             }
             ClientMsg::FileManagerToggleHidden => { if let Some(f) = self.focused_filemanager_mut() { f.toggle_hidden(); } }
             ClientMsg::FileManagerNewFolder => { if let Some(f) = self.focused_filemanager_mut() { f.begin_new_folder(); } }
