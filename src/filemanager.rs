@@ -159,4 +159,59 @@ impl<F: FsOps> FileManager<F> {
         }
         self.cursor = idx;
     }
+
+    /// Change directory, pushing onto history (truncating any forward entries).
+    fn navigate_to(&mut self, dir: PathBuf) {
+        self.cwd = dir.clone();
+        self.history.truncate(self.hpos + 1);
+        self.history.push(dir);
+        self.hpos = self.history.len() - 1;
+        self.cursor = 0;
+        self.reload();
+    }
+
+    /// Enter the focused entry: navigate into a directory, or request an open
+    /// action for a file (via `openwith::resolve`).
+    pub fn activate(&mut self) {
+        let Some(entry) = self.entries.get(self.cursor) else { return; };
+        let path = entry.path.clone();
+        let is_dir = entry.is_dir;
+        match resolve(&path, is_dir, &self.handlers) {
+            OpenAction::Navigate => self.navigate_to(path),
+            OpenAction::Builtin("@image") => {
+                self.action = Some(FileManagerAction::OpenImage(path));
+            }
+            OpenAction::Builtin(_) => {}
+            OpenAction::RunApp { command, args } => {
+                self.action = Some(FileManagerAction::RunApp { command, args });
+            }
+            OpenAction::OpenWithMenu => {
+                self.overlay = Some(Overlay::OpenWith { idx: self.cursor, sel: 0 });
+            }
+        }
+    }
+
+    pub fn go_parent(&mut self) {
+        if let Some(parent) = self.cwd.parent() {
+            self.navigate_to(parent.to_path_buf());
+        }
+    }
+
+    pub fn go_back(&mut self) {
+        if self.hpos > 0 {
+            self.hpos -= 1;
+            self.cwd = self.history[self.hpos].clone();
+            self.cursor = 0;
+            self.reload();
+        }
+    }
+
+    pub fn go_forward(&mut self) {
+        if self.hpos + 1 < self.history.len() {
+            self.hpos += 1;
+            self.cwd = self.history[self.hpos].clone();
+            self.cursor = 0;
+            self.reload();
+        }
+    }
 }

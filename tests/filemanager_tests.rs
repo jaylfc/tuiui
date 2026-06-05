@@ -66,3 +66,63 @@ fn toggle_hidden_reloads() {
     assert_eq!(fm.entries().len(), 2);
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn enter_directory_navigates_and_back_returns() {
+    let d = tmp("nav");
+    fs::create_dir(d.join("sub")).unwrap();
+    fs::write(d.join("sub/inner.txt"), b"x").unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    // cursor on "sub" (dirs first) → activate navigates in
+    fm.activate();
+    assert_eq!(fm.cwd(), d.join("sub"));
+    assert_eq!(fm.entries().len(), 1);
+    fm.go_back();
+    assert_eq!(fm.cwd(), d.as_path());
+    fm.go_forward();
+    assert_eq!(fm.cwd(), d.join("sub"));
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn parent_navigates_up() {
+    let d = tmp("up");
+    fs::create_dir(d.join("child")).unwrap();
+    let mut fm = FileManager::new(d.join("child"), BTreeMap::new());
+    fm.go_parent();
+    assert_eq!(fm.cwd(), d.as_path());
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn activate_file_requests_open_action() {
+    use tuiui::filemanager::FileManagerAction;
+    let d = tmp("open");
+    fs::write(d.join("notes.md"), b"# hi").unwrap();
+    let mut handlers = BTreeMap::new();
+    handlers.insert("text".to_string(), "vi".to_string());
+    let mut fm = FileManager::new(d.clone(), handlers);
+    // only one entry, the file
+    fm.activate();
+    match fm.take_action() {
+        Some(FileManagerAction::RunApp { command, args }) => {
+            assert_eq!(command, "vi");
+            assert!(args.last().unwrap().ends_with("notes.md"));
+        }
+        other => panic!("expected RunApp, got {other:?}"),
+    }
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn activate_image_requests_open_image() {
+    use tuiui::filemanager::FileManagerAction;
+    let d = tmp("img");
+    fs::write(d.join("p.png"), b"\x89PNG").unwrap(); // ext is enough for classify
+    let mut handlers = BTreeMap::new();
+    handlers.insert("image".to_string(), "@image".to_string());
+    let mut fm = FileManager::new(d.clone(), handlers);
+    fm.activate();
+    assert!(matches!(fm.take_action(), Some(FileManagerAction::OpenImage(_))));
+    let _ = fs::remove_dir_all(&d);
+}
