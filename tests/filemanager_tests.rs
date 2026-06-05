@@ -269,3 +269,23 @@ fn columns_view_cycles_and_renders() {
     assert_eq!(f2.view(), ViewMode::Icon);
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn tabs_open_switch_and_close() {
+    let d = tmp("tabs");
+    fs::create_dir(d.join("sub")).unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    assert_eq!(fm.tab_count(), 1);
+    fm.new_tab();
+    assert_eq!(fm.tab_count(), 2);
+    assert_eq!(fm.active_tab(), 1);
+    // navigate only the active tab
+    fm.activate(); // into "sub" (dirs first)
+    assert_eq!(fm.cwd(), d.join("sub"));
+    fm.next_tab();
+    assert_eq!(fm.active_tab(), 0);
+    assert_eq!(fm.cwd(), d.as_path()); // tab 0 unchanged
+    fm.close_tab();
+    assert_eq!(fm.tab_count(), 1);
+    let _ = fs::remove_dir_all(&d);
+}

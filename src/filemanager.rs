@@ -40,9 +40,8 @@ struct Clipboard {
     cut: bool,
 }
 
-/// The file manager. Generic over the filesystem backend for testability.
-pub struct FileManager<F: FsOps = StdFs> {
-    fs: F,
+/// Per-folder state for one open tab.
+struct Tab {
     cwd: PathBuf,
     entries: Vec<Entry>,
     cursor: usize,
@@ -52,6 +51,36 @@ pub struct FileManager<F: FsOps = StdFs> {
     history: Vec<PathBuf>,
     hpos: usize,
     scroll: i32,
+    /// Entry index → loaded thumbnail ImageId (filled by the session).
+    thumbs: std::collections::HashMap<usize, u64>,
+    /// Whether the right-hand preview pane is open.
+    preview: bool,
+}
+
+impl Tab {
+    fn new(cwd: PathBuf) -> Tab {
+        Tab {
+            cwd: cwd.clone(),
+            entries: Vec::new(),
+            cursor: 0,
+            selection: BTreeSet::new(),
+            view: ViewMode::Icon,
+            show_hidden: false,
+            history: vec![cwd],
+            hpos: 0,
+            scroll: 0,
+            thumbs: std::collections::HashMap::new(),
+            preview: false,
+        }
+    }
+}
+
+/// The file manager. Generic over the filesystem backend for testability.
+/// Per-folder state lives on the active `Tab`; widget-global state stays here.
+pub struct FileManager<F: FsOps = StdFs> {
+    fs: F,
+    tabs: Vec<Tab>,
+    active: usize,
     clipboard: Option<Clipboard>,
     overlay: Option<Overlay>,
     handlers: BTreeMap<String, String>,
@@ -59,10 +88,6 @@ pub struct FileManager<F: FsOps = StdFs> {
     action: Option<FileManagerAction>,
     /// Tiles per row in the last Icon render; navigation uses it. Updated by render.
     cols_per_row: std::cell::Cell<i32>,
-    /// Entry index → loaded thumbnail ImageId (filled by the session).
-    thumbs: std::collections::HashMap<usize, u64>,
-    /// Whether the right-hand preview pane is open.
-    preview: bool,
 }
 
 impl FileManager<StdFs> {
@@ -76,87 +101,115 @@ impl<F: FsOps> FileManager<F> {
     pub fn with_fs(fs: F, cwd: PathBuf, handlers: BTreeMap<String, String>) -> Self {
         let mut me = Self {
             fs,
-            cwd: cwd.clone(),
-            entries: Vec::new(),
-            cursor: 0,
-            selection: BTreeSet::new(),
-            view: ViewMode::Icon,
-            show_hidden: false,
-            history: vec![cwd],
-            hpos: 0,
-            scroll: 0,
+            tabs: vec![Tab::new(cwd)],
+            active: 0,
             clipboard: None,
             overlay: None,
             handlers,
             status: String::new(),
             action: None,
             cols_per_row: std::cell::Cell::new(1),
-            thumbs: std::collections::HashMap::new(),
-            preview: false,
         };
         me.reload();
         me
     }
 
-    pub fn cwd(&self) -> &Path { &self.cwd }
-    pub fn entries(&self) -> &[Entry] { &self.entries }
-    pub fn cursor(&self) -> usize { self.cursor }
-    pub fn view(&self) -> ViewMode { self.view }
+    fn tab(&self) -> &Tab { &self.tabs[self.active] }
+    fn tab_mut(&mut self) -> &mut Tab { &mut self.tabs[self.active] }
+
+    pub fn cwd(&self) -> &Path { &self.tab().cwd }
+    pub fn entries(&self) -> &[Entry] { &self.tab().entries }
+    pub fn cursor(&self) -> usize { self.tab().cursor }
+    pub fn view(&self) -> ViewMode { self.tab().view }
     pub fn status(&self) -> &str { &self.status }
     pub fn overlay(&self) -> Option<&Overlay> { self.overlay.as_ref() }
     pub fn is_editing(&self) -> bool {
         matches!(self.overlay, Some(Overlay::NewFolder { .. }) | Some(Overlay::Rename { .. }))
     }
-    pub fn selection_indices(&self) -> Vec<usize> { self.selection.iter().copied().collect() }
+    pub fn selection_indices(&self) -> Vec<usize> { self.tab().selection.iter().copied().collect() }
 
     /// Take a pending action requested by the user (cleared on read).
     pub fn take_action(&mut self) -> Option<FileManagerAction> { self.action.take() }
 
+    // ---- tabs --------------------------------------------------------------
+
+    pub fn tab_count(&self) -> usize { self.tabs.len() }
+    pub fn active_tab(&self) -> usize { self.active }
+
+    /// Open a new tab rooted at the active tab's current folder and focus it.
+    pub fn new_tab(&mut self) {
+        let cwd = self.tab().cwd.clone();
+        let mut t = Tab::new(cwd);
+        t.entries = self.fs.list(&t.cwd, t.show_hidden).unwrap_or_default();
+        self.tabs.push(t);
+        self.active = self.tabs.len() - 1;
+    }
+
+    /// Close the active tab (no-op when only one remains).
+    pub fn close_tab(&mut self) {
+        if self.tabs.len() > 1 {
+            self.tabs.remove(self.active);
+            self.active = self.active.min(self.tabs.len() - 1);
+        }
+    }
+
+    /// Cycle focus to the next tab.
+    pub fn next_tab(&mut self) {
+        if !self.tabs.is_empty() {
+            self.active = (self.active + 1) % self.tabs.len();
+        }
+    }
+
     /// Re-list the current directory, clamping cursor/selection.
     pub fn reload(&mut self) {
-        match self.fs.list(&self.cwd, self.show_hidden) {
+        let (cwd, show) = { let t = self.tab(); (t.cwd.clone(), t.show_hidden) };
+        let listed = self.fs.list(&cwd, show);
+        match listed {
             Ok(es) => {
-                self.entries = es;
+                self.tab_mut().entries = es;
                 self.status.clear();
             }
             Err(e) => {
-                self.entries.clear();
-                self.status = format!("Cannot read {}: {}", self.cwd.display(), e);
+                self.tab_mut().entries.clear();
+                self.status = format!("Cannot read {}: {}", cwd.display(), e);
             }
         }
-        self.cursor = self.cursor.min(self.entries.len().saturating_sub(1));
-        self.selection.clear();
-        self.scroll = 0;
-        self.thumbs.clear();
+        let t = self.tab_mut();
+        t.cursor = t.cursor.min(t.entries.len().saturating_sub(1));
+        t.selection.clear();
+        t.scroll = 0;
+        t.thumbs.clear();
     }
 
     pub fn toggle_hidden(&mut self) {
-        self.show_hidden = !self.show_hidden;
+        self.tab_mut().show_hidden = !self.tab().show_hidden;
         self.reload();
     }
 
-    pub fn set_view(&mut self, v: ViewMode) { self.view = v; }
+    pub fn set_view(&mut self, v: ViewMode) { self.tab_mut().view = v; }
 
     /// Cycle Icon -> List -> Columns -> Icon.
     pub fn cycle_view(&mut self) {
-        self.view = match self.view {
+        let next = match self.tab().view {
             ViewMode::Icon => ViewMode::List,
             ViewMode::List => ViewMode::Columns,
             ViewMode::Columns => ViewMode::Icon,
         };
+        self.tab_mut().view = next;
     }
 
-    pub fn preview_open(&self) -> bool { self.preview }
-    pub fn toggle_preview(&mut self) { self.preview = !self.preview; }
+    pub fn preview_open(&self) -> bool { self.tab().preview }
+    pub fn toggle_preview(&mut self) { self.tab_mut().preview = !self.tab().preview; }
 
     /// Width (cells) reserved for the preview pane when it is open.
     fn preview_reserve(&self, w: i32) -> i32 {
-        if self.preview { (w / 3).clamp(20, 48) } else { 0 }
+        if self.tab().preview { (w / 3).clamp(20, 48) } else { 0 }
     }
 
     /// The preview body for the focused entry (≤ `max` lines).
     pub fn preview_lines(&self, max: usize) -> Vec<String> {
-        let Some(e) = self.entries.get(self.cursor) else { return vec![]; };
+        let t = self.tab();
+        let Some(e) = t.entries.get(t.cursor) else { return vec![]; };
         use crate::openwith::Role::*;
         match e.role {
             Text | Code => read_head(&e.path, max),
@@ -176,7 +229,8 @@ impl<F: FsOps> FileManager<F> {
 
     /// Image entries (index, path) in the current view that should have a thumbnail.
     pub fn thumbnail_requests(&self) -> Vec<(usize, std::path::PathBuf)> {
-        self.entries
+        self.tab()
+            .entries
             .iter()
             .enumerate()
             .filter(|(_, e)| e.role == crate::openwith::Role::Image)
@@ -186,7 +240,7 @@ impl<F: FsOps> FileManager<F> {
 
     /// Record a loaded thumbnail id for entry `idx`.
     pub fn set_thumb(&mut self, idx: usize, id: u64) {
-        self.thumbs.insert(idx, id);
+        self.tab_mut().thumbs.insert(idx, id);
     }
 
     /// Placements for loaded thumbnails, in the Icon view's tile grid, offset into
@@ -197,21 +251,22 @@ impl<F: FsOps> FileManager<F> {
         visible: bool,
     ) -> Vec<crate::protocol::ImagePlacement> {
         // Thumbnails only render in Icon view (List shows glyphs).
-        if self.view != ViewMode::Icon {
+        if self.tab().view != ViewMode::Icon {
             return Vec::new();
         }
+        let top = self.content_top();
         let area_x = SIDEBAR_W;
         let area_w = (content.w - SIDEBAR_W - self.preview_reserve(content.w)).max(1);
         let cols = (area_w / TILE_W).max(1);
         let mut out = Vec::new();
-        for (&idx, &id) in &self.thumbs {
-            if idx >= self.entries.len() {
+        for (&idx, &id) in &self.tab().thumbs {
+            if idx >= self.tab().entries.len() {
                 continue;
             }
             let col = idx as i32 % cols;
             let row = idx as i32 / cols;
             let cx = content.x + area_x + col * TILE_W;
-            let cy = content.y + LIST_TOP + row * TILE_H;
+            let cy = content.y + top + row * TILE_H;
             if cy + 1 >= content.y + content.h {
                 continue; // below the viewport
             }
@@ -231,49 +286,53 @@ impl<F: FsOps> FileManager<F> {
     /// Move the cursor by (dx tiles, dy rows). In List view any nonzero delta is
     /// collapsed to a single ±1 step.
     pub fn move_cursor(&mut self, dx: i32, dy: i32) {
-        if self.entries.is_empty() { return; }
-        let n = self.entries.len() as i32;
-        let cur = self.cursor as i32;
-        let next = match self.view {
+        if self.tab().entries.is_empty() { return; }
+        let n = self.tab().entries.len() as i32;
+        let cur = self.tab().cursor as i32;
+        let next = match self.tab().view {
             ViewMode::List | ViewMode::Columns => cur + dx.signum() + dy.signum(),
             ViewMode::Icon => {
                 let cols = self.cols_per_row.get().max(1);
                 cur + dx.signum() + dy.signum() * cols
             }
         };
-        self.cursor = next.clamp(0, n - 1) as usize;
+        self.tab_mut().cursor = next.clamp(0, n - 1) as usize;
     }
 
     /// Select entry `idx`. `ctrl` toggles it into the set; `shift` selects the
     /// range from the current cursor; neither makes it the sole selection.
     pub fn select_at(&mut self, idx: usize, ctrl: bool, shift: bool) {
-        if idx >= self.entries.len() { return; }
+        let cursor = self.tab().cursor;
+        if idx >= self.tab().entries.len() { return; }
+        let t = self.tab_mut();
         if shift {
-            let (lo, hi) = if idx >= self.cursor { (self.cursor, idx) } else { (idx, self.cursor) };
-            self.selection = (lo..=hi).collect();
+            let (lo, hi) = if idx >= cursor { (cursor, idx) } else { (idx, cursor) };
+            t.selection = (lo..=hi).collect();
         } else if ctrl {
-            if !self.selection.remove(&idx) { self.selection.insert(idx); }
+            if !t.selection.remove(&idx) { t.selection.insert(idx); }
         } else {
-            self.selection.clear();
-            self.selection.insert(idx);
+            t.selection.clear();
+            t.selection.insert(idx);
         }
-        self.cursor = idx;
+        t.cursor = idx;
     }
 
     /// Change directory, pushing onto history (truncating any forward entries).
     fn navigate_to(&mut self, dir: PathBuf) {
-        self.cwd = dir.clone();
-        self.history.truncate(self.hpos + 1);
-        self.history.push(dir);
-        self.hpos = self.history.len() - 1;
-        self.cursor = 0;
+        let t = self.tab_mut();
+        t.cwd = dir.clone();
+        t.history.truncate(t.hpos + 1);
+        t.history.push(dir);
+        t.hpos = t.history.len() - 1;
+        t.cursor = 0;
         self.reload();
     }
 
     /// Enter the focused entry: navigate into a directory, or request an open
     /// action for a file (via `openwith::resolve`).
     pub fn activate(&mut self) {
-        let Some(entry) = self.entries.get(self.cursor) else { return; };
+        let cursor = self.tab().cursor;
+        let Some(entry) = self.tab().entries.get(cursor) else { return; };
         let path = entry.path.clone();
         let is_dir = entry.is_dir;
         match resolve(&path, is_dir, &self.handlers) {
@@ -286,31 +345,33 @@ impl<F: FsOps> FileManager<F> {
                 self.action = Some(FileManagerAction::RunApp { command, args });
             }
             OpenAction::OpenWithMenu => {
-                self.overlay = Some(Overlay::OpenWith { idx: self.cursor, sel: 0 });
+                self.overlay = Some(Overlay::OpenWith { idx: cursor, sel: 0 });
             }
         }
     }
 
     pub fn go_parent(&mut self) {
-        if let Some(parent) = self.cwd.parent() {
+        if let Some(parent) = self.tab().cwd.parent() {
             self.navigate_to(parent.to_path_buf());
         }
     }
 
     pub fn go_back(&mut self) {
-        if self.hpos > 0 {
-            self.hpos -= 1;
-            self.cwd = self.history[self.hpos].clone();
-            self.cursor = 0;
+        let t = self.tab_mut();
+        if t.hpos > 0 {
+            t.hpos -= 1;
+            t.cwd = t.history[t.hpos].clone();
+            t.cursor = 0;
             self.reload();
         }
     }
 
     pub fn go_forward(&mut self) {
-        if self.hpos + 1 < self.history.len() {
-            self.hpos += 1;
-            self.cwd = self.history[self.hpos].clone();
-            self.cursor = 0;
+        let t = self.tab_mut();
+        if t.hpos + 1 < t.history.len() {
+            t.hpos += 1;
+            t.cwd = t.history[t.hpos].clone();
+            t.cursor = 0;
             self.reload();
         }
     }
@@ -320,22 +381,23 @@ impl<F: FsOps> FileManager<F> {
     pub fn begin_new_folder(&mut self) { self.overlay = Some(Overlay::NewFolder { name: String::new() }); }
 
     pub fn begin_rename(&mut self) {
-        if let Some(e) = self.entries.get(self.cursor) {
-            self.overlay = Some(Overlay::Rename { idx: self.cursor, name: e.name.clone() });
+        let cursor = self.tab().cursor;
+        if let Some(e) = self.tab().entries.get(cursor) {
+            self.overlay = Some(Overlay::Rename { idx: cursor, name: e.name.clone() });
         }
     }
 
     pub fn begin_delete(&mut self) {
-        let count = if self.selection.is_empty() { 1 } else { self.selection.len() };
+        let count = if self.tab().selection.is_empty() { 1 } else { self.tab().selection.len() };
         self.overlay = Some(Overlay::ConfirmDelete { count });
     }
 
     pub fn begin_context(&mut self) {
-        self.overlay = Some(Overlay::Context { idx: self.cursor });
+        self.overlay = Some(Overlay::Context { idx: self.tab().cursor });
     }
 
     pub fn begin_get_info(&mut self) {
-        self.overlay = Some(Overlay::GetInfo { idx: self.cursor });
+        self.overlay = Some(Overlay::GetInfo { idx: self.tab().cursor });
     }
 
     pub fn cancel_overlay(&mut self) { self.overlay = None; }
@@ -358,14 +420,16 @@ impl<F: FsOps> FileManager<F> {
     pub fn overlay_commit(&mut self) {
         match self.overlay.take() {
             Some(Overlay::NewFolder { name }) if !name.trim().is_empty() => {
-                if let Err(e) = self.fs.mkdir(&self.cwd, name.trim()) {
+                let cwd = self.tab().cwd.clone();
+                if let Err(e) = self.fs.mkdir(&cwd, name.trim()) {
                     self.status = format!("New folder failed: {e}");
                 }
                 self.reload();
             }
             Some(Overlay::Rename { idx, name }) if !name.trim().is_empty() => {
-                if let Some(entry) = self.entries.get(idx) {
-                    if let Err(e) = self.fs.rename(&entry.path.clone(), name.trim()) {
+                let path = self.tab().entries.get(idx).map(|e| e.path.clone());
+                if let Some(path) = path {
+                    if let Err(e) = self.fs.rename(&path, name.trim()) {
                         self.status = format!("Rename failed: {e}");
                     }
                 }
@@ -378,10 +442,11 @@ impl<F: FsOps> FileManager<F> {
     // ---- clipboard ---------------------------------------------------------
 
     fn selected_paths(&self) -> Vec<PathBuf> {
-        if self.selection.is_empty() {
-            self.entries.get(self.cursor).map(|e| vec![e.path.clone()]).unwrap_or_default()
+        let t = self.tab();
+        if t.selection.is_empty() {
+            t.entries.get(t.cursor).map(|e| vec![e.path.clone()]).unwrap_or_default()
         } else {
-            self.selection.iter().filter_map(|&i| self.entries.get(i)).map(|e| e.path.clone()).collect()
+            t.selection.iter().filter_map(|&i| t.entries.get(i)).map(|e| e.path.clone()).collect()
         }
     }
 
@@ -397,8 +462,9 @@ impl<F: FsOps> FileManager<F> {
 
     pub fn paste(&mut self) {
         let Some(cb) = self.clipboard.clone() else { return; };
+        let cwd = self.tab().cwd.clone();
         for src in &cb.paths {
-            let r = if cb.cut { self.fs.move_to(src, &self.cwd) } else { self.fs.copy(src, &self.cwd) };
+            let r = if cb.cut { self.fs.move_to(src, &cwd) } else { self.fs.copy(src, &cwd) };
             if let Err(e) = r { self.status = format!("Paste failed: {e}"); }
         }
         if cb.cut { self.clipboard = None; }
@@ -503,24 +569,49 @@ impl<F: FsOps> FileManager<F> {
         }
     }
 
+    /// First content row, shifted down by one when the tab strip is shown.
+    fn content_top(&self) -> i32 {
+        if self.tabs.len() > 1 { LIST_TOP + 1 } else { LIST_TOP }
+    }
+
     pub fn render(&self, w: i32, h: i32) -> CellBuffer {
+        let t = self.tab();
+        let top = self.content_top();
         let mut buf = CellBuffer::new(w, h);
         buf.fill(Cell { ch: ' ', fg: FG, bg: BG, attrs: Default::default() });
 
         // Toolbar: back/forward/up + breadcrumb + view toggle.
         buf.write_str(0, TOOLBAR_Y, "\u{25C2} \u{25B8} \u{25B2}", ACCENT, BG); // ◂ ▸ ▲
-        let crumb = self.cwd.to_string_lossy().to_string();
+        let crumb = t.cwd.to_string_lossy().to_string();
         buf.write_str(8, TOOLBAR_Y, &crumb, FG, BG);
-        let toggle = match self.view {
+        let toggle = match t.view {
             ViewMode::Icon => "[grid]",
             ViewMode::List => "[list]",
             ViewMode::Columns => "[cols]",
         };
         buf.write_str((w - toggle.len() as i32 - 1).max(0), TOOLBAR_Y, toggle, DIM, BG);
 
+        // Tab strip (only with more than one tab) on the row below the toolbar.
+        if self.tabs.len() > 1 {
+            let mut x = 0;
+            for (i, tb) in self.tabs.iter().enumerate() {
+                let name = tb
+                    .cwd
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "/".to_string());
+                let label = format!(" {name} ");
+                let active = i == self.active;
+                let (fg, bg) = if active { (ACCENT, SEL_BG) } else { (DIM, BG) };
+                buf.write_str(x, TOOLBAR_Y + 1, &label, fg, bg);
+                x += label.chars().count() as i32 + 1;
+                if x >= w { break; }
+            }
+        }
+
         // Sidebar.
         for (i, (label, _)) in self.sidebar().iter().enumerate() {
-            buf.write_str(0, LIST_TOP + i as i32, label, DIM, BG);
+            buf.write_str(0, top + i as i32, label, DIM, BG);
         }
 
         let area_x = SIDEBAR_W;
@@ -528,13 +619,13 @@ impl<F: FsOps> FileManager<F> {
         let area_right = (w - preview_w).max(area_x + 1);
         let area_w = (area_right - SIDEBAR_W).max(1);
 
-        match self.view {
+        match t.view {
             ViewMode::List => {
-                for (i, e) in self.entries.iter().enumerate() {
-                    let y = LIST_TOP + i as i32;
+                for (i, e) in t.entries.iter().enumerate() {
+                    let y = top + i as i32;
                     if y >= h - 1 { break; }
-                    let selected = self.selection.contains(&i);
-                    let focused = i == self.cursor;
+                    let selected = t.selection.contains(&i);
+                    let focused = i == t.cursor;
                     let bg = if selected || focused { SEL_BG } else { BG };
                     for x in area_x..area_right { buf.set(x, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() }); }
                     let mark = if e.is_dir { '\u{1F4C1}' } else { Self::glyph(e) };
@@ -547,14 +638,14 @@ impl<F: FsOps> FileManager<F> {
             ViewMode::Icon => {
                 let cols = (area_w / TILE_W).max(1);
                 self.cols_per_row.set(cols);
-                for (i, e) in self.entries.iter().enumerate() {
+                for (i, e) in t.entries.iter().enumerate() {
                     let col = i as i32 % cols;
                     let row = i as i32 / cols;
                     let x = area_x + col * TILE_W;
-                    let y = LIST_TOP + row * TILE_H;
+                    let y = top + row * TILE_H;
                     if y >= h - 1 { break; }
-                    let selected = self.selection.contains(&i);
-                    let focused = i == self.cursor;
+                    let selected = t.selection.contains(&i);
+                    let focused = i == t.cursor;
                     let bg = if selected || focused { SEL_BG } else { BG };
                     buf.set(x + TILE_W / 2, y, Cell { ch: Self::glyph(e), fg: FG, bg, attrs: Default::default() });
                     let name: String = e.name.chars().take((TILE_W - 1) as usize).collect();
@@ -564,15 +655,15 @@ impl<F: FsOps> FileManager<F> {
         }
 
         // Preview pane (Icon / List): a vertical separator then the entry's body.
-        if preview_w > 0 && self.view != ViewMode::Columns {
+        if preview_w > 0 && t.view != ViewMode::Columns {
             let sep_x = area_right;
-            for y in LIST_TOP..h - 1 {
+            for y in top..h - 1 {
                 buf.set(sep_x, y, Cell { ch: '\u{2502}', fg: DIM, bg: BG, attrs: Default::default() });
             }
             let pane_x = sep_x + 2;
-            let max = (h - LIST_TOP - 1).max(0) as usize;
+            let max = (h - top - 1).max(0) as usize;
             for (i, line) in self.preview_lines(max).iter().enumerate() {
-                let y = LIST_TOP + i as i32;
+                let y = top + i as i32;
                 if y >= h - 1 { break; }
                 let text: String = line.chars().take((preview_w - 2).max(1) as usize).collect();
                 buf.write_str(pane_x, y, &text, FG, BG);
@@ -583,7 +674,7 @@ impl<F: FsOps> FileManager<F> {
         if !self.status.is_empty() {
             buf.write_str(0, h - 1, &self.status, ACCENT, BG);
         } else {
-            let info = format!("{} items", self.entries.len());
+            let info = format!("{} items", t.entries.len());
             buf.write_str(0, h - 1, &info, DIM, BG);
         }
 
@@ -594,18 +685,20 @@ impl<F: FsOps> FileManager<F> {
 
     /// Render the Miller-columns layout: parent | current | preview-of-focused.
     fn render_columns(&self, buf: &mut CellBuffer, area_x: i32, area_right: i32, h: i32) {
+        let t = self.tab();
+        let top = self.content_top();
         let area_w = (area_right - area_x).max(1);
         let col_w = (area_w / 3).max(1);
         let mid_x = area_x + col_w;
         let right_x = area_x + 2 * col_w;
 
         // Left: parent directory listing, the current folder highlighted.
-        if let Some(parent) = self.cwd.parent() {
-            if let Ok(es) = self.fs.list(parent, self.show_hidden) {
+        if let Some(parent) = t.cwd.parent() {
+            if let Ok(es) = self.fs.list(parent, t.show_hidden) {
                 for (i, e) in es.iter().enumerate() {
-                    let y = LIST_TOP + i as i32;
+                    let y = top + i as i32;
                     if y >= h - 1 { break; }
-                    let here = e.path == self.cwd;
+                    let here = e.path == t.cwd;
                     let bg = if here { SEL_BG } else { BG };
                     for x in area_x..mid_x { buf.set(x, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() }); }
                     let name: String = e.name.chars().take((col_w - 1).max(1) as usize).collect();
@@ -615,11 +708,11 @@ impl<F: FsOps> FileManager<F> {
         }
 
         // Middle: current entries, cursor highlighted.
-        for (i, e) in self.entries.iter().enumerate() {
-            let y = LIST_TOP + i as i32;
+        for (i, e) in t.entries.iter().enumerate() {
+            let y = top + i as i32;
             if y >= h - 1 { break; }
-            let selected = self.selection.contains(&i);
-            let focused = i == self.cursor;
+            let selected = t.selection.contains(&i);
+            let focused = i == t.cursor;
             let bg = if selected || focused { SEL_BG } else { BG };
             for x in mid_x..right_x { buf.set(x, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() }); }
             let mark = if e.is_dir { '\u{1F4C1}' } else { Self::glyph(e) };
@@ -629,10 +722,10 @@ impl<F: FsOps> FileManager<F> {
         }
 
         // Right: preview of the focused entry.
-        for x in right_x - 1..right_x { buf.set(x, LIST_TOP, Cell { ch: ' ', fg: FG, bg: BG, attrs: Default::default() }); }
-        let max = (h - LIST_TOP - 1).max(0) as usize;
+        for x in right_x - 1..right_x { buf.set(x, top, Cell { ch: ' ', fg: FG, bg: BG, attrs: Default::default() }); }
+        let max = (h - top - 1).max(0) as usize;
         for (i, line) in self.preview_lines(max).iter().enumerate() {
-            let y = LIST_TOP + i as i32;
+            let y = top + i as i32;
             if y >= h - 1 { break; }
             let text: String = line.chars().take((area_right - right_x).max(1) as usize).collect();
             buf.write_str(right_x, y, &text, FG, BG);
@@ -641,6 +734,8 @@ impl<F: FsOps> FileManager<F> {
 
     /// Map a content-local click to a target. Mirrors the render layout.
     pub fn hit_test(&self, p: Point, w: i32, _h: i32) -> Option<Target> {
+        let top = self.content_top();
+        let t = self.tab();
         if p.y == TOOLBAR_Y {
             return match p.x {
                 0 => Some(Target::Back),
@@ -650,8 +745,8 @@ impl<F: FsOps> FileManager<F> {
                 _ => None,
             };
         }
-        if p.x < SIDEBAR_W && p.y >= LIST_TOP {
-            let i = (p.y - LIST_TOP) as usize;
+        if p.x < SIDEBAR_W && p.y >= top {
+            let i = (p.y - top) as usize;
             if i < self.sidebar().len() { return Some(Target::Sidebar(i)); }
             return None;
         }
@@ -659,29 +754,29 @@ impl<F: FsOps> FileManager<F> {
         let area_x = SIDEBAR_W;
         let area_right = (w - self.preview_reserve(w)).max(area_x + 1);
         let area_w = (area_right - SIDEBAR_W).max(1);
-        match self.view {
+        match t.view {
             ViewMode::List => {
-                let i = (p.y - LIST_TOP) as usize;
-                if p.y >= LIST_TOP && i < self.entries.len() { Some(Target::Entry(i)) } else { None }
+                let i = (p.y - top) as usize;
+                if p.y >= top && i < t.entries.len() { Some(Target::Entry(i)) } else { None }
             }
             ViewMode::Columns => {
                 // Only the middle column maps to entries; left/right are visual.
                 let col_w = (area_w / 3).max(1);
                 let mid_x = area_x + col_w;
-                if p.y < LIST_TOP || p.x < mid_x || p.x >= mid_x + col_w {
+                if p.y < top || p.x < mid_x || p.x >= mid_x + col_w {
                     return None;
                 }
-                let i = (p.y - LIST_TOP) as usize;
-                if i < self.entries.len() { Some(Target::Entry(i)) } else { None }
+                let i = (p.y - top) as usize;
+                if i < t.entries.len() { Some(Target::Entry(i)) } else { None }
             }
             ViewMode::Icon => {
                 let cols = (area_w / TILE_W).max(1);
-                if p.y < LIST_TOP { return None; }
+                if p.y < top { return None; }
                 let col = (p.x - area_x) / TILE_W;
-                let row = (p.y - LIST_TOP) / TILE_H;
+                let row = (p.y - top) / TILE_H;
                 if col < 0 || col >= cols { return None; }
                 let i = (row * cols + col) as usize;
-                if i < self.entries.len() { Some(Target::Entry(i)) } else { None }
+                if i < t.entries.len() { Some(Target::Entry(i)) } else { None }
             }
         }
     }
@@ -733,7 +828,7 @@ impl<F: FsOps> FileManager<F> {
                 self.draw_box(buf, w, h, "Error", std::slice::from_ref(message));
             }
             Overlay::GetInfo { idx } => {
-                let Some(e) = self.entries.get(*idx) else { return; };
+                let Some(e) = self.tab().entries.get(*idx) else { return; };
                 let mut lines = vec![format!("Name: {}", e.name)];
                 if let Ok(info) = crate::fileops::info(&e.path) {
                     lines.push(format!("Path: {}", info.path.display()));

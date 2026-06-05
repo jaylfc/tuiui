@@ -195,6 +195,9 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             (KeyCode::Char('3'), false) => send(&mut out_stream, &ClientMsg::FileManagerViewColumns)?,
                             (KeyCode::Char(' '), false) => send(&mut out_stream, &ClientMsg::FileManagerTogglePreview)?,
                             (KeyCode::Char('.'), false) => send(&mut out_stream, &ClientMsg::FileManagerToggleHidden)?,
+                            (KeyCode::Char('t'), true) => send(&mut out_stream, &ClientMsg::FileManagerNewTab)?,
+                            (KeyCode::Char('w'), true) => send(&mut out_stream, &ClientMsg::FileManagerCloseTab)?,
+                            (KeyCode::Tab, false) => send(&mut out_stream, &ClientMsg::FileManagerNextTab)?,
                             _ => {}
                         }
                     } else if ctrl_alt {

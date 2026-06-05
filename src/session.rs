@@ -212,6 +212,12 @@ pub enum ClientMsg {
     FileManagerCancel,
     /// File manager: close the window (Escape with no overlay).
     FileManagerClose,
+    /// File manager: open a new tab on the current folder.
+    FileManagerNewTab,
+    /// File manager: close the active tab.
+    FileManagerCloseTab,
+    /// File manager: focus the next tab.
+    FileManagerNextTab,
     /// Toggle the keyboard-shortcut help overlay.
     ToggleHelp,
     /// Open an image file in a native image-viewer window.
@@ -713,6 +719,9 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     }
                 }
             }
+            ClientMsg::FileManagerNewTab => { if let Some(f) = self.focused_filemanager_mut() { f.new_tab(); } }
+            ClientMsg::FileManagerCloseTab => { if let Some(f) = self.focused_filemanager_mut() { f.close_tab(); } }
+            ClientMsg::FileManagerNextTab => { if let Some(f) = self.focused_filemanager_mut() { f.next_tab(); } }
             ClientMsg::ToggleHelp => self.help_open = !self.help_open,
             ClientMsg::OpenImage(p) => self.open_image(p),
             ClientMsg::DirPickerUp => { if let Some(d) = self.dirpicker.as_mut() { d.move_up(); } }
