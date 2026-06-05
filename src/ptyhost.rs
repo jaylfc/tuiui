@@ -52,6 +52,8 @@ pub struct AppInstance {
     master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
     child: Box<dyn portable_pty::Child + Send + Sync>,
+    /// Kitty-graphics state captured from the child's output by the reader thread.
+    graphics: Arc<Mutex<crate::kittygfx::GraphicsState>>,
     cols: u16,
     rows: u16,
 }
@@ -88,7 +90,9 @@ impl AppInstance {
         }
         // Pin TERM/COLORTERM to what the embedded emulator implements, letting
         // apps emit 24-bit color (captured here, re-emitted per the real terminal).
-        builder.env("TERM", "xterm-256color");
+        // `xterm-kitty` is the strongest signal that Kitty graphics are supported,
+        // so apps like yazi emit image escapes the reader thread's tap captures.
+        builder.env("TERM", "xterm-kitty");
         builder.env("COLORTERM", "truecolor");
         // Start in the requested working directory, else the user's home.
         match cwd {
@@ -124,25 +128,52 @@ impl AppInstance {
             PtyResponder { writer: writer.clone() },
         )));
 
-        // Reader thread: pump PTY bytes through the emulator. The `Processor`
-        // persists across reads so partial escape sequences are handled.
+        // Captured Kitty-graphics state, shared with the reader thread.
+        let graphics = Arc::new(Mutex::new(crate::kittygfx::GraphicsState::new()));
+
+        // Reader thread: pump PTY bytes through a graphics tap, then the emulator.
+        // The tap pulls Kitty-graphics APC sequences out of the stream (so the
+        // emulator never sees them) and records image transmissions/placements at
+        // the cursor. The `Processor` and `GraphicsTap` persist across reads so
+        // partial escape/APC sequences are handled.
         let tclone = term.clone();
+        let gclone = graphics.clone();
+        let wclone = writer.clone();
         std::thread::spawn(move || {
             let mut parser = Processor::<StdSyncHandler>::new();
+            let mut tap = crate::kittygfx::GraphicsTap::new();
             let mut buf = [0u8; 8192];
             loop {
-                match reader.read(&mut buf) {
+                let n = match reader.read(&mut buf) {
                     Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        if let Ok(mut t) = tclone.lock() {
-                            parser.advance(&mut *t, &buf[..n]);
+                    Ok(n) => n,
+                };
+                let split = tap.feed(&buf[..n]);
+                if let Ok(mut t) = tclone.lock() {
+                    parser.advance(&mut *t, &split.passthrough);
+                    if !split.commands.is_empty() {
+                        let (col, row) = cursor_cell(&t);
+                        if let Ok(mut g) = gclone.lock() {
+                            for cmd in &split.commands {
+                                g.apply(cmd, col, row);
+                            }
+                            // Answer any `a=q` support queries on the PTY so apps
+                            // proceed to actually transmit graphics.
+                            if !g.queries.is_empty() {
+                                if let Ok(mut w) = wclone.lock() {
+                                    for q in g.queries.drain(..) {
+                                        let _ = w.write_all(&q);
+                                    }
+                                    let _ = w.flush();
+                                }
+                            }
                         }
                     }
                 }
             }
         });
 
-        Ok(AppInstance { term, master: pair.master, writer, child, cols, rows })
+        Ok(AppInstance { term, master: pair.master, writer, child, graphics, cols, rows })
     }
 
     /// Convert the current emulator grid into a Tuiui [`CellBuffer`].
@@ -207,6 +238,19 @@ impl AppInstance {
     pub fn is_alive(&mut self) -> bool {
         matches!(self.child.try_wait(), Ok(None))
     }
+
+    /// Lock and return this app's captured Kitty-graphics state (placements +
+    /// decoded images), for the session to turn into image placements.
+    pub fn graphics(&self) -> std::sync::MutexGuard<'_, crate::kittygfx::GraphicsState> {
+        self.graphics.lock().unwrap()
+    }
+}
+
+/// The current cursor cell `(col, row)` of the embedded emulator — where a
+/// Kitty `a=T` transmit-and-display places its image.
+fn cursor_cell(term: &Term<PtyResponder>) -> (u16, u16) {
+    let p = term.grid().cursor.point;
+    (p.column.0 as u16, p.line.0.max(0) as u16)
 }
 
 /// Resolve a bare command name (no `/`) to an absolute path by searching `$PATH`.
