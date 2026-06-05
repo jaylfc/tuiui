@@ -50,11 +50,13 @@ pub enum OpenAction {
 }
 ```
 
-- **Classification:** a built-in `extension → Role` table (`png/jpg/gif/webp → Image`,
-  `md/txt/log/json/toml/… → Text`, `rs/py/js/go/c/… → Code`, `mp3/flac/… → Audio`,
-  `mp4/mkv/… → Video`, `zip/tar/gz/… → Archive`, `pdf → Pdf`). Directories →
-  `Directory`; files with the executable bit and no known extension → `Executable`;
-  else `Other`.
+- **Classification:** an extension→`Role` table first, with **real MIME detection
+  as the fallback** — magic-byte sniffing via the `infer` crate (and `mime_guess`
+  for extension→MIME) so an extension-less or mislabeled file is still classified.
+  (`png/jpg/gif/webp → Image`, `md/txt/log/json/toml/… → Text`, `rs/py/js/go/c/… →
+  Code`, `mp3/flac/… → Audio`, `mp4/mkv/… → Video`, `zip/tar/gz/… → Archive`,
+  `pdf → Pdf`.) Directories → `Directory`; executable-bit, no known type →
+  `Executable`; else `Other`.
 - **Handler map** (config `[default_apps]`, each role → a string):
   - `@image` (builtin viewer), `@navigate` (builtin) for directories,
   - or an app command — `text/code → editor` (default `$EDITOR` else `vi`),
@@ -101,6 +103,20 @@ struct FileManager {
   A1 `ImageStore` and reports an `ImagePlacement` per **visible** image tile
   (clipped to the pane, hidden when scrolled off or the window is occluded).
   Non-images show a file-type glyph (📁 / 📄 / 🎵 / 🎬 / 📦 / 🖼…).
+- **Tabs:** a tab strip below the toolbar; each tab owns its own `cwd`, history,
+  view, selection, and scroll. `Ctrl/Cmd+T` new tab, `Ctrl+W` close, `Ctrl+Tab` /
+  click to switch. The `FileManager` holds `tabs: Vec<Tab>` + `active: usize`; all
+  the per-folder state above moves onto `Tab`.
+- **Preview pane:** a right-hand pane (always on in Columns view; toggleable in the
+  others with `Space` / a toolbar button) showing the focused entry:
+  - image → the A1 thumbnail at a larger size,
+  - text/code → the first ~40 lines,
+  - pdf → first-page text via `pdftotext`/`mutool` when present, else page count +
+    metadata,
+  - other → name, size, type, modified, permissions.
+- **Get Info (permissions/symlink):** context-menu *Get Info* (and `Cmd/Ctrl+I`)
+  opens an overlay with full path, size, modified, **Unix permissions** (`rwxr-xr-x`,
+  togglable → `chmod`), owner, and — for symlinks — the link target.
 
 ## Interactions
 
@@ -182,20 +198,29 @@ pub trait FsOps {
 
 ## Build sequence (informs the plan)
 
-1. `openwith` engine + role table + `resolve` + config + tests.
+1. `openwith` engine + role table + **MIME fallback (`infer`/`mime_guess`)** +
+   `resolve` + config + tests.
 2. `fileops` trait + `StdFs` + Trash + tests (fake FsOps).
-3. `FileManager` model + icon-grid render + hit-testing + tests.
+3. `FileManager` model (with `Tab`) + icon-grid render + hit-testing + tests.
 4. Navigation (sidebar/crumbs/history) + keyboard + mouse selection.
 5. Open-with flow wired to the session (Navigate/Builtin/RunApp/Menu).
 6. Operations (new folder, rename, copy/cut/paste, move, drag, Trash) + overlays.
 7. List + Columns views; view toggle.
 8. Image thumbnails via A1 placements.
-9. Settings → Default Apps panel.
-10. Session/protocol/client wiring + `@files` launch + dock entry.
+9. **Tabs** (tab strip + per-tab state + shortcuts).
+10. **Preview pane** (image/text/pdf/metadata).
+11. **Get Info overlay** (permissions/`chmod` + symlink target).
+12. Settings → Default Apps panel.
+13. Session/protocol/client wiring + `@files` launch + dock entry.
 
-## Out of scope (YAGNI, v1)
+## Folded into v1 (from the original deferred list)
 
-- Tabs, split panes, network/cloud mounts, file-content search.
-- Non-image content previews (text/pdf preview pane).
-- Custom per-folder view settings, symlink retargeting, file permissions editor.
-- A full MIME database (extension table is enough to start).
+Text/PDF preview pane, tabs, real MIME detection, and Get-Info permissions/symlink
+info are now **in v1** (above).
+
+## Out of scope (deferred to v2)
+
+- **Split panes** (dual-pane side-by-side).
+- **File-content search** (recursive grep across a tree).
+- **Network / cloud mounts** (SFTP/SMB/cloud) — its own subsystem.
+- Custom per-folder view settings; symlink *retargeting* (editing the target).
