@@ -1,6 +1,7 @@
 //! The Default Apps engine: classify a file into a `Role` and resolve the role to
 //! an action (open with a builtin viewer, run a configured app, or show a menu).
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 /// A coarse file category used to pick a default application.
@@ -85,4 +86,70 @@ fn role_for_mime(mime: &str) -> Option<Role> {
             _ => return None,
         },
     })
+}
+
+/// What to do when opening a path.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OpenAction {
+    /// A directory the file manager should navigate into.
+    Navigate,
+    /// A built-in tuiui viewer, e.g. "@image".
+    Builtin(&'static str),
+    /// Launch a terminal app with the file path appended.
+    RunApp { command: String, args: Vec<String> },
+    /// No default — let the user pick.
+    OpenWithMenu,
+}
+
+/// Resolve how to open `path`, given the configured `[default_apps]` map.
+pub fn resolve(path: &Path, is_dir: bool, handlers: &BTreeMap<String, String>) -> OpenAction {
+    let role = classify(path, is_dir);
+    if role == Role::Directory {
+        // Directories always navigate (the handler may still say "@navigate").
+        return OpenAction::Navigate;
+    }
+    match handlers.get(role.key()).map(String::as_str) {
+        Some("@image") => OpenAction::Builtin("@image"),
+        Some("@navigate") => OpenAction::Navigate,
+        Some(cmd) if !cmd.is_empty() => {
+            let mut parts = cmd.split_whitespace().map(String::from);
+            let program = parts.next().unwrap_or_default();
+            let mut args: Vec<String> = parts.collect();
+            args.push(path.to_string_lossy().to_string());
+            OpenAction::RunApp { command: program, args }
+        }
+        _ => OpenAction::OpenWithMenu,
+    }
+}
+
+/// The default handler map for a fresh config (OS-aware where it matters).
+pub fn default_handlers() -> BTreeMap<String, String> {
+    let editor = std::env::var("EDITOR").ok().filter(|e| !e.is_empty()).unwrap_or_else(|| "vi".into());
+    let mut m = BTreeMap::new();
+    m.insert("image".into(), "@image".into());
+    m.insert("directory".into(), "@navigate".into());
+    m.insert("text".into(), editor.clone());
+    m.insert("code".into(), editor.clone());
+    // audio/video/archive/pdf/other left unset → Open-with menu until the user picks.
+    // OS roles used by shortcuts:
+    m.insert("editor".into(), editor);
+    m.insert("terminal".into(), std::env::var("SHELL").unwrap_or_else(|_| "bash".into()));
+    m
+}
+
+/// Candidate handlers offered in the Settings → Default Apps chooser for a role.
+pub fn candidates(role: Role) -> Vec<String> {
+    let mut v = vec![String::new()]; // "" = Open-with menu / unset
+    match role {
+        Role::Image => v.push("@image".into()),
+        Role::Directory => v.push("@navigate".into()),
+        _ => {}
+    }
+    // Common terminal apps detected on PATH.
+    for app in ["vi", "vim", "nvim", "nano", "micro", "hx", "emacs", "less", "bat", "mpv", "feh"] {
+        if crate::catalog::is_installed(app) {
+            v.push(app.to_string());
+        }
+    }
+    v
 }
