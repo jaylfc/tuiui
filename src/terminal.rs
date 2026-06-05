@@ -134,6 +134,9 @@ impl Terminal {
         terminal::enable_raw_mode()?;
         let mut out = std::io::stdout();
         execute!(out, terminal::EnterAlternateScreen, EnableMouseCapture, cursor::Hide)?;
+        use std::io::Write;
+        write!(out, "\x1b[?1003h")?; // all-motion mouse tracking (for launcher hover)
+        out.flush()?;
         Ok(Terminal { out, caps: Caps::detect() })
     }
 
@@ -162,6 +165,8 @@ impl Drop for Terminal {
             event::DisableMouseCapture,
             cursor,
         };
+        use std::io::Write;
+        let _ = write!(self.out, "\x1b[?1003l"); // disable all-motion mouse tracking
         let _ = execute!(
             self.out,
             DisableMouseCapture,

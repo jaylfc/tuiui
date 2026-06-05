@@ -107,6 +107,8 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             KeyCode::Enter => send(&mut out_stream, &ClientMsg::LauncherEnter)?,
                             KeyCode::Up => send(&mut out_stream, &ClientMsg::LauncherUp)?,
                             KeyCode::Down => send(&mut out_stream, &ClientMsg::LauncherDown)?,
+                            KeyCode::Left => send(&mut out_stream, &ClientMsg::LauncherLeft)?,
+                            KeyCode::Right => send(&mut out_stream, &ClientMsg::LauncherRight)?,
                             KeyCode::Backspace => send(&mut out_stream, &ClientMsg::LauncherBackspace)?,
                             KeyCode::Char(c) if f.spotlight_open && !ctrl => send(&mut out_stream, &ClientMsg::LauncherChar(c))?,
                             _ => {}

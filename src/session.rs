@@ -130,6 +130,10 @@ pub enum ClientMsg {
     LauncherUp,
     /// Move the launcher highlight down.
     LauncherDown,
+    /// Collapse the cascade one level (Menu mode, ←).
+    LauncherLeft,
+    /// Descend into the focused submenu (Menu mode, →).
+    LauncherRight,
     /// Launch the highlighted entry (Enter).
     LauncherEnter,
     /// Dismiss the launcher (Escape).
@@ -671,6 +675,8 @@ impl SessionCore {
             ClientMsg::LauncherBackspace => self.launcher.backspace(),
             ClientMsg::LauncherUp => self.launcher.move_up(),
             ClientMsg::LauncherDown => self.launcher.move_down(),
+            ClientMsg::LauncherLeft => self.launcher.collapse(),
+            ClientMsg::LauncherRight => self.launcher.expand(),
             ClientMsg::LauncherEnter => {
                 if let Some(e) = self.launcher.selected_entry() {
                     self.launcher.close();

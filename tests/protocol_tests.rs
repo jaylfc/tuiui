@@ -44,3 +44,13 @@ fn new_mouse_messages_roundtrip() {
         assert_eq!(serde_json::to_string(&back).unwrap(), s);
     }
 }
+
+#[test]
+fn launcher_left_right_roundtrip() {
+    use tuiui::session::ClientMsg;
+    for msg in [ClientMsg::LauncherLeft, ClientMsg::LauncherRight] {
+        let s = serde_json::to_string(&msg).unwrap();
+        let back: ClientMsg = serde_json::from_str(&s).unwrap();
+        assert_eq!(serde_json::to_string(&back).unwrap(), s);
+    }
+}
