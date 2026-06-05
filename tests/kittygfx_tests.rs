@@ -48,3 +48,50 @@ fn non_graphics_apc_passes_through() {
     assert!(out.commands.is_empty());
     assert_eq!(out.passthrough, input); // passed through untouched
 }
+
+use tuiui::kittygfx::GraphicsState;
+
+fn tiny_png() -> Vec<u8> {
+    // 1x1 red PNG, generated via the image crate.
+    let img = image::RgbaImage::from_pixel(1, 1, image::Rgba([255, 0, 0, 255]));
+    let mut buf = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(img).write_to(&mut buf, image::ImageFormat::Png).unwrap();
+    buf.into_inner()
+}
+
+#[test]
+fn direct_png_transmit_decodes() {
+    use base64::Engine;
+    let png = tiny_png();
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&png);
+    let cmd = tuiui::kittygfx::parse_one(&apc("a=t,f=100,t=d,i=7", &b64));
+    let mut st = GraphicsState::new();
+    st.apply(&cmd, 0, 0);
+    assert!(st.png(7).is_some());
+    assert!(image::load_from_memory(st.png(7).unwrap()).is_ok());
+}
+
+#[test]
+fn raw_rgba_transmit_decodes() {
+    use base64::Engine;
+    // 2x2 RGBA = 16 bytes
+    let raw: Vec<u8> = (0..16).map(|i| i as u8).collect();
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&raw);
+    let cmd = tuiui::kittygfx::parse_one(&apc("a=t,f=32,t=d,s=2,v=2,i=3", &b64));
+    let mut st = GraphicsState::new();
+    st.apply(&cmd, 0, 0);
+    assert!(st.png(3).is_some());
+}
+
+#[test]
+fn chunked_transmit_reassembles() {
+    use base64::Engine;
+    let png = tiny_png();
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&png);
+    let (a, b) = b64.split_at(b64.len() / 2);
+    let mut st = GraphicsState::new();
+    st.apply(&tuiui::kittygfx::parse_one(&apc("a=t,f=100,t=d,i=5,m=1", a)), 0, 0);
+    assert!(st.png(5).is_none()); // not complete yet
+    st.apply(&tuiui::kittygfx::parse_one(&apc("i=5,m=0", b)), 0, 0);
+    assert!(st.png(5).is_some());
+}

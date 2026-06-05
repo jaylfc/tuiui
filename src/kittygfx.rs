@@ -131,3 +131,182 @@ impl GraphicsTap {
         out
     }
 }
+
+use std::collections::HashMap;
+
+/// Parse exactly one APC command from `bytes` (test/helper convenience).
+pub fn parse_one(bytes: &[u8]) -> GraphicsCmd {
+    let mut tap = GraphicsTap::new();
+    tap.feed(bytes).commands.into_iter().next().unwrap_or_default()
+}
+
+struct Pending {
+    format: u32,         // 24/32/100
+    medium: char,        // d/f/t
+    width: u32,
+    height: u32,
+    zlib: bool,
+    data: Vec<u8>,       // accumulated base64 (direct) or path bytes
+}
+
+/// A placed image on the app's grid (cell coordinates relative to the app PTY).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Placement {
+    pub image_id: u32,
+    pub col: u16,
+    pub row: u16,
+    pub cols: u16,
+    pub rows: u16,
+}
+
+/// Captured graphics state for one hosted app.
+pub struct GraphicsState {
+    images: HashMap<u32, Vec<u8>>,    // id → PNG
+    pending: HashMap<u32, Pending>,
+    pub placements: Vec<Placement>,
+    pub queries: Vec<Vec<u8>>,        // a=q replies to write back to the PTY
+    pub generation: u64,              // bumped on any change (session dirty check)
+}
+
+impl Default for GraphicsState {
+    fn default() -> Self { Self::new() }
+}
+
+impl GraphicsState {
+    pub fn new() -> Self {
+        Self {
+            images: HashMap::new(),
+            pending: HashMap::new(),
+            placements: Vec::new(),
+            queries: Vec::new(),
+            generation: 0,
+        }
+    }
+    pub fn png(&self, id: u32) -> Option<&[u8]> { self.images.get(&id).map(|v| v.as_slice()) }
+
+    fn num(cmd: &GraphicsCmd, k: char, default: u32) -> u32 {
+        cmd.get(k).and_then(|v| v.parse().ok()).unwrap_or(default)
+    }
+
+    /// Apply a command at cursor cell `(col,row)`.
+    pub fn apply(&mut self, cmd: &GraphicsCmd, col: u16, row: u16) {
+        let action = cmd.get('a').unwrap_or_else(|| "t".into());
+        match action.as_str() {
+            "t" | "T" => {
+                self.accumulate(cmd);
+                if cmd.get('m').as_deref() != Some("1") {
+                    let id = Self::num(cmd, 'i', 0);
+                    self.finish_transmit(id);
+                    if action == "T" { self.place(id, col, row, cmd); }
+                }
+                self.generation += 1;
+            }
+            "p" => {
+                let id = Self::num(cmd, 'i', 0);
+                self.place(id, col, row, cmd);
+                self.generation += 1;
+            }
+            "d" => { self.delete(cmd); self.generation += 1; }
+            "q" => { self.queries.push(reply_ok(Self::num(cmd, 'i', 0))); }
+            _ => {}
+        }
+    }
+
+    fn accumulate(&mut self, cmd: &GraphicsCmd) {
+        let id = Self::num(cmd, 'i', 0);
+        let e = self.pending.entry(id).or_insert_with(|| Pending {
+            format: Self::num(cmd, 'f', 32),
+            medium: cmd.get('t').and_then(|s| s.chars().next()).unwrap_or('d'),
+            width: Self::num(cmd, 's', 0),
+            height: Self::num(cmd, 'v', 0),
+            zlib: cmd.get('o').as_deref() == Some("z"),
+            data: Vec::new(),
+        });
+        e.data.extend_from_slice(&cmd.payload);
+    }
+
+    fn finish_transmit(&mut self, id: u32) {
+        let Some(p) = self.pending.remove(&id) else { return; };
+        if let Some(png) = decode(&p) { self.images.insert(id, png); }
+    }
+
+    fn place(&mut self, id: u32, col: u16, row: u16, cmd: &GraphicsCmd) {
+        if !self.images.contains_key(&id) { return; }
+        let cols = Self::num(cmd, 'c', 0) as u16;
+        let rows = Self::num(cmd, 'r', 0) as u16;
+        let (cols, rows) = if cols > 0 && rows > 0 {
+            (cols, rows)
+        } else {
+            derive_cells(self.images.get(&id))
+        };
+        self.placements.retain(|pl| pl.image_id != id); // one placement per id (spike)
+        self.placements.push(Placement { image_id: id, col, row, cols, rows });
+    }
+
+    fn delete(&mut self, cmd: &GraphicsCmd) {
+        match cmd.get('d').as_deref() {
+            Some("i") | Some("I") => {
+                let id = Self::num(cmd, 'i', 0);
+                self.placements.retain(|p| p.image_id != id);
+            }
+            _ => self.placements.clear(), // a/A or unspecified → all
+        }
+    }
+}
+
+/// `ESC _ G i=<id>;OK ESC \`
+fn reply_ok(id: u32) -> Vec<u8> {
+    format!("\x1b_Gi={id};OK\x1b\\").into_bytes()
+}
+
+/// Decode a completed transmission into PNG bytes.
+fn decode(p: &Pending) -> Option<Vec<u8>> {
+    use base64::Engine;
+    // direct payload is base64; file/temp payload is a base64 path.
+    let decoded = base64::engine::general_purpose::STANDARD.decode(&p.data).ok()?;
+    let raw: Vec<u8> = match p.medium {
+        'f' | 't' => {
+            let path = String::from_utf8_lossy(&decoded).to_string();
+            std::fs::read(path).ok()?
+        }
+        _ => decoded, // 'd'
+    };
+    let raw = if p.zlib { inflate(&raw)? } else { raw };
+    match p.format {
+        100 => { image::load_from_memory(&raw).ok()?; Some(raw) } // already PNG; validate
+        24 => reencode_raw(&raw, p.width, p.height, false),
+        32 => reencode_raw(&raw, p.width, p.height, true),
+        _ => image::load_from_memory(&raw).ok().map(|_| raw),
+    }
+}
+
+fn inflate(data: &[u8]) -> Option<Vec<u8>> {
+    use std::io::Read;
+    let mut out = Vec::new();
+    flate2::read::ZlibDecoder::new(data).read_to_end(&mut out).ok()?;
+    Some(out)
+}
+
+fn reencode_raw(raw: &[u8], w: u32, h: u32, alpha: bool) -> Option<Vec<u8>> {
+    if w == 0 || h == 0 { return None; }
+    let img = if alpha {
+        image::DynamicImage::ImageRgba8(image::RgbaImage::from_raw(w, h, raw.to_vec())?)
+    } else {
+        image::DynamicImage::ImageRgb8(image::RgbImage::from_raw(w, h, raw.to_vec())?)
+    };
+    let mut buf = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut buf, image::ImageFormat::Png).ok()?;
+    Some(buf.into_inner())
+}
+
+/// Approximate a cell footprint from the image pixel size (8x16 px cells).
+fn derive_cells(png: Option<&Vec<u8>>) -> (u16, u16) {
+    use image::GenericImageView;
+    if let Some(bytes) = png {
+        if let Ok(img) = image::load_from_memory(bytes) {
+            let (w, h) = img.dimensions();
+            return (((w / 8).max(1)) as u16, ((h / 16).max(1)) as u16);
+        }
+    }
+    (10, 5)
+}
