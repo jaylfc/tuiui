@@ -15,7 +15,20 @@ const ACCENT: Rgba = Rgba { r: 108, g: 182, b: 255, a: 255 };
 const GREEN: Rgba = Rgba { r: 126, g: 231, b: 135, a: 255 };
 
 const SIDEBAR_W: i32 = 18;
-const SECTIONS: &[&str] = &["Windows", "Appearance", "Updates", "Apps", "About"];
+const SECTIONS: &[&str] = &["Windows", "Appearance", "Updates", "Apps", "Default Apps", "About"];
+
+/// Roles listed in the Default Apps section (config key, label).
+const DEFAULT_APP_ROLES: &[(&str, &str)] = &[
+    ("image", "Images"),
+    ("text", "Text"),
+    ("code", "Code"),
+    ("audio", "Audio"),
+    ("video", "Video"),
+    ("pdf", "PDF"),
+    ("archive", "Archives"),
+    ("editor", "Editor"),
+    ("terminal", "Terminal"),
+];
 
 /// An action the session must perform on behalf of the settings panel
 /// (these touch the network / spawn processes, so the panel only requests them).
@@ -81,6 +94,7 @@ impl Settings {
             1 => 2,                            // shadows, theme
             2 => 2,                            // check, install
             3 => self.cfg.launcher.len() + 1,  // custom apps + "＋ Add app…"
+            4 => DEFAULT_APP_ROLES.len(),
             _ => 0,                            // About
         }
     }
@@ -197,6 +211,24 @@ impl Settings {
             (2, 1) if dir == 0 => self.action = Some(SettingsAction::InstallUpdate),
             // Apps section.
             (3, _) => self.adjust_apps(dir),
+            (4, i) => {
+                if let Some((key, _)) = DEFAULT_APP_ROLES.get(i) {
+                    let role = role_from_key(key);
+                    let cands = crate::openwith::candidates(role);
+                    let cur = self.cfg.default_apps.get(*key).cloned().unwrap_or_default();
+                    let idx = cands.iter().position(|c| c == &cur).unwrap_or(0);
+                    let next = match dir {
+                        -1 => (idx + cands.len() - 1) % cands.len(),
+                        _ => (idx + 1) % cands.len(),
+                    };
+                    let val = cands[next].clone();
+                    if val.is_empty() {
+                        self.cfg.default_apps.remove(*key);
+                    } else {
+                        self.cfg.default_apps.insert((*key).to_string(), val);
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -321,6 +353,13 @@ impl Settings {
                 }
             }
             3 => self.render_apps(&mut buf, cx, w),
+            4 => {
+                for (i, (key, label)) in DEFAULT_APP_ROLES.iter().enumerate() {
+                    let val = self.cfg.default_apps.get(*key).cloned().unwrap_or_else(|| "(ask)".into());
+                    let shown = match val.as_str() { "@image" => "image viewer".into(), "@navigate" => "open folder".into(), v => v.to_string() };
+                    self.row(&mut buf, cx, 3 + i as i32, i, label, format!("\u{25C2} {} \u{25B8}", shown));
+                }
+            }
             _ => {
                 buf.write_str(cx, 3, "tuiui — a desktop environment for the terminal", FG, BG);
                 buf.write_str(cx, 5, "Settings are saved to ~/.config/tuiui/config.toml", DIM, BG);
@@ -382,6 +421,14 @@ impl Settings {
         let vx = x + 30;
         let vcol = if value.contains("on") { GREEN } else { FG };
         buf.write_str(vx, y, &value, vcol, BG);
+    }
+}
+
+fn role_from_key(key: &str) -> crate::openwith::Role {
+    use crate::openwith::Role::*;
+    match key {
+        "image" => Image, "video" => Video, "audio" => Audio, "text" => Text,
+        "code" => Code, "archive" => Archive, "pdf" => Pdf, _ => Other,
     }
 }
 
@@ -495,6 +542,19 @@ mod tests {
         s.left(); // remove "A"
         assert_eq!(s.config().launcher.len(), 1);
         assert_eq!(s.config().launcher[0].name, "B");
+    }
+
+    #[test]
+    fn default_apps_section_cycles_handler() {
+        let mut s = Settings::new(Config::default());
+        while SECTIONS[s.section] != "Default Apps" {
+            s.next_section();
+        }
+        // Row 0 is the first role; cycling changes its handler in the config.
+        s.sel = 0;
+        let before = s.config().default_apps.clone();
+        s.right();
+        assert_ne!(s.config().default_apps, before, "cycling changed a handler");
     }
 
     #[test]
