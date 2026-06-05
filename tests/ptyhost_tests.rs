@@ -4,7 +4,7 @@ use std::time::Duration;
 #[test]
 fn spawns_and_captures_output() {
     // child prints "READY" then sleeps; we read the parsed grid
-    let mut app = AppInstance::spawn("sh", &["-c".into(), "printf READY; sleep 1".into()], 20, 5).unwrap();
+    let mut app = AppInstance::spawn("sh", &["-c".into(), "printf READY; sleep 1".into()], 20, 5, None).unwrap();
     // give the reader thread a moment
     std::thread::sleep(Duration::from_millis(300));
     let grid = app.snapshot();
@@ -15,7 +15,7 @@ fn spawns_and_captures_output() {
 
 #[test]
 fn resize_changes_grid_dims() {
-    let mut app = AppInstance::spawn("sh", &["-c".into(), "sleep 1".into()], 20, 5).unwrap();
+    let mut app = AppInstance::spawn("sh", &["-c".into(), "sleep 1".into()], 20, 5, None).unwrap();
     app.resize(30, 8);
     let grid = app.snapshot();
     assert_eq!(grid.width(), 30);

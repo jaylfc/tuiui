@@ -14,6 +14,12 @@ pub struct AppEntry {
     /// grouped under "Apps".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
+    /// Prompt for a working directory on launch (overrides the catalog flag).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requires_cwd: Option<bool>,
+    /// Fixed working directory; when set, launches there and skips the picker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
 }
 
 /// Top-level configuration for tuiui.
@@ -76,7 +82,7 @@ impl Default for Config {
             auto_tile: false,
             theme: "midnight".into(),
             apps: vec![
-                AppEntry { name: "shell".into(), command: default_shell(), args: vec![], category: Some("Shell".into()) },
+                AppEntry { name: "shell".into(), command: default_shell(), args: vec![], category: Some("Shell".into()), requires_cwd: None, cwd: None },
             ],
             launcher: vec![],
         }

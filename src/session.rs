@@ -296,8 +296,8 @@ impl SessionCore {
     fn build_launcher_apps(cfg: &Config) -> Vec<AppEntry> {
         // Pinned tuiui actions first (open the store / settings windows).
         let mut apps = vec![
-            AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()) },
-            AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()) },
+            AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
+            AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
         ];
         apps.extend(cfg.launcher_apps());
         for a in &mut apps {
@@ -643,6 +643,12 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
     /// is added (silently drops the launch request — the caller can surface an
     /// error later via a `CoreMsg` notification once that protocol exists).
     fn launch(&mut self, name: String, command: String, args: Vec<String>) {
+        self.launch_in(name, command, args, None);
+    }
+
+    /// Spawn a new PTY-backed window, starting the child in `cwd` (or the user's
+    /// home when `None`).
+    fn launch_in(&mut self, name: String, command: String, args: Vec<String>, cwd: Option<std::path::PathBuf>) {
         // Cascade new windows with a generous offset so each one is clearly
         // visible (not buried under the previous window), clamped so the whole
         // window stays on-screen within the work area.
@@ -658,7 +664,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         let rect = Rect::new(x, y, win_w, win_h);
         let id = self.wm.add_window(name.clone(), rect);
         let content = self.wm.get(id).unwrap().content_rect();
-        match AppInstance::spawn(&command, &args, content.w.max(1), content.h.max(1)) {
+        match AppInstance::spawn(&command, &args, content.w.max(1), content.h.max(1), cwd.as_deref()) {
             Ok(app) => {
                 self.contents.insert(id, WinContent::App(app));
                 self.titles.push((id, name));

@@ -1,7 +1,7 @@
 use tuiui::launcher::{Launcher, LauncherMode};
 use tuiui::config::AppEntry;
 
-fn entry(n: &str) -> AppEntry { AppEntry { name: n.into(), command: n.into(), args: vec![], category: None } }
+fn entry(n: &str) -> AppEntry { AppEntry { name: n.into(), command: n.into(), args: vec![], category: None, requires_cwd: None, cwd: None } }
 fn launcher() -> Launcher {
     Launcher::new(vec![entry("btop"), entry("lazygit"), entry("yazi"), entry("helix")])
 }
@@ -63,7 +63,7 @@ fn menu_render_exposes_clickable_items() {
 
 #[test]
 fn categories_group_with_headers() {
-    let cat = |n: &str, c: &str| AppEntry { name: n.into(), command: n.into(), args: vec![], category: Some(c.into()) };
+    let cat = |n: &str, c: &str| AppEntry { name: n.into(), command: n.into(), args: vec![], category: Some(c.into()), requires_cwd: None, cwd: None };
     let mut l = Launcher::new(vec![cat("btop","System"), cat("lazygit","Git"), cat("top","System")]);
     l.toggle_menu();
     let r = l.render(120, 40);

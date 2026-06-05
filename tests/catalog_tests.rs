@@ -33,3 +33,9 @@ fn os_filtering_never_hides_unknown_apps() {
     // an app with no recipe is shown everywhere (never falsely hidden)
     assert!(runs_on_current_os("definitely-not-a-real-app-xyz"));
 }
+
+#[test]
+fn ai_tools_require_cwd() {
+    assert!(tuiui::catalog::recipe("Claude Code").unwrap().requires_cwd);
+    assert!(!tuiui::catalog::recipe("btop").map(|r| r.requires_cwd).unwrap_or(false));
+}

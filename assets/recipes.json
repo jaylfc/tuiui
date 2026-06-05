@@ -26,6 +26,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "Amp": {
@@ -36,6 +37,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "Argonaut": {
@@ -55,6 +57,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "Backlog.md": {
@@ -165,6 +168,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "Claude Code Bridge": {
@@ -204,6 +208,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "Continue CLI": {
@@ -213,6 +218,7 @@
    "macos",
    "linux"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "CoreFreq": {
@@ -240,6 +246,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "CuTE": {
@@ -374,6 +381,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "GitType": {
@@ -429,6 +437,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "GopherTube": {
@@ -476,6 +485,7 @@
    "macos",
    "linux"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "HumBLE Explorer": {
@@ -532,6 +542,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "Kyanos": {
@@ -670,6 +681,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "PesterExplorer": {
@@ -689,6 +701,7 @@
    "macos",
    "linux"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "Planor": {
@@ -755,6 +768,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "RadioGoGo": {
@@ -2955,6 +2969,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "lnav": {
@@ -3557,6 +3572,7 @@
    "linux",
    "windows"
   ],
+  "requires_cwd": true,
   "verified": true
  },
  "openmux": {

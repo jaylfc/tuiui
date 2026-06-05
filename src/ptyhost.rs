@@ -50,6 +50,7 @@ impl AppInstance {
         args: &[String],
         cols: i32,
         rows: i32,
+        cwd: Option<&std::path::Path>,
     ) -> std::io::Result<AppInstance> {
         let (cols, rows) = (cols.max(1) as u16, rows.max(1) as u16);
         let pty_system = native_pty_system();
@@ -70,8 +71,14 @@ impl AppInstance {
         // apps emit 24-bit color (captured here, re-emitted per the real terminal).
         builder.env("TERM", "xterm-256color");
         builder.env("COLORTERM", "truecolor");
-        if let Some(home) = dirs::home_dir() {
-            builder.cwd(home);
+        // Start in the requested working directory, else the user's home.
+        match cwd {
+            Some(d) => builder.cwd(d),
+            None => {
+                if let Some(home) = dirs::home_dir() {
+                    builder.cwd(home);
+                }
+            }
         }
 
         let child = pair

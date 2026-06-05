@@ -354,7 +354,7 @@ mod tests {
     use super::*;
 
     fn app(name: &str, cat: &str) -> AppEntry {
-        AppEntry { name: name.into(), command: name.into(), args: vec![], category: Some(cat.into()) }
+        AppEntry { name: name.into(), command: name.into(), args: vec![], category: Some(cat.into()), requires_cwd: None, cwd: None }
     }
 
     fn many() -> Vec<AppEntry> {

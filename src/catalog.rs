@@ -44,6 +44,10 @@ pub struct Recipe {
     /// "any/unknown" — shown everywhere.
     #[serde(default)]
     pub os: Vec<String>,
+    /// Whether launching this app should first prompt for a working directory
+    /// (true for coding agents that operate on a project tree).
+    #[serde(default)]
+    pub requires_cwd: bool,
 }
 
 /// The current operating system as a recipe `os` token ("macos", "linux", …).
@@ -117,6 +121,8 @@ pub fn detect_installed() -> Vec<AppEntry> {
             command: c.bin.clone(),
             args: Vec::new(),
             category: Some(c.category.clone()),
+            requires_cwd: Some(recipe(&c.name).map(|r| r.requires_cwd).unwrap_or(false)),
+            cwd: None,
         })
         .collect()
 }
