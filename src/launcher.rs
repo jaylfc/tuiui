@@ -57,6 +57,12 @@ impl Launcher {
         self.open.is_some()
     }
 
+    /// Replace the offered app list (e.g. after a new app is installed), keeping
+    /// the open/closed state.
+    pub fn set_items(&mut self, items: Vec<AppEntry>) {
+        self.items = items;
+    }
+
     /// The current presentation mode, if open.
     pub fn mode(&self) -> Option<LauncherMode> {
         self.open

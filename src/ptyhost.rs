@@ -18,12 +18,27 @@ const DEFAULT_FG: Rgba = Rgba { r: 200, g: 208, b: 220, a: 255 };
 // cells blend seamlessly into the window rather than showing a mismatched fill.
 const DEFAULT_BG: Rgba = Rgba { r: 17, g: 20, b: 29, a: 255 };
 
-/// No-op event listener — Tuiui polls the grid via [`AppInstance::snapshot`]
-/// rather than reacting to terminal events (bell, title changes, etc.) yet.
+/// Forwards the embedded terminal's replies back to the child over the PTY.
+///
+/// Apps that probe the terminal — e.g. `tetris` moving the cursor to `999;999`
+/// and sending `ESC[6n` to learn the screen size, or a primary device-attributes
+/// query — expect an answer on their stdin. The emulator generates those replies
+/// as [`Event::PtyWrite`]; without forwarding them the app sees silence (tetris
+/// concluded "terminal too small" and exited). Tuiui still polls the grid via
+/// [`AppInstance::snapshot`]; this only handles the write-back replies.
 #[derive(Clone)]
-struct NoopListener;
-impl EventListener for NoopListener {
-    fn send_event(&self, _event: Event) {}
+struct PtyResponder {
+    writer: Arc<Mutex<Box<dyn Write + Send>>>,
+}
+impl EventListener for PtyResponder {
+    fn send_event(&self, event: Event) {
+        if let Event::PtyWrite(text) = event {
+            if let Ok(mut w) = self.writer.lock() {
+                let _ = w.write_all(text.as_bytes());
+                let _ = w.flush();
+            }
+        }
+    }
 }
 
 /// Hosts a child process running inside a pseudo-terminal.
@@ -33,9 +48,9 @@ impl EventListener for NoopListener {
 /// faithfully render demanding TUIs such as `btop`). [`snapshot`](Self::snapshot)
 /// converts the current emulator grid into a Tuiui [`CellBuffer`].
 pub struct AppInstance {
-    term: Arc<Mutex<Term<NoopListener>>>,
+    term: Arc<Mutex<Term<PtyResponder>>>,
     master: Box<dyn portable_pty::MasterPty + Send>,
-    writer: Box<dyn Write + Send>,
+    writer: Arc<Mutex<Box<dyn Write + Send>>>,
     child: Box<dyn portable_pty::Child + Send + Sync>,
     cols: u16,
     rows: u16,
@@ -87,20 +102,23 @@ impl AppInstance {
             .map_err(|e| std::io::Error::other(e.to_string()))?;
         drop(pair.slave);
 
-        let term = Arc::new(Mutex::new(Term::new(
-            Config::default(),
-            &TermSize::new(cols as usize, rows as usize),
-            NoopListener,
-        )));
-
         let mut reader = pair
             .master
             .try_clone_reader()
             .map_err(|e| std::io::Error::other(e.to_string()))?;
-        let writer = pair
-            .master
-            .take_writer()
-            .map_err(|e| std::io::Error::other(e.to_string()))?;
+        let writer: Arc<Mutex<Box<dyn Write + Send>>> = Arc::new(Mutex::new(
+            pair.master
+                .take_writer()
+                .map_err(|e| std::io::Error::other(e.to_string()))?,
+        ));
+
+        // The emulator's reply events (DSR/DA responses) are written back to the
+        // child over the same PTY writer.
+        let term = Arc::new(Mutex::new(Term::new(
+            Config::default(),
+            &TermSize::new(cols as usize, rows as usize),
+            PtyResponder { writer: writer.clone() },
+        )));
 
         // Reader thread: pump PTY bytes through the emulator. The `Processor`
         // persists across reads so partial escape sequences are handled.
@@ -170,8 +188,10 @@ impl AppInstance {
 
     /// Forward raw input bytes to the child.
     pub fn write_input(&mut self, bytes: &[u8]) {
-        let _ = self.writer.write_all(bytes);
-        let _ = self.writer.flush();
+        if let Ok(mut w) = self.writer.lock() {
+            let _ = w.write_all(bytes);
+            let _ = w.flush();
+        }
     }
 
     /// Kill the child process.

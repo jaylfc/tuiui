@@ -350,6 +350,15 @@ impl SessionCore {
         apps
     }
 
+    /// Re-scan `$PATH` and rebuild the launcher's app list when it is about to
+    /// open, so a newly-installed app appears without a daemon restart.
+    fn refresh_launcher_if_closed(&mut self) {
+        if !self.launcher.is_open() {
+            crate::catalog::refresh_installed();
+            self.launcher.set_items(Self::build_launcher_apps(&self.cfg));
+        }
+    }
+
     /// Whether the launcher (menu or Spotlight) is currently open.
     pub fn launcher_open(&self) -> bool {
         self.launcher.is_open()
@@ -478,8 +487,14 @@ impl SessionCore {
                     }
                 }
             }
-            ClientMsg::ToggleMenu => self.launcher.toggle_menu(),
-            ClientMsg::ToggleSpotlight => self.launcher.toggle_spotlight(),
+            ClientMsg::ToggleMenu => {
+                self.refresh_launcher_if_closed();
+                self.launcher.toggle_menu();
+            }
+            ClientMsg::ToggleSpotlight => {
+                self.refresh_launcher_if_closed();
+                self.launcher.toggle_spotlight();
+            }
             ClientMsg::LauncherChar(c) => self.launcher.type_char(c),
             ClientMsg::LauncherBackspace => self.launcher.backspace(),
             ClientMsg::LauncherUp => self.launcher.move_up(),
