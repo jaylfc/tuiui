@@ -181,3 +181,16 @@ fn desktop_image_icon_emits_thumbnail_placement() {
     core.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn cascade_keyboard_launches_app_from_submenu() {
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::ToggleMenu);
+    assert!(core.launcher_open_for_test());
+    let before = core.window_count();
+    core.apply(ClientMsg::LauncherRight); // descend into the first category
+    core.apply(ClientMsg::LauncherEnter); // launch the first app in it
+    assert!(!core.launcher_open_for_test()); // menu closed after launch
+    assert_eq!(core.window_count(), before + 1);
+    core.shutdown();
+}

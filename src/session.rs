@@ -540,6 +540,12 @@ impl SessionCore {
         self.launcher.is_open()
     }
 
+    /// Whether the launcher is open (integration tests).
+    #[doc(hidden)]
+    pub fn launcher_open_for_test(&self) -> bool {
+        self.launcher.is_open()
+    }
+
     /// Whether the Spotlight overlay specifically is open (the loop routes typed
     /// characters to the query only in this mode).
     pub fn spotlight_open(&self) -> bool {
@@ -678,9 +684,20 @@ impl SessionCore {
             ClientMsg::LauncherLeft => self.launcher.collapse(),
             ClientMsg::LauncherRight => self.launcher.expand(),
             ClientMsg::LauncherEnter => {
-                if let Some(e) = self.launcher.selected_entry() {
-                    self.launcher.close();
-                    self.launch_entry(e);
+                match self.launcher.mode() {
+                    Some(crate::launcher::LauncherMode::Menu) => {
+                        if let Some(app) = self.launcher.activate() {
+                            self.launcher.close();
+                            self.launch_entry(app);
+                        }
+                    }
+                    Some(crate::launcher::LauncherMode::Spotlight) => {
+                        if let Some(app) = self.launcher.selected_entry() {
+                            self.launcher.close();
+                            self.launch_entry(app);
+                        }
+                    }
+                    None => {}
                 }
             }
             ClientMsg::LauncherEsc => self.launcher.close(),
@@ -1267,18 +1284,40 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             return;
         }
 
-        // An open launcher captures the next click: launch an item, or dismiss.
-        if kind == MouseKind::Down && self.launcher.is_open() {
-            let rendered = self.launcher.render(self.w, self.h);
-            for (entry, r) in rendered.items {
-                if r.contains(p) {
-                    self.launcher.close();
-                    self.launch_entry(entry);
+        // An open launcher captures all clicks/moves: in Menu mode a move flies
+        // out the hovered submenu and a click descends/launches; in Spotlight a
+        // click launches the hit row. Nothing leaks through to window routing.
+        if self.launcher.is_open() {
+            match (self.launcher.mode(), kind) {
+                (Some(crate::launcher::LauncherMode::Menu), MouseKind::Drag) => {
+                    self.launcher.hover(p);
                     return;
                 }
+                (Some(crate::launcher::LauncherMode::Menu), MouseKind::Down) => {
+                    if let Some(app) = self.launcher.click(p) {
+                        self.launcher.close();
+                        self.launch_entry(app);
+                    } else if !self.launcher.point_in_menu(p) {
+                        self.launcher.close();
+                    }
+                    return;
+                }
+                (Some(crate::launcher::LauncherMode::Menu), _) => return,
+                (Some(crate::launcher::LauncherMode::Spotlight), MouseKind::Down) => {
+                    let rendered = self.launcher.render(self.w, self.h);
+                    let hit = rendered
+                        .items
+                        .into_iter()
+                        .find(|(_, r)| r.contains(p))
+                        .map(|(entry, _)| entry);
+                    self.launcher.close();
+                    if let Some(entry) = hit {
+                        self.launch_entry(entry);
+                    }
+                    return;
+                }
+                _ => {}
             }
-            self.launcher.close();
-            return;
         }
 
         // An open tray popover captures the next click: apply its intent, or

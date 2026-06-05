@@ -38,16 +38,20 @@ fn spotlight_query_filters() {
 
 #[test]
 fn navigation_and_selection() {
-    // No categories set, so all sort under "Apps" alphabetically:
-    // btop, helix, lazygit, yazi.
+    // No categories set, so all group under a single "Apps" submenu, sorted
+    // alphabetically inside it: btop, helix, lazygit, yazi.
     let mut l = launcher();
     l.toggle_menu();
-    assert_eq!(l.selected_entry().unwrap().name, "btop");
+    // Root holds the single "Apps" category.
+    assert_eq!(l.menu_labels(), vec!["Apps"]);
+    // Descend into it and navigate by focused leaf.
+    l.expand();
+    assert_eq!(l.focused_label(), Some("btop".to_string()));
     l.move_down();
     l.move_down();
-    assert_eq!(l.selected_entry().unwrap().name, "lazygit");
+    assert_eq!(l.focused_label(), Some("lazygit".to_string()));
     l.move_up();
-    assert_eq!(l.selected_entry().unwrap().name, "helix");
+    assert_eq!(l.focused_label(), Some("helix".to_string()));
 }
 
 #[test]
@@ -55,10 +59,9 @@ fn menu_render_exposes_clickable_items() {
     let mut l = launcher();
     l.toggle_menu();
     let r = l.render(120, 40);
+    // The single "Apps" category auto-expands, so its 4 leaves are clickable.
     assert_eq!(r.items.len(), 4);
     assert!(!r.layers.is_empty());
-    // menubar row 0, dropdown border row 1, "APPS" header row 2, first item row 3
-    assert_eq!(r.items[0].1.y, 3);
 }
 
 #[test]
@@ -66,10 +69,16 @@ fn categories_group_with_headers() {
     let cat = |n: &str, c: &str| AppEntry { name: n.into(), command: n.into(), args: vec![], category: Some(c.into()), requires_cwd: None, cwd: None };
     let mut l = Launcher::new(vec![cat("btop","System"), cat("lazygit","Git"), cat("top","System")]);
     l.toggle_menu();
-    let r = l.render(120, 40);
-    // 3 clickable items (headers are not items)
-    assert_eq!(r.items.len(), 3);
-    // sorted by category then name: Git(lazygit), System(btop, top)
-    let names: Vec<_> = r.items.iter().map(|(e,_)| e.name.clone()).collect();
-    assert_eq!(names, vec!["lazygit", "btop", "top"]);
+    // Root groups by category, sorted: Git, System.
+    assert_eq!(l.menu_labels(), vec!["Git", "System"]);
+    // Descend into Git → its single leaf (lazygit).
+    l.expand();
+    assert_eq!(l.focused_label(), Some("lazygit".to_string()));
+    // Back to root, move to System and descend → leaves sort by name: btop, top.
+    l.collapse();
+    l.move_down();
+    l.expand();
+    assert_eq!(l.focused_label(), Some("btop".to_string()));
+    l.move_down();
+    assert_eq!(l.focused_label(), Some("top".to_string()));
 }
