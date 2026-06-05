@@ -16,6 +16,7 @@ It's a multiplexer at heart (apps run as real child processes in PTYs and are co
 - **App launcher** — a Windows-Start-menu-style multi-column dropdown *and* a Spotlight search overlay, with apps grouped by category.
 - **App store** — browse/search/install from a curated, **100%-verified** catalog of ~590 TUIs (incl. a dedicated **AI** category: Claude Code, Gemini CLI, Aider, opencode, Codex, Crush, Goose, Plandex, and more), OS-aware so Linux-only tools never show on macOS and vice-versa.
 - **Custom apps** — add your own launcher entries (name + command) from **Settings → Apps**.
+- **Working-directory picker** — launching a coding agent (Claude Code, Aider, …) opens a browsable file-tree so it starts in the project you choose; remembers recent directories.
 - **Theming** — four built-in palettes (midnight, nord, gruvbox, dracula), switchable live from **Settings → Appearance**.
 - **Persistent daemon + thin client** (tmux-style): windows and processes survive detach and SSH disconnects.
 - **In-app updater** — check for and install updates from **Settings → Updates**.
@@ -37,6 +38,8 @@ tuiui uses a **leader key** (`Ctrl+Space`) so its shortcuts never collide with m
 | `Ctrl+Space` then `q` / `Q` | Detach (keep running) / shut down the daemon |
 
 Set the grid (rows × columns), gap, and auto-tile from **Settings → Windows**.
+
+In the **working-directory picker** (opens when launching a coding agent): `↑`/`↓` to move, `→`/`←` to expand/collapse, `.` to toggle hidden dirs, `Enter` to open there, `Esc` to cancel.
 
 Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button (top-right) to exit, titlebar buttons (`– ▢ ✕`), drag titlebars/edges to move/resize, drag a window to a screen edge to snap it into a grid cell, click a tray indicator (clock/volume/WiFi/…) for its popover, and click dock pills to focus.
 
@@ -128,6 +131,9 @@ grid_cols = 3
 tile_gap = 0
 auto_tile = false
 
+# Working-directory picker (for coding agents flagged requires_cwd)
+default_project_dir = "~/Development"   # picker opens here (default: ~)
+
 # Auto-started at launch (and shown in the dock)
 [[apps]]
 name = "btop"
@@ -161,7 +167,7 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 - **✅ Slice 5 — Theming:** four live-switchable palettes from Settings → Appearance.
 - **✅ Menubar tray:** clock/CPU/mem/volume/WiFi/Bluetooth/battery with host-control popovers (macOS + Linux backends).
 - **✅ Grid tiling:** configurable R×C grid — drag-to-cell, auto-tile, send-to-cell, tile-all.
-- **Working-directory selector** — a file-tree picker on launch for apps that need a project directory (e.g. the AI CLIs). *(designed, next up)*
+- **✅ Working-directory picker:** a browsable file-tree on launch for apps flagged `requires_cwd` (the AI CLIs); remembers recent dirs.
 - **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client).
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 
