@@ -50,6 +50,15 @@ pub struct Config {
     /// Active color theme name (one of the preset names in `theme::PRESETS`).
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// Root directory the working-directory picker opens at (default `~`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_project_dir: Option<String>,
+    /// Recently chosen working directories (most-recent first, capped).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recent_dirs: Vec<String>,
+    /// Show hidden (dot) directories in the picker by default.
+    #[serde(default)]
+    pub show_hidden_dirs: bool,
     /// Ordered list of apps auto-started at launch (and shown in the dock).
     pub apps: Vec<AppEntry>,
     /// Apps offered in the launcher menu / spotlight. Falls back to `apps`
@@ -81,6 +90,9 @@ impl Default for Config {
             tile_gap: 0,
             auto_tile: false,
             theme: "midnight".into(),
+            default_project_dir: None,
+            recent_dirs: Vec::new(),
+            show_hidden_dirs: false,
             apps: vec![
                 AppEntry { name: "shell".into(), command: default_shell(), args: vec![], category: Some("Shell".into()), requires_cwd: None, cwd: None },
             ],

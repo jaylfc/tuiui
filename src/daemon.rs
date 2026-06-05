@@ -114,6 +114,7 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             store_focused: core.focused_is_store(),
             settings_focused: core.focused_is_settings(),
             settings_editing: core.settings_editing(),
+            dirpicker_open: core.dirpicker_open(),
             detach: core.quit_requested(),
         };
         let mut buf = serde_json::to_vec(&FrameMsg { changes, cursor: frame.cursor, flags })

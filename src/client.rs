@@ -98,6 +98,17 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                             KeyCode::Char(c) if f.spotlight_open && !ctrl => send(&mut out_stream, &ClientMsg::LauncherChar(c))?,
                             _ => {}
                         }
+                    } else if f.dirpicker_open {
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::DirPickerCancel)?,
+                            KeyCode::Enter => send(&mut out_stream, &ClientMsg::DirPickerConfirm)?,
+                            KeyCode::Up => send(&mut out_stream, &ClientMsg::DirPickerUp)?,
+                            KeyCode::Down => send(&mut out_stream, &ClientMsg::DirPickerDown)?,
+                            KeyCode::Right => send(&mut out_stream, &ClientMsg::DirPickerExpand)?,
+                            KeyCode::Left => send(&mut out_stream, &ClientMsg::DirPickerCollapse)?,
+                            KeyCode::Char('.') => send(&mut out_stream, &ClientMsg::DirPickerToggleHidden)?,
+                            _ => {}
+                        }
                     } else if is_leader {
                         leader = true;
                     } else if f.store_focused {

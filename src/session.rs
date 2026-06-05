@@ -160,6 +160,14 @@ pub enum ClientMsg {
     SettingsCancelEdit,
     /// Settings: close the settings window (Escape).
     SettingsClose,
+    /// Working-directory picker: navigation, expand/collapse, confirm, cancel.
+    DirPickerUp,
+    DirPickerDown,
+    DirPickerExpand,
+    DirPickerCollapse,
+    DirPickerConfirm,
+    DirPickerCancel,
+    DirPickerToggleHidden,
     /// Shut down the daemon entirely (kills all apps). Sent by `tuiui kill`.
     Shutdown,
 }
@@ -219,6 +227,8 @@ pub struct SessionCore {
     backend: Box<dyn crate::system::Backend>,
     /// Target-cell highlight shown while dragging a window near an edge.
     drag_preview: Option<Rect>,
+    /// The working-directory picker, open while a flagged launch awaits a dir.
+    dirpicker: Option<crate::dirpicker::DirPicker>,
 }
 
 impl SessionCore {
@@ -247,7 +257,13 @@ impl SessionCore {
             tray: crate::tray::Tray::new(),
             backend: crate::system::backend(),
             drag_preview: None,
+            dirpicker: None,
         }
+    }
+
+    /// Whether the working-directory picker overlay is open.
+    pub fn dirpicker_open(&self) -> bool {
+        self.dirpicker.is_some()
     }
 
     /// The current tray segments, laid out from the live snapshot.
@@ -511,8 +527,55 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     }
                 }
             }
+            ClientMsg::DirPickerUp => { if let Some(d) = self.dirpicker.as_mut() { d.move_up(); } }
+            ClientMsg::DirPickerDown => { if let Some(d) = self.dirpicker.as_mut() { d.move_down(); } }
+            ClientMsg::DirPickerExpand => { if let Some(d) = self.dirpicker.as_mut() { d.expand(); } }
+            ClientMsg::DirPickerCollapse => { if let Some(d) = self.dirpicker.as_mut() { d.collapse(); } }
+            ClientMsg::DirPickerToggleHidden => { if let Some(d) = self.dirpicker.as_mut() { d.toggle_hidden(); } }
+            ClientMsg::DirPickerCancel => { self.dirpicker = None; }
+            ClientMsg::DirPickerConfirm => self.confirm_dirpicker(),
             ClientMsg::Shutdown => self.shutdown = true,
         }
+    }
+
+    /// Resolve the open picker: launch its pending app in the chosen directory
+    /// and record the directory in the recent list.
+    fn confirm_dirpicker(&mut self) {
+        let Some(picker) = self.dirpicker.take() else { return };
+        let (pending, path) = picker.confirm();
+        // Record in the MRU (most-recent first, deduped, capped at 10).
+        let p = path.to_string_lossy().to_string();
+        self.cfg.recent_dirs.retain(|d| d != &p);
+        self.cfg.recent_dirs.insert(0, p);
+        self.cfg.recent_dirs.truncate(10);
+        let _ = self.cfg.save();
+        self.launch_in(pending.name, pending.command, pending.args, Some(path));
+    }
+
+    /// Launch an app, first opening the working-directory picker when it is
+    /// flagged `requires_cwd` and has no fixed directory.
+    fn launch_maybe_cwd(&mut self, name: String, command: String, args: Vec<String>, requires_cwd: bool, fixed: Option<String>) {
+        if let Some(dir) = fixed {
+            self.launch_in(name, command, args, Some(expand_tilde(&dir)));
+        } else if requires_cwd {
+            self.dirpicker = Some(crate::dirpicker::DirPicker::new(
+                self.picker_root(),
+                crate::dirpicker::PendingLaunch { name, command, args },
+            ));
+        } else {
+            self.launch(name, command, args);
+        }
+    }
+
+    /// The directory the picker opens at: the configured project dir (tilde
+    /// expanded) or the user's home.
+    fn picker_root(&self) -> std::path::PathBuf {
+        self.cfg
+            .default_project_dir
+            .as_deref()
+            .map(expand_tilde)
+            .or_else(dirs::home_dir)
+            .unwrap_or_else(|| std::path::PathBuf::from("/"))
     }
 
     /// Open the settings window, or focus it if it's already open.
@@ -620,7 +683,10 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         let app = self.focused_store_mut().and_then(|s| s.selected_app());
         let Some(app) = app else { return };
         if crate::catalog::is_installed(&app.bin) {
-            self.launch(app.name.clone(), app.bin.clone(), Vec::new());
+            // Coding agents (flagged, or in the AI category) prompt for a dir.
+            let requires_cwd = crate::catalog::recipe(&app.name).map(|r| r.requires_cwd).unwrap_or(false)
+                || app.category == "AI";
+            self.launch_maybe_cwd(app.name.clone(), app.bin.clone(), Vec::new(), requires_cwd, None);
         } else {
             let cmd = store::install_command(app);
             self.launch(format!("install: {}", app.name), "sh".into(), vec!["-lc".into(), cmd]);
@@ -628,12 +694,13 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
     }
 
     /// Activate a launcher entry: open the store/settings for the pinned tuiui
-    /// actions, otherwise spawn the app in a new window.
+    /// actions, otherwise spawn the app (prompting for a working directory when
+    /// the entry is flagged `requires_cwd` and has no fixed `cwd`).
     fn launch_entry(&mut self, e: AppEntry) {
         match e.command.as_str() {
             "@store" => self.open_store(),
             "@settings" => self.open_settings(),
-            _ => self.launch(e.name, e.command, e.args),
+            _ => self.launch_maybe_cwd(e.name, e.command, e.args, e.requires_cwd.unwrap_or(false), e.cwd),
         }
     }
 
@@ -678,6 +745,23 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
 
     /// Route a mouse event through dock hit-testing then the WM input router.
     fn handle_mouse(&mut self, kind: MouseKind, p: Point) {
+        // The working-directory picker captures clicks while open: a click on a
+        // row selects + expands it; a click outside the box cancels.
+        if kind == MouseKind::Down && self.dirpicker.is_some() {
+            let (w, h) = (self.w, self.h);
+            let hit = self.dirpicker.as_ref().and_then(|d| d.row_at(p, w, h));
+            match hit {
+                Some(i) => {
+                    if let Some(d) = self.dirpicker.as_mut() {
+                        d.select(i);
+                        d.expand();
+                    }
+                }
+                None => self.dirpicker = None,
+            }
+            return;
+        }
+
         // An open launcher captures the next click: launch an item, or dismiss.
         if kind == MouseKind::Down && self.launcher.is_open() {
             let rendered = self.launcher.render(self.w, self.h);
@@ -947,6 +1031,11 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             layers.extend(self.tray.render(self.w, self.h, &st).layers);
         }
 
+        // The working-directory picker renders on top of the whole desktop.
+        if let Some(d) = &self.dirpicker {
+            layers.extend(d.render(self.w, self.h));
+        }
+
         Frame { layers, cursor: Some(self.cursor) }
     }
 
@@ -976,6 +1065,20 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         }
         self.contents.clear();
     }
+}
+
+/// Expand a leading `~` to the user's home directory.
+fn expand_tilde(s: &str) -> std::path::PathBuf {
+    if let Some(rest) = s.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(rest);
+        }
+    } else if s == "~" {
+        if let Some(home) = dirs::home_dir() {
+            return home;
+        }
+    }
+    std::path::PathBuf::from(s)
 }
 
 /// True when `p` is within `threshold` cells of any edge of `work` — the band in

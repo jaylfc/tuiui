@@ -30,6 +30,9 @@ pub struct Flags {
     /// so the client forwards typed characters instead of treating them as
     /// navigation commands.
     pub settings_editing: bool,
+    /// The working-directory picker overlay is open (the client routes navigation
+    /// keys to it).
+    pub dirpicker_open: bool,
     /// The daemon asked the client to detach (e.g. the Quit button was clicked).
     pub detach: bool,
 }
