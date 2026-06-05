@@ -250,4 +250,70 @@ impl<F: FsOps> DesktopIcons<F> {
             None => DesktopAction::Open(icon.path.clone()),
         });
     }
+
+    /// Render the icon layer into a `w×h` buffer (transparent background so the
+    /// wallpaper shows through; only icon tiles draw).
+    pub fn render(&self, w: i32, h: i32) -> crate::buffer::CellBuffer {
+        use crate::cell::{Cell, Rgba};
+        const FG: Rgba = Rgba { r: 220, g: 226, b: 236, a: 255 };
+        const SEL_BG: Rgba = Rgba { r: 45, g: 58, b: 85, a: 200 };
+        let transparent = Rgba::TRANSPARENT;
+        let mut buf = crate::buffer::CellBuffer::new(w, h);
+        buf.fill(Cell { ch: ' ', fg: FG, bg: transparent, attrs: Default::default() });
+        for (i, icon) in self.icons.iter().enumerate() {
+            let r = Self::tile_rect(icon.cell);
+            let selected = self.selection.contains(&i);
+            let bg = if selected { SEL_BG } else { transparent };
+            // glyph row
+            let glyph = glyph_for(icon.role);
+            buf.set(r.x + ICON_W / 2, r.y, Cell { ch: glyph, fg: FG, bg, attrs: Default::default() });
+            // label row (centered-ish, truncated)
+            let name: String = icon.label.chars().take((ICON_W - 1) as usize).collect();
+            // paint selection bg across the label width, then write the string
+            for k in 0..name.chars().count() as i32 {
+                buf.set(r.x + k, r.y + 1, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() });
+            }
+            buf.write_str(r.x, r.y + 1, &name, FG, bg);
+        }
+        buf
+    }
+}
+
+fn glyph_for(role: Role) -> char {
+    match role {
+        Role::Directory => '\u{1F4C1}',
+        Role::Image => '\u{1F5BC}',
+        Role::Audio => '\u{1F3B5}',
+        Role::Video => '\u{1F3AC}',
+        Role::Archive => '\u{1F4E6}',
+        Role::Pdf => '\u{1F4D5}',
+        _ => '\u{1F4C4}',
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+    use std::fs;
+
+    fn tmp(tag: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("tuiui-dtr-{}-{}", tag, std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn render_returns_screen_sized_buffer_with_label() {
+        let d = tmp("render");
+        fs::create_dir(d.join("proj")).unwrap();
+        let mut dt = DesktopIcons::new(d.clone());
+        dt.reload(&[], &BTreeMap::new());
+        dt.layout(100, 30);
+        let buf = dt.render(100, 30);
+        assert_eq!(buf.width(), 100);
+        assert_eq!(buf.height(), 30);
+        let _ = fs::remove_dir_all(&d);
+    }
 }
