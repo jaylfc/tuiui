@@ -788,6 +788,10 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         let y = (2 + n * 3).min(max_y);
         let rect = Rect::new(x, y, win_w, win_h);
         let id = self.wm.add_window(name.clone(), rect);
+        // Optionally open maximized (fills the work area) before sizing the PTY.
+        if self.cfg.launch_maximized {
+            self.wm.maximize_toggle(id);
+        }
         let content = self.wm.get(id).unwrap().content_rect();
         match AppInstance::spawn(&command, &args, content.w.max(1), content.h.max(1), cwd.as_deref()) {
             Ok(app) => {

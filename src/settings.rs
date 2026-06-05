@@ -77,7 +77,7 @@ impl Settings {
     /// Number of interactive rows in the current section.
     fn item_count(&self) -> usize {
         match self.section {
-            0 => 6,                            // snapping, threshold, grid rows/cols, gap, auto-tile
+            0 => 7,                            // snapping, threshold, grid rows/cols, gap, auto-tile, launch-maximized
             1 => 2,                            // shadows, theme
             2 => 2,                            // check, install
             3 => self.cfg.launcher.len() + 1,  // custom apps + "＋ Add app…"
@@ -180,6 +180,7 @@ impl Settings {
                 };
             }
             (0, 5) => self.cfg.auto_tile = flip(self.cfg.auto_tile, dir),
+            (0, 6) => self.cfg.launch_maximized = flip(self.cfg.launch_maximized, dir),
             (1, 0) => self.cfg.window_shadows = flip(self.cfg.window_shadows, dir),
             (1, 1) => {
                 let presets = crate::theme::PRESETS;
@@ -303,6 +304,7 @@ impl Settings {
                 self.row(&mut buf, cx, 6, 3, "Grid columns", format!("\u{25C2} {} \u{25B8}", self.cfg.grid_cols));
                 self.row(&mut buf, cx, 7, 4, "Tile gap (cells)", format!("\u{25C2} {} \u{25B8}", self.cfg.tile_gap));
                 self.row(&mut buf, cx, 8, 5, "Auto-tile windows", toggle_val(self.cfg.auto_tile));
+                self.row(&mut buf, cx, 9, 6, "Launch maximized", toggle_val(self.cfg.launch_maximized));
             }
             1 => {
                 self.row(&mut buf, cx, 3, 0, "Window shadows", toggle_val(self.cfg.window_shadows));

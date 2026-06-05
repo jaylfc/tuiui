@@ -47,6 +47,9 @@ pub struct Config {
     /// Auto-arrange all windows into the grid.
     #[serde(default)]
     pub auto_tile: bool,
+    /// Open new app windows maximized (filling the work area).
+    #[serde(default)]
+    pub launch_maximized: bool,
     /// Active color theme name (one of the preset names in `theme::PRESETS`).
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -89,6 +92,7 @@ impl Default for Config {
             grid_cols: 2,
             tile_gap: 0,
             auto_tile: false,
+            launch_maximized: false,
             theme: "midnight".into(),
             default_project_dir: None,
             recent_dirs: Vec::new(),
