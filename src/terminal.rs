@@ -18,15 +18,25 @@ pub struct Caps {
 }
 
 impl Caps {
-    /// Detect capabilities from `COLORTERM` and `TERM_PROGRAM` environment variables.
+    /// Detect capabilities from the environment. Uses `TERM_PROGRAM` (set locally)
+    /// **and** `TERM` — the latter is forwarded over SSH (e.g. `xterm-ghostty`,
+    /// `xterm-kitty`, `wezterm`), so graphics still work in a remote session where
+    /// `TERM_PROGRAM`/`COLORTERM` are stripped.
     pub fn detect() -> Caps {
         let ct = std::env::var("COLORTERM").unwrap_or_default();
-        let truecolor = ct.contains("truecolor") || ct.contains("24bit");
-        // Pixel mouse (SGR 1016) — conservatively off unless a known supporting terminal.
-        let term = std::env::var("TERM_PROGRAM").unwrap_or_default();
-        let pixel_mouse = matches!(term.as_str(), "kitty" | "WezTerm" | "ghostty");
-        let kitty_graphics = pixel_mouse; // same set of terminals support graphics
-        Caps { truecolor, pixel_mouse, kitty_graphics }
+        let term_program = std::env::var("TERM_PROGRAM").unwrap_or_default();
+        let term = std::env::var("TERM").unwrap_or_default();
+        let known = matches!(term_program.as_str(), "kitty" | "WezTerm" | "ghostty")
+            || term.contains("ghostty")
+            || term.contains("kitty")
+            || term.contains("wezterm");
+        // Manual override: `TUIUI_GRAPHICS=1` forces graphics on when detection
+        // can't see the terminal (e.g. SSH with TERM stripped to xterm-256color).
+        let force = std::env::var("TUIUI_GRAPHICS").map(|v| v != "0").unwrap_or(false);
+        let graphics = known || force;
+        // Known terminals are all truecolor; otherwise trust COLORTERM.
+        let truecolor = graphics || ct.contains("truecolor") || ct.contains("24bit");
+        Caps { truecolor, pixel_mouse: graphics, kitty_graphics: graphics }
     }
 }
 

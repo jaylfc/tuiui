@@ -744,6 +744,8 @@ impl SessionCore {
                 self.w = w;
                 self.h = h;
                 self.wm.set_work_area(Rect::new(0, 1, w, h - 2));
+                // Re-fit the desktop grid so icons stay anchored top-right.
+                self.desktop.layout(w, h);
                 // Re-fit any maximized window and its app to the new work area.
                 if let Some(id) = self.wm.focused() {
                     self.sync_app_size(id);
