@@ -26,13 +26,20 @@ fn click_dock_focuses_window() {
 }
 
 #[test]
-fn clicking_menubar_quit_button_requests_quit() {
-    use tuiui::chrome::menubar_quit_region;
+fn clicking_power_button_opens_menu_without_quitting() {
+    use tuiui::chrome::menubar_power_region;
     let mut core = SessionCore::new(80, 24, Config::default());
     assert!(!core.quit_requested());
-    let r = menubar_quit_region(80);
+    assert!(!core.power_menu_open());
+    let r = menubar_power_region(80);
+    // Clicking the "tuiui ▾" button opens the menu — it must NOT quit directly
+    // (quit now requires choosing Exit and confirming; see powermenu unit tests).
     core.apply(ClientMsg::MouseDown(Point::new(r.x, 0)));
-    assert!(core.quit_requested());
+    assert!(core.power_menu_open(), "power button should open the menu");
+    assert!(!core.quit_requested(), "opening the menu must not quit immediately");
+    // A click elsewhere dismisses the menu.
+    core.apply(ClientMsg::MouseDown(Point::new(1, 12)));
+    assert!(!core.power_menu_open(), "click outside should dismiss the menu");
     core.shutdown();
 }
 

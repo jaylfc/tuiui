@@ -1,16 +1,16 @@
 use crate::buffer::CellBuffer;
-use crate::cell::Rgba;
 use crate::compositor::Layer;
 use crate::geometry::{Point, Rect};
 use crate::window::WindowId;
 
 // ── Theme constants ────────────────────────────────────────────────────────────
 
-const QUIT_BG: Rgba = Rgba { r: 90, g: 38, b: 48, a: 255 };
+/// Label drawn for the top-left launcher button (opens the app launcher).
+const GO_LABEL: &str = " Go ";
 
-/// Label drawn for the menubar quit button (kept as a const so its width and
-/// the matching hit region stay in sync).
-const QUIT_LABEL: &str = " \u{2715} Quit ";
+/// Label drawn for the top-right power button (opens the Exit/Restart/Shutdown
+/// menu). Kept as a const so its width and the matching hit region stay in sync.
+const POWER_LABEL: &str = " tuiui \u{25be} ";
 
 // ── Public types ───────────────────────────────────────────────────────────────
 
@@ -34,40 +34,40 @@ pub fn render_menubar(width: i32, focused_app: &str, segments: &[crate::tray::Se
     let t = crate::theme::current();
     let mut buf = CellBuffer::new(width, 1);
     buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.menubar_bg, attrs: Default::default() });
-    buf.write_str(1, 0, "\u{2726} Tuiui", t.accent, t.menubar_bg);
-    // Quit button, right-aligned. write_str paints the label's own spaces with
-    // QUIT_BG, giving it a button-like fill.
-    let qx = (width - QUIT_LABEL.chars().count() as i32).max(0);
-    // Status-tray segments occupy the right side, just left of the Quit button.
-    let tray_left = segments.iter().map(|s| s.rect.x).min().unwrap_or(qx);
+    buf.write_str(0, 0, GO_LABEL, t.accent, t.active_bg);
+    // Power button, right-aligned, with a button-like fill.
+    let px = (width - POWER_LABEL.chars().count() as i32).max(0);
+    // Status-tray segments occupy the right side, just left of the power button.
+    let tray_left = segments.iter().map(|s| s.rect.x).min().unwrap_or(px);
     for s in segments {
         buf.write_str(s.rect.x, 0, &s.text, t.text, t.menubar_bg);
     }
     // Focused-app name sits between the brand and the tray, truncated so it can
-    // never overwrite a tray segment or the quit button on a narrow bar.
+    // never overwrite a tray segment or the power button on a narrow bar.
     const APP_X: i32 = 10;
-    let right_limit = tray_left.min(qx);
+    let right_limit = tray_left.min(px);
     let avail = (right_limit - 1 - APP_X).max(0) as usize;
     let app: String = focused_app.chars().take(avail).collect();
     buf.write_str(APP_X, 0, &app, t.dim, t.menubar_bg);
-    buf.write_str(qx, 0, QUIT_LABEL, t.close_fg, QUIT_BG);
+    buf.write_str(px, 0, POWER_LABEL, t.text, t.active_bg);
     Layer { z: 1000, origin: Point::new(0, 0), buf, opacity: 1.0, scissor: None }
 }
 
-/// Screen-space hit region for the menubar brand ("✦ Tuiui"), used to open the
+/// Screen-space hit region for the menubar "Go" button, used to open the
 /// launcher dropdown. Top-left of the menubar.
 pub fn menubar_brand_region() -> Rect {
-    Rect::new(0, 0, 9, 1)
+    Rect::new(0, 0, GO_LABEL.chars().count() as i32, 1)
 }
 
-/// Screen-space hit region for the menubar quit button (top row, right side).
+/// Screen-space hit region for the menubar power button ("tuiui ▾", top row,
+/// right side), used to open the Exit/Restart/Shutdown menu.
 ///
 /// Returned in the same coordinate space as [`dock_hit_regions`] so input
-/// routing can detect a quit click without coupling to chrome rendering.
-pub fn menubar_quit_region(width: i32) -> Rect {
-    let qw = QUIT_LABEL.chars().count() as i32;
-    let qx = (width - qw).max(0);
-    Rect::new(qx, 0, width - qx, 1)
+/// routing can detect the click without coupling to chrome rendering.
+pub fn menubar_power_region(width: i32) -> Rect {
+    let pw = POWER_LABEL.chars().count() as i32;
+    let px = (width - pw).max(0);
+    Rect::new(px, 0, width - px, 1)
 }
 
 /// Build a compositor [`Layer`] for the bottom dock row.

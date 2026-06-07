@@ -11,8 +11,9 @@
 //! expose on a socket.
 
 use crate::chrome::{
-    render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_quit_region, DockItem,
+    render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_power_region, DockItem,
 };
+use crate::powermenu::{PowerClick, PowerMenu, PowerOutcome};
 use crate::compositor::Layer;
 use crate::config::{AppEntry, Config};
 use crate::geometry::{Point, Rect, SnapZone};
@@ -283,6 +284,8 @@ pub struct SessionCore {
     shutdown: bool,
     /// The app launcher (menubar dropdown + Spotlight overlay).
     launcher: Launcher,
+    /// The top-right power menu (Exit / Restart / Shutdown + confirm dialogs).
+    power_menu: PowerMenu,
     /// Shared host-state snapshot refreshed by the daemon's `SystemPoller`.
     tray_state: std::sync::Arc<std::sync::RwLock<crate::system::SystemState>>,
     /// The menubar status tray (open popover state + hit-testing).
@@ -336,6 +339,7 @@ impl SessionCore {
             quit: false,
             shutdown: false,
             launcher,
+            power_menu: PowerMenu::new(),
             tray_state: std::sync::Arc::new(std::sync::RwLock::new(crate::system::SystemState::default())),
             tray: crate::tray::Tray::new(),
             backend: crate::system::backend(),
@@ -660,9 +664,12 @@ impl SessionCore {
         self.launcher.mode() == Some(crate::launcher::LauncherMode::Spotlight)
     }
 
-    /// Whether the user has requested quit (clicked the menubar quit button).
+    /// Whether the user has requested quit (Exit from the power menu).
     /// The render loop polls this each tick and exits when it returns `true`.
     pub fn quit_requested(&self) -> bool { self.quit }
+
+    /// Whether the top-right power menu (dropdown or confirm dialog) is open.
+    pub fn power_menu_open(&self) -> bool { self.power_menu.is_open() }
 
     /// Return the number of live windows (app instances spawned successfully).
     pub fn window_count(&self) -> usize { self.contents.len() }
@@ -859,7 +866,7 @@ impl SessionCore {
                         let cmd = format!(
                             "clear; echo 'Updating tuiui from {repo} …'; echo; \
 cargo install --git {repo} --force; echo; echo '────'; \
-echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"",
+echo 'Done. Open the tuiui menu (top-right) \u{2192} Shutdown, then run:  tuiui'; exec \"$SHELL\"",
                             repo = crate::REPO_URL,
                         );
                         self.launch("update tuiui".into(), "sh".into(), vec!["-lc".into(), cmd]);
@@ -1411,6 +1418,17 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             return;
         }
 
+        // The power menu (dropdown / confirm dialog) is modal while open: route
+        // the click to it and act on a confirmed choice.
+        if kind == MouseKind::Down && self.power_menu.is_open() {
+            match self.power_menu.on_click(p, self.w, self.h) {
+                PowerClick::Act(PowerOutcome::Detach) => self.quit = true,
+                PowerClick::Act(PowerOutcome::Shutdown) => self.shutdown = true,
+                PowerClick::Consumed => {}
+            }
+            return;
+        }
+
         // The working-directory picker captures clicks while open: a click on a
         // row selects + expands it; a click outside the box cancels.
         if kind == MouseKind::Down && self.dirpicker.is_some() {
@@ -1480,11 +1498,13 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         // and dock clicks are checked before normal window routing.
         if kind == MouseKind::Down {
             if menubar_brand_region().contains(p) {
+                self.power_menu.close();
                 self.launcher.toggle_menu();
                 return;
             }
-            if menubar_quit_region(self.w).contains(p) {
-                self.quit = true;
+            if menubar_power_region(self.w).contains(p) {
+                self.launcher.close();
+                self.power_menu.toggle();
                 return;
             }
             let segs = self.tray_segments_now();
@@ -1862,6 +1882,9 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         if self.help_open {
             layers.extend(crate::help::render_help(self.w, self.h));
         }
+
+        // The power menu (dropdown + confirm dialog) renders above all chrome.
+        layers.extend(self.power_menu.render(self.w, self.h));
 
         // Image placements for ImageView windows (visible only when their content
         // rect is fully unobstructed; the placeholder cells show otherwise).

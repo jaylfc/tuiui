@@ -13,6 +13,7 @@ pub mod catalog;
 pub mod store;
 pub mod settings;
 pub mod launcher;
+pub mod powermenu;
 pub mod input;
 pub mod session;
 pub mod config;
