@@ -90,6 +90,17 @@ impl LocalAppHost {
     pub fn graphics(&self, id: AppId) -> Option<MutexGuard<'_, GraphicsState>> {
         self.apps.get(&id).map(|a| a.graphics())
     }
+
+    /// Store opaque frontend metadata (window geometry/title/z) for restore.
+    /// Overwrites any previous value.
+    pub fn set_meta(&mut self, id: AppId, meta: Vec<u8>) {
+        self.meta.insert(id, meta);
+    }
+
+    /// The last metadata stored for the app, if any.
+    pub fn meta(&self, id: AppId) -> Option<&[u8]> {
+        self.meta.get(&id).map(|v| v.as_slice())
+    }
 }
 
 impl Default for LocalAppHost {
@@ -150,5 +161,25 @@ mod tests {
         assert_eq!(snap.width(), 80);
         assert_eq!(snap.height(), 24);
         host.kill(id);
+    }
+
+    #[test]
+    fn meta_round_trips() {
+        let mut host = LocalAppHost::new();
+        let id = host.spawn("true", &[], None, 80, 24).unwrap();
+        assert!(host.meta(id).is_none());
+        host.set_meta(id, vec![1, 2, 3]);
+        assert_eq!(host.meta(id), Some(&[1, 2, 3][..]));
+        host.set_meta(id, vec![9]);
+        assert_eq!(host.meta(id), Some(&[9][..]));
+    }
+
+    #[test]
+    fn remove_clears_meta() {
+        let mut host = LocalAppHost::new();
+        let id = host.spawn("true", &[], None, 80, 24).unwrap();
+        host.set_meta(id, vec![1]);
+        host.remove(id);
+        assert!(host.meta(id).is_none());
     }
 }
