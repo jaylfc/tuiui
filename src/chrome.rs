@@ -12,6 +12,10 @@ const GO_LABEL: &str = " Go ";
 /// menu). Kept as a const so its width and the matching hit region stay in sync.
 const POWER_LABEL: &str = " tuiui \u{25be} ";
 
+/// Menubar view-mode toggle glyphs (shows the CURRENT mode; click to switch).
+const MODE_DESKTOP: &str = " \u{229E} "; // ⊞  windowed desktop
+const MODE_SIMPLE: &str = " \u{25A6} ";  // ▦  full-screen single app
+
 // ── Public types ───────────────────────────────────────────────────────────────
 
 /// One entry in the dock bar — corresponds to an open window.
@@ -30,11 +34,13 @@ pub struct DockItem {
 ///
 /// The layer is 1 row tall, `width` columns wide, positioned at `(0, 0)`.
 /// It displays the brand name on the left and `focused_app` at a fixed offset.
-pub fn render_menubar(width: i32, focused_app: &str, segments: &[crate::tray::Segment]) -> Layer {
+pub fn render_menubar(width: i32, focused_app: &str, segments: &[crate::tray::Segment], simple: bool) -> Layer {
     let t = crate::theme::current();
     let mut buf = CellBuffer::new(width, 1);
     buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.menubar_bg, attrs: Default::default() });
     buf.write_str(0, 0, GO_LABEL, t.accent, t.active_bg);
+    let mode = if simple { MODE_SIMPLE } else { MODE_DESKTOP };
+    buf.write_str(4, 0, mode, t.accent, t.active_bg);
     // Power button, right-aligned, with a button-like fill.
     let px = (width - POWER_LABEL.chars().count() as i32).max(0);
     // Status-tray segments occupy the right side, just left of the power button.
@@ -57,6 +63,11 @@ pub fn render_menubar(width: i32, focused_app: &str, segments: &[crate::tray::Se
 /// launcher dropdown. Top-left of the menubar.
 pub fn menubar_brand_region() -> Rect {
     Rect::new(0, 0, GO_LABEL.chars().count() as i32, 1)
+}
+
+/// Screen-space hit region for the menubar view-mode toggle (just right of "Go").
+pub fn menubar_mode_region() -> Rect {
+    Rect::new(4, 0, MODE_DESKTOP.chars().count() as i32, 1)
 }
 
 /// Screen-space hit region for the menubar power button ("tuiui ▾", top row,

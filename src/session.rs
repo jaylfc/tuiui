@@ -11,7 +11,7 @@
 //! expose on a socket.
 
 use crate::chrome::{
-    render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_power_region, DockItem,
+    render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_mode_region, menubar_power_region, DockItem,
 };
 use crate::powermenu::{PowerClick, PowerMenu, PowerOutcome};
 use crate::compositor::Layer;
@@ -313,6 +313,8 @@ pub struct SessionCore {
     dirpicker: Option<crate::dirpicker::DirPicker>,
     /// Whether the keyboard-shortcut help overlay is showing.
     help_open: bool,
+    /// Whether the full-screen "simple" view mode is active.
+    simple: bool,
     /// Decoded-image cache for ImageView windows (the native image layer).
     images: crate::imagestore::ImageStore,
     /// The wallpaper-level desktop icons (merged `~/Desktop` + pins).
@@ -372,6 +374,7 @@ impl SessionCore {
             drag_preview: None,
             dirpicker: None,
             help_open: false,
+            simple: false,
             images: crate::imagestore::ImageStore::new(),
             desktop: crate::desktop::DesktopIcons::new(desktop_dir),
             app_image_ids: HashMap::new(),
@@ -665,6 +668,27 @@ impl SessionCore {
         self.help_open
     }
 
+    /// Whether the full-screen "simple" view mode is active.
+    pub fn simple_mode(&self) -> bool { self.simple }
+
+    /// The work-area rect a full-screen app fills in simple mode (between the
+    /// top menubar row and the bottom dock row).
+    fn simple_content_rect(&self) -> crate::geometry::Rect {
+        crate::geometry::Rect::new(0, 1, self.w.max(1), (self.h - 2).max(1))
+    }
+
+    /// Toggle between desktop and simple view. Resizes the focused app so it
+    /// fills the screen (entering simple) or returns to its window size (leaving).
+    pub fn toggle_simple(&mut self) {
+        self.simple = !self.simple;
+        // Re-sync every app window: in simple mode only the focused one becomes
+        // full-screen (handled by sync_app_size); the rest go to their window size.
+        let ids: Vec<WindowId> = self.contents.keys().copied().collect();
+        for id in ids {
+            self.sync_app_size(id);
+        }
+    }
+
     /// The current tray segments, laid out from the live snapshot.
     fn tray_segments_now(&self) -> Vec<crate::tray::Segment> {
         let st = self.tray_state.read().unwrap();
@@ -870,6 +894,11 @@ impl SessionCore {
                     self.sync_app_size(id);
                 }
                 self.auto_tile_if_enabled();
+                if self.simple {
+                    if let Some(fid) = self.wm.focused() {
+                        self.sync_app_size(fid);
+                    }
+                }
             }
             ClientMsg::MaximizeFocused => {
                 if let Some(id) = self.wm.focused() {
@@ -1519,6 +1548,9 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 self.contents.insert(id, WinContent::App(app_id));
                 self.titles.push((id, name));
                 self.auto_tile_if_enabled();
+                if self.simple {
+                    self.sync_app_size(id);
+                }
             }
             Err(_) => {
                 self.wm.close(id);
@@ -1614,6 +1646,12 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         // Menubar brand opens the launcher dropdown; quit button, tray segments,
         // and dock clicks are checked before normal window routing.
         if kind == MouseKind::Down {
+            if menubar_mode_region().contains(p) {
+                self.launcher.close();
+                self.power_menu.close();
+                self.toggle_simple();
+                return;
+            }
             if menubar_brand_region().contains(p) {
                 self.power_menu.close();
                 self.launcher.toggle_menu();
@@ -1632,6 +1670,9 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 if r.contains(p) {
                     // Restore (un-minimize) and raise the clicked window.
                     self.wm.unminimize(id);
+                    if self.simple {
+                        self.sync_app_size(id);
+                    }
                     return;
                 }
             }
@@ -1865,14 +1906,18 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
     }
 
     /// Tell the app instance for `id` to resize to match the window's current
-    /// content rect.
+    /// content rect (or the full work area when in simple mode and focused).
     fn sync_app_size(&mut self, id: WindowId) {
-        if let Some(w) = self.wm.get(id) {
-            let c = w.content_rect();
-            if let Some(WinContent::App(aid)) = self.contents.get(&id) {
-                let aid = *aid;
-                self.apphost.resize(aid, c.w.max(1), c.h.max(1));
-            }
+        let target = if self.simple && self.wm.focused() == Some(id) {
+            self.simple_content_rect()
+        } else if let Some(w) = self.wm.get(id) {
+            w.content_rect()
+        } else {
+            return;
+        };
+        if let Some(WinContent::App(aid)) = self.contents.get(&id) {
+            let aid = *aid;
+            self.apphost.resize(aid, target.w.max(1), target.h.max(1));
         }
     }
 
@@ -1930,6 +1975,9 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
     ///
     /// The cursor is set to the last known mouse position.
     pub fn build_frame(&self) -> Frame {
+        if self.simple {
+            return self.build_frame_simple();
+        }
         let mut layers: Vec<Layer> = Vec::new();
         let focused = self.wm.focused();
 
@@ -1970,7 +2018,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             let st = self.tray_state.read().unwrap();
             crate::tray::tray_segments(&st, self.w)
         };
-        layers.push(render_menubar(self.w, &app_name, &segs));
+        layers.push(render_menubar(self.w, &app_name, &segs, false));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
 
         // The desktop context / rename menu floats above the windows (but below
@@ -2089,6 +2137,101 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                         visible: vis,
                     });
                 }
+            }
+        }
+
+        Frame { layers, cursor: Some(self.cursor), images }
+    }
+
+    /// Build the frame for simple (full-screen single-app) view: the focused
+    /// window's content fills the work area with no decorations; the menubar and
+    /// dock stay; the desktop and other windows are hidden.
+    fn build_frame_simple(&self) -> Frame {
+        use crate::geometry::Point;
+        let t = crate::theme::current();
+        let wa = self.simple_content_rect();
+        let mut layers: Vec<Layer> = Vec::new();
+        let focused = self.wm.focused();
+
+        // Focused window full-screen (no chrome), or a hint when nothing is open.
+        if let Some(fid) = focused {
+            if let Some(content) = self.contents.get(&fid) {
+                let buf = content.render(self.apphost.as_ref(), wa.w, wa.h);
+                layers.push(Layer { z: 1, origin: Point::new(wa.x, wa.y), buf, opacity: 1.0, scissor: None });
+            }
+        } else {
+            let mut buf = crate::buffer::CellBuffer::new(wa.w, wa.h);
+            buf.fill(crate::cell::Cell { ch: ' ', fg: t.dim, bg: t.desktop_bg, attrs: Default::default() });
+            let hint = "Press Go to launch an app";
+            let hx = ((wa.w - hint.chars().count() as i32) / 2).max(0);
+            let hy = wa.h / 2;
+            buf.write_str(hx, hy, hint, t.dim, t.desktop_bg);
+            layers.push(Layer { z: 1, origin: Point::new(wa.x, wa.y), buf, opacity: 1.0, scissor: None });
+        }
+
+        // Chrome: menubar (simple glyph) + dock.
+        let app_name = focused
+            .and_then(|id| self.titles.iter().find(|(i, _)| *i == id))
+            .map(|(_, t)| t.clone())
+            .unwrap_or_default();
+        let segs = {
+            let st = self.tray_state.read().unwrap();
+            crate::tray::tray_segments(&st, self.w)
+        };
+        layers.push(render_menubar(self.w, &app_name, &segs, true));
+        layers.push(render_dock(self.w, self.h, &self.dock_items()));
+
+        // Overlays that must still work in simple mode.
+        layers.extend(self.launcher.render(self.w, self.h).layers);
+        {
+            let st = self.tray_state.read().unwrap();
+            layers.extend(self.tray.render(self.w, self.h, &st).layers);
+        }
+        if self.help_open {
+            layers.extend(crate::help::render_help(self.w, self.h));
+        }
+        layers.extend(self.power_menu.render(self.w, self.h));
+
+        // Images for the focused window only, mapped into the work area.
+        let mut images = Vec::new();
+        if let Some(fid) = focused {
+            match self.contents.get(&fid) {
+                Some(WinContent::App(aid)) => {
+                    let aid = *aid;
+                    for pl in self.apphost.placements(aid) {
+                        if let Some(&img) = self.app_image_ids.get(&(fid, pl.image_id)) {
+                            let x = wa.x + pl.col as i32;
+                            let y = wa.y + pl.row as i32;
+                            if x >= wa.x + wa.w || y >= wa.y + wa.h {
+                                continue;
+                            }
+                            let cols = pl.cols.min((wa.x + wa.w - x).max(1) as u16);
+                            let rows = pl.rows.min((wa.y + wa.h - y).max(1) as u16);
+                            images.push(crate::protocol::ImagePlacement {
+                                id: img,
+                                rect: crate::geometry::Rect::new(x, y, cols as i32, rows as i32),
+                                cols,
+                                rows,
+                                visible: true,
+                            });
+                        }
+                    }
+                }
+                Some(WinContent::ImageView(v)) => {
+                    if let Some(id) = v.image_id() {
+                        images.push(crate::protocol::ImagePlacement {
+                            id,
+                            rect: wa,
+                            cols: wa.w.max(1) as u16,
+                            rows: wa.h.max(1) as u16,
+                            visible: true,
+                        });
+                    }
+                }
+                Some(WinContent::FileManager(f)) => {
+                    images.extend(f.thumbnail_placements(wa, true));
+                }
+                _ => {}
             }
         }
 

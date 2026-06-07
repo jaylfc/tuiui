@@ -269,3 +269,31 @@ fn cascade_keyboard_launches_app_from_submenu() {
     assert_eq!(core.window_count(), before + 1);
     core.shutdown();
 }
+
+#[test]
+fn mode_toggle_switches_view() {
+    use tuiui::chrome::menubar_mode_region;
+    let mut core = SessionCore::new(120, 40, Config::default());
+    assert!(!core.simple_mode());
+    let r = menubar_mode_region();
+    core.apply(ClientMsg::MouseDown(Point::new(r.x, 0)));
+    assert!(core.simple_mode(), "clicking the toggle enters simple mode");
+    core.apply(ClientMsg::MouseDown(Point::new(r.x, 0)));
+    assert!(!core.simple_mode(), "clicking again returns to desktop");
+    core.shutdown();
+}
+
+#[test]
+fn simple_mode_renders_focused_app_fullscreen_without_desktop() {
+    use tuiui::chrome::menubar_mode_region;
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    core.apply(ClientMsg::MouseDown(Point::new(menubar_mode_region().x, 0)));
+    assert!(core.simple_mode());
+    let frame = core.build_frame();
+    // The focused app's content layer originates at the work area top (row 1),
+    // i.e. there is a content layer at y=1 spanning the width.
+    assert!(frame.layers.iter().any(|l| l.origin.y == 1 && l.buf.width() == 120),
+        "focused app should fill the work-area width at row 1");
+    core.shutdown();
+}
