@@ -41,8 +41,11 @@ pub fn run() -> std::io::Result<()> {
     core.attach_tray_state(_poller.state());
     // Rebuild windows for any apps the apphost already owns (reload / crash
     // recovery). Only auto-launch the configured apps on a truly fresh start.
-    let restored = core.restore_windows_from_host();
-    if restored == 0 {
+    // Auto-launch the configured apps ONLY on a genuinely fresh apphost. If the
+    // apphost already owns apps (reload / crash recovery), restore their windows
+    // instead — never re-launch, or we'd spawn duplicates of apps that are still
+    // alive (e.g. when a window's restore meta is missing).
+    if core.host_app_count() == 0 {
         for app in &cfg.apps {
             core.apply(ClientMsg::Launch {
                 name: app.name.clone(),
@@ -51,7 +54,16 @@ pub fn run() -> std::io::Result<()> {
             });
         }
     } else {
+        let restored = core.restore_windows_from_host();
         crate::dbg_log(&format!("frontend: restored {restored} app window(s) from apphost"));
+        // Wait briefly for the apphost to stream each restored app's first frame
+        // so the first paint shows real content instead of a blank window flash.
+        for _ in 0..30 {
+            if core.app_windows_ready() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(16));
+        }
     }
     let mut comp = Compositor::new(w, h);
 

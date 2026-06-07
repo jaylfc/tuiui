@@ -704,6 +704,26 @@ impl SessionCore {
     /// Whether a frontend-only reload was requested (apps stay alive).
     pub fn reload_requested(&self) -> bool { self.reload }
 
+    /// Number of apps the host currently owns (regardless of whether the
+    /// frontend has a window for each). The daemon uses this to decide whether
+    /// this is a fresh start (auto-launch configured apps) or a reload/recovery
+    /// against an apphost that already has apps (restore, don't re-launch).
+    pub fn host_app_count(&self) -> usize {
+        self.apphost.list().len()
+    }
+
+    /// Whether every app window has its grid available yet. After a reload the
+    /// daemon waits on this so the first painted frame already shows app content
+    /// (the apphost streams frames asynchronously into the host cache, so a
+    /// freshly-restored window is briefly blank until its first frame lands).
+    /// `true` when there are no app windows.
+    pub fn app_windows_ready(&self) -> bool {
+        self.contents.values().all(|c| match c {
+            WinContent::App(aid) => self.apphost.snapshot(*aid).is_some(),
+            _ => true,
+        })
+    }
+
     /// Clear the detach (quit) flag — called by the daemon after a client detaches
     /// so the next client doesn't immediately detach again.
     pub fn clear_quit(&mut self) { self.quit = false; }
