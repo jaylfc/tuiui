@@ -2,7 +2,7 @@
 //!
 //! [`SessionCore`] is the integration layer that owns:
 //! - the [`WindowManager`] (window geometry, z-order, focus), and
-//! - the live [`AppInstance`] map (PTY-backed child processes).
+//! - the [`LocalAppHost`] (PTY-backed child processes).
 //!
 //! All external control flows through [`ClientMsg`] variants; the core
 //! produces a [`Frame`] (ordered compositor layers + cursor position) via
@@ -17,8 +17,8 @@ use crate::compositor::Layer;
 use crate::config::{AppEntry, Config};
 use crate::geometry::{Point, Rect, SnapZone};
 use crate::input::{route_mouse, MouseKind, Hit, Action};
+use crate::apphost::{AppId, LocalAppHost};
 use crate::launcher::Launcher;
-use crate::ptyhost::AppInstance;
 use crate::settings::Settings;
 use crate::store::{self, Store};
 use crate::window::WindowId;
@@ -30,8 +30,8 @@ use std::collections::HashMap;
 /// This is the [`WindowContent`](../../docs) seam — the window manager, chrome,
 /// and input routing operate on windows uniformly, while the content type varies.
 enum WinContent {
-    /// A child process in a pseudo-terminal.
-    App(AppInstance),
+    /// A PTY-backed child process, identified by its `AppId` in the session's `LocalAppHost`.
+    App(AppId),
     /// The native app store browser.
     Store(Store),
     /// The native settings panel.
@@ -43,37 +43,13 @@ enum WinContent {
 }
 
 impl WinContent {
-    fn render(&self, w: i32, h: i32) -> crate::buffer::CellBuffer {
+    fn render(&self, host: &LocalAppHost, w: i32, h: i32) -> crate::buffer::CellBuffer {
         match self {
-            WinContent::App(a) => a.snapshot(),
+            WinContent::App(id) => host.snapshot(*id).unwrap_or_else(|| crate::buffer::CellBuffer::new(w, h)),
             WinContent::Store(s) => s.render(w, h),
             WinContent::Settings(s) => s.render(w, h),
             WinContent::ImageView(v) => v.render(w, h),
             WinContent::FileManager(f) => f.render(w, h),
-        }
-    }
-    fn resize(&mut self, w: i32, h: i32) {
-        if let WinContent::App(a) = self {
-            a.resize(w, h);
-        }
-    }
-    fn write_input(&mut self, bytes: &[u8]) {
-        if let WinContent::App(a) = self {
-            a.write_input(bytes);
-        }
-    }
-    fn is_alive(&mut self) -> bool {
-        match self {
-            WinContent::App(a) => a.is_alive(),
-            WinContent::Store(_)
-            | WinContent::Settings(_)
-            | WinContent::ImageView(_)
-            | WinContent::FileManager(_) => true,
-        }
-    }
-    fn kill(&mut self) {
-        if let WinContent::App(a) = self {
-            a.kill();
         }
     }
 }
@@ -286,6 +262,7 @@ pub struct Frame {
 pub struct SessionCore {
     wm: WindowManager,
     contents: HashMap<WindowId, WinContent>,
+    apphost: LocalAppHost,
     /// The store window's id, if open (so it can be re-focused, not re-opened).
     store_win: Option<WindowId>,
     /// The settings window's id, if open.
@@ -346,6 +323,7 @@ impl SessionCore {
         let mut core = Self {
             wm: WindowManager::new(work),
             contents: HashMap::new(),
+            apphost: LocalAppHost::new(),
             store_win: None,
             settings_win: None,
             filemanager_win: None,
@@ -529,14 +507,15 @@ impl SessionCore {
         // mutably borrow `self.images`.
         let mut needed: Vec<(WindowId, u32, Vec<u8>)> = Vec::new();
         for (id, content) in &self.contents {
-            if let WinContent::App(app) = content {
-                let g = app.graphics();
-                for pl in &g.placements {
-                    if self.app_image_ids.contains_key(&(*id, pl.image_id)) {
-                        continue;
-                    }
-                    if let Some(png) = g.png(pl.image_id) {
-                        needed.push((*id, pl.image_id, png.to_vec()));
+            if let WinContent::App(aid) = content {
+                if let Some(g) = self.apphost.graphics(*aid) {
+                    for pl in &g.placements {
+                        if self.app_image_ids.contains_key(&(*id, pl.image_id)) {
+                            continue;
+                        }
+                        if let Some(png) = g.png(pl.image_id) {
+                            needed.push((*id, pl.image_id, png.to_vec()));
+                        }
                     }
                 }
             }
@@ -556,23 +535,26 @@ impl SessionCore {
     /// emits it (integration tests).
     #[doc(hidden)]
     pub fn inject_app_graphics_for_test(&mut self, png: &[u8]) {
-        // `titles` preserves launch order; find the last id that is an App window.
         let app_id = self
             .titles
             .iter()
             .rev()
             .map(|(id, _)| *id)
-            .find(|id| matches!(self.contents.get(id), Some(WinContent::App(_))));
-        if let Some(WinContent::App(app)) = app_id.and_then(|id| self.contents.get(&id)) {
-            let mut g = app.graphics();
-            g.insert_image_for_test(1, png.to_vec());
-            g.push_placement_for_test(crate::kittygfx::Placement {
-                image_id: 1,
-                col: 0,
-                row: 0,
-                cols: 2,
-                rows: 1,
+            .find_map(|id| match self.contents.get(&id) {
+                Some(WinContent::App(aid)) => Some(*aid),
+                _ => None,
             });
+        if let Some(aid) = app_id {
+            if let Some(mut g) = self.apphost.graphics(aid) {
+                g.insert_image_for_test(1, png.to_vec());
+                g.push_placement_for_test(crate::kittygfx::Placement {
+                    image_id: 1,
+                    col: 0,
+                    row: 0,
+                    cols: 2,
+                    rows: 1,
+                });
+            }
         }
         self.refresh_app_graphics();
     }
@@ -749,8 +731,9 @@ impl SessionCore {
             }
             ClientMsg::Key(bytes) => {
                 if let Some(id) = self.wm.focused() {
-                    if let Some(c) = self.contents.get_mut(&id) {
-                        c.write_input(&bytes);
+                    if let Some(WinContent::App(aid)) = self.contents.get(&id) {
+                        let aid = *aid;
+                        self.apphost.input(aid, &bytes);
                     }
                 }
             }
@@ -1378,7 +1361,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
 
     /// Spawn a new PTY-backed window.
     ///
-    /// If `AppInstance::spawn` fails, the window is removed and no dock entry
+    /// If spawning fails, the window is removed and no dock entry
     /// is added (silently drops the launch request — the caller can surface an
     /// error later via a `CoreMsg` notification once that protocol exists).
     fn launch(&mut self, name: String, command: String, args: Vec<String>) {
@@ -1408,9 +1391,9 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             self.wm.maximize_toggle(id);
         }
         let content = self.wm.get(id).unwrap().content_rect();
-        match AppInstance::spawn(&command, &args, content.w.max(1), content.h.max(1), cwd.as_deref()) {
-            Ok(app) => {
-                self.contents.insert(id, WinContent::App(app));
+        match self.apphost.spawn(&command, &args, cwd.as_deref(), content.w.max(1), content.h.max(1)) {
+            Ok(app_id) => {
+                self.contents.insert(id, WinContent::App(app_id));
                 self.titles.push((id, name));
                 self.auto_tile_if_enabled();
             }
@@ -1749,8 +1732,9 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
     fn sync_app_size(&mut self, id: WindowId) {
         if let Some(w) = self.wm.get(id) {
             let c = w.content_rect();
-            if let Some(content) = self.contents.get_mut(&id) {
-                content.resize(c.w.max(1), c.h.max(1));
+            if let Some(WinContent::App(aid)) = self.contents.get(&id) {
+                let aid = *aid;
+                self.apphost.resize(aid, c.w.max(1), c.h.max(1));
             }
         }
     }
@@ -1769,8 +1753,9 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             id,
             if was_install { " (install)" } else { "" }
         ));
-        if let Some(mut content) = self.contents.remove(&id) {
-            content.kill();
+        if let Some(WinContent::App(aid)) = self.contents.remove(&id) {
+            self.apphost.kill(aid);
+            self.apphost.remove(aid);
         }
         if self.store_win == Some(id) {
             self.store_win = None;
@@ -1823,7 +1808,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             }
             let cr = w.content_rect();
             let content = self.contents.get(&w.id)
-                .map(|c| c.render(cr.w, cr.h))
+                .map(|c| c.render(&self.apphost, cr.w, cr.h))
                 .unwrap_or_else(|| crate::buffer::CellBuffer::new(cr.w, cr.h));
             layers.extend(render_window(w, &content, Some(w.id) == focused, self.cfg.window_shadows));
         }
@@ -1937,30 +1922,35 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             if w.minimized {
                 continue;
             }
-            if let Some(WinContent::App(app)) = self.contents.get(&w.id) {
-                let g = app.graphics();
-                if g.placements.is_empty() {
-                    continue;
-                }
-                let cr = w.content_rect();
-                let vis = self.fully_unobstructed(w);
-                for pl in &g.placements {
-                    if let Some(&img) = self.app_image_ids.get(&(w.id, pl.image_id)) {
-                        let x = cr.x + pl.col as i32;
-                        let y = cr.y + pl.row as i32;
-                        if x >= cr.x + cr.w || y >= cr.y + cr.h {
-                            continue;
-                        }
-                        let cols = pl.cols.min((cr.x + cr.w - x).max(1) as u16);
-                        let rows = pl.rows.min((cr.y + cr.h - y).max(1) as u16);
-                        images.push(crate::protocol::ImagePlacement {
-                            id: img,
-                            rect: crate::geometry::Rect::new(x, y, cols as i32, rows as i32),
-                            cols,
-                            rows,
-                            visible: vis,
-                        });
+            let aid = match self.contents.get(&w.id) {
+                Some(WinContent::App(aid)) => *aid,
+                _ => continue,
+            };
+            let g = match self.apphost.graphics(aid) {
+                Some(g) => g,
+                None => continue,
+            };
+            if g.placements.is_empty() {
+                continue;
+            }
+            let cr = w.content_rect();
+            let vis = self.fully_unobstructed(w);
+            for pl in &g.placements {
+                if let Some(&img) = self.app_image_ids.get(&(w.id, pl.image_id)) {
+                    let x = cr.x + pl.col as i32;
+                    let y = cr.y + pl.row as i32;
+                    if x >= cr.x + cr.w || y >= cr.y + cr.h {
+                        continue;
                     }
+                    let cols = pl.cols.min((cr.x + cr.w - x).max(1) as u16);
+                    let rows = pl.rows.min((cr.y + cr.h - y).max(1) as u16);
+                    images.push(crate::protocol::ImagePlacement {
+                        id: img,
+                        rect: crate::geometry::Rect::new(x, y, cols as i32, rows as i32),
+                        cols,
+                        rows,
+                        visible: vis,
+                    });
                 }
             }
         }
@@ -1975,9 +1965,18 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
     /// Call this once per render loop tick to keep the session consistent with
     /// process state.
     pub fn reap_dead(&mut self) {
-        let dead: Vec<WindowId> = self.contents
-            .iter_mut()
-            .filter_map(|(id, c)| if !c.is_alive() { Some(*id) } else { None })
+        let app_windows: Vec<(WindowId, AppId)> = self
+            .contents
+            .iter()
+            .filter_map(|(id, c)| match c {
+                WinContent::App(aid) => Some((*id, *aid)),
+                _ => None,
+            })
+            .collect();
+        let dead: Vec<WindowId> = app_windows
+            .into_iter()
+            .filter(|(_, aid)| !self.apphost.is_alive(*aid))
+            .map(|(id, _)| id)
             .collect();
         // If an install window finished, re-scan $PATH and rebuild the launcher so
         // the newly-installed app shows up (and the store sees it as installed)
@@ -1998,8 +1997,8 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
     /// Must be called before dropping the session to ensure no child processes
     /// are orphaned.
     pub fn shutdown(&mut self) {
-        for (_, content) in self.contents.iter_mut() {
-            content.kill();
+        for aid in self.apphost.list() {
+            self.apphost.kill(aid);
         }
         self.contents.clear();
     }
