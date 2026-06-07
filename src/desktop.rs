@@ -574,6 +574,14 @@ impl<F: FsOps> DesktopIcons<F> {
         Some(crate::geometry::Rect::new(anchor.x, anchor.y, w, h))
     }
 
+    /// The screen rect of whatever overlay is open (context/desktop menu or a
+    /// rename/new-folder field), if any. The session uses this to suppress the
+    /// image-tile icons underneath, so the (text) overlay isn't hidden behind the
+    /// terminal's graphics layer.
+    pub fn overlay_rect(&self) -> Option<crate::geometry::Rect> {
+        self.menu_rect().or_else(|| self.field_rect())
+    }
+
     /// The text-field box for an open rename / new-folder overlay, if any.
     fn field_rect(&self) -> Option<crate::geometry::Rect> {
         match &self.overlay {

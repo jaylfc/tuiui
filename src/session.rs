@@ -1922,7 +1922,12 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     .iter()
                     .any(|w| !w.minimized && w.rect.intersect(r).is_some())
             };
-            images.extend(self.desktop.icon_placements(&self.role_icon_ids, |r| !occluded(r)));
+            // Suppress icons under an open desktop overlay (menu / rename field) so
+            // the text overlay isn't hidden behind the graphics-layer icons.
+            let overlay = self.desktop.overlay_rect();
+            images.extend(self.desktop.icon_placements(&self.role_icon_ids, |r| {
+                !occluded(r) && overlay.map(|o| o.intersect(r).is_none()).unwrap_or(true)
+            }));
         }
 
         // Image placements transmitted by hosted apps (A2 Kitty-graphics passthrough),
