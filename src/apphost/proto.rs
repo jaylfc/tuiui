@@ -45,6 +45,7 @@ pub enum HostEvt {
         placements: Vec<Placement>,
         images: Vec<ImgBlob>,
         alive: bool,
+        mouse: crate::mouse::AppMouse,
     },
     /// The app's child exited.
     Gone { app: u64 },
@@ -103,18 +104,20 @@ mod tests {
             placements: vec![Placement { image_id: 1, col: 0, row: 0, cols: 2, rows: 1 }],
             images: vec![ImgBlob { image_id: 1, png_b64: "QUJD".into() }],
             alive: true,
+            mouse: Default::default(),
         };
         let mut buf: Vec<u8> = Vec::new();
         send(&mut buf, &evt).unwrap();
         let mut r = std::io::BufReader::new(&buf[..]);
         let back: HostEvt = recv(&mut r).unwrap().unwrap();
         match back {
-            HostEvt::Frame { app, grid: g, placements, images, alive } => {
+            HostEvt::Frame { app, grid: g, placements, images, alive, mouse } => {
                 assert_eq!(app, 5);
                 assert_eq!(g, grid);
                 assert_eq!(placements.len(), 1);
                 assert_eq!(images[0].png_b64, "QUJD");
                 assert!(alive);
+                assert_eq!(mouse, Default::default());
             }
             _ => panic!("wrong variant"),
         }

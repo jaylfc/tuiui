@@ -79,6 +79,7 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
     // Per-connection change tracking.
     let mut last_grid: HashMap<AppId, crate::buffer::CellBuffer> = HashMap::new();
     let mut last_placements: HashMap<AppId, Vec<crate::kittygfx::Placement>> = HashMap::new();
+    let mut last_mouse: HashMap<AppId, crate::mouse::AppMouse> = HashMap::new();
     let mut sent_images: HashMap<AppId, HashSet<u32>> = HashMap::new();
 
     loop {
@@ -116,11 +117,13 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
                 local.remove(id);
                 last_grid.remove(&id);
                 last_placements.remove(&id);
+                last_mouse.remove(&id);
                 sent_images.remove(&id);
                 continue;
             }
             let Some(grid) = local.snapshot(id) else { continue };
             let placements = local.placements(id);
+            let mouse = local.mouse_mode(id);
 
             // New image blobs (not yet sent to this frontend).
             let seen = sent_images.entry(id).or_default();
@@ -136,13 +139,15 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
 
             let grid_changed = last_grid.get(&id) != Some(&grid);
             let placements_changed = last_placements.get(&id) != Some(&placements);
-            if grid_changed || placements_changed || !images.is_empty() {
-                let evt = HostEvt::Frame { app: id.0, grid: grid.clone(), placements: placements.clone(), images, alive: true };
+            let mouse_changed = last_mouse.get(&id) != Some(&mouse);
+            if grid_changed || placements_changed || mouse_changed || !images.is_empty() {
+                let evt = HostEvt::Frame { app: id.0, grid: grid.clone(), placements: placements.clone(), images, alive: true, mouse };
                 if send(&mut writer, &evt).is_err() {
                     return;
                 }
                 last_grid.insert(id, grid);
                 last_placements.insert(id, placements);
+                last_mouse.insert(id, mouse);
             }
         }
 

@@ -53,6 +53,9 @@ pub trait AppHost: Send {
     /// Drop the host's tracking of the app (does not kill).
     fn remove(&mut self, id: AppId);
 
+    /// The app's current terminal mouse mode (default = no mouse).
+    fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse { let _ = id; crate::mouse::AppMouse::default() }
+
     /// Stop the underlying app host process, if any (default no-op for the
     /// in-process host). The frontend calls this on full shutdown.
     fn shutdown_host(&mut self) {}

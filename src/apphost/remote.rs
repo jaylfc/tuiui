@@ -20,6 +20,7 @@ struct Cached {
     placements: Vec<Placement>,
     images: HashMap<u32, Vec<u8>>,
     alive: bool,
+    mouse: crate::mouse::AppMouse,
 }
 
 #[derive(Default)]
@@ -84,12 +85,13 @@ fn apply_evt(evt: HostEvt, cache: &Arc<Mutex<Cache>>, pending: &Pending) {
                 let _ = tx.send(Err(error));
             }
         }
-        HostEvt::Frame { app, grid, placements, images, alive } => {
+        HostEvt::Frame { app, grid, placements, images, alive, mouse } => {
             let mut c = cache.lock().unwrap();
             let entry = c.apps.entry(AppId(app)).or_default();
             entry.grid = Some(grid);
             entry.placements = placements;
             entry.alive = alive;
+            entry.mouse = mouse;
             for b in images {
                 use base64::Engine;
                 if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&b.png_b64) {
@@ -186,6 +188,10 @@ impl AppHost for RemoteAppHost {
 
     fn shutdown_host(&mut self) {
         let _ = send(&mut self.writer, &HostReq::Shutdown);
+    }
+
+    fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse {
+        self.cache.lock().unwrap().apps.get(&id).map(|c| c.mouse).unwrap_or_default()
     }
 }
 

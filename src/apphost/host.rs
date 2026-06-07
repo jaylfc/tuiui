@@ -103,6 +103,10 @@ impl AppHost for LocalAppHost {
         self.meta.remove(&id);
     }
 
+    fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse {
+        self.apps.get(&id).map(|a| a.mouse_mode()).unwrap_or_default()
+    }
+
     fn inject_test_image(&self, id: AppId, png: &[u8]) {
         if let Some(app) = self.apps.get(&id) {
             let mut g = app.graphics();

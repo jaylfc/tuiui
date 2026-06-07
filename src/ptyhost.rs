@@ -232,6 +232,22 @@ impl AppInstance {
         }
     }
 
+    /// The app's current terminal mouse mode (what it asked the terminal for).
+    pub fn mouse_mode(&self) -> crate::mouse::AppMouse {
+        use alacritty_terminal::term::TermMode;
+        let guard = self.term.lock().unwrap();
+        let mode = guard.mode();
+        crate::mouse::AppMouse {
+            report_click: mode.contains(TermMode::MOUSE_REPORT_CLICK),
+            report_drag: mode.contains(TermMode::MOUSE_DRAG),
+            report_motion: mode.contains(TermMode::MOUSE_MOTION),
+            sgr: mode.contains(TermMode::SGR_MOUSE),
+            utf8: mode.contains(TermMode::UTF8_MOUSE),
+            alternate_scroll: mode.contains(TermMode::ALTERNATE_SCROLL),
+            alt_screen: mode.contains(TermMode::ALT_SCREEN),
+        }
+    }
+
     /// Kill the child process.
     pub fn kill(&mut self) {
         let _ = self.child.kill();
