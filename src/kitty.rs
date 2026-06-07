@@ -27,6 +27,9 @@ pub fn transmit_b64(id: u64, data_b64: &str) -> String {
         // base64 is ASCII, so byte-chunking respects char boundaries.
         data_b64.as_bytes().chunks(4096).map(|c| std::str::from_utf8(c).unwrap()).collect()
     };
+    // Kitty image ids are 32-bit; our store ids are 64-bit content hashes, so
+    // narrow to u32 (transmit and place stay consistent, collisions negligible).
+    let id = id as u32;
     let mut out = String::new();
     let n = chunks.len();
     for (i, chunk) in chunks.iter().enumerate() {
@@ -49,10 +52,12 @@ pub fn transmit(id: u64, png: &[u8]) -> String {
 /// under placement id `place`. A distinct `place` lets one image (e.g. a shared
 /// file-type icon) appear at many spots at once.
 pub fn place(id: u64, place: u32, cols: u16, rows: u16) -> String {
+    let id = id as u32; // Kitty image ids are 32-bit
     format!("\x1b_Ga=p,i={id},p={place},c={cols},r={rows},q=2\x1b\\")
 }
 
 /// Delete the placement `place` of image `id` (keeps the transmitted data).
 pub fn delete(id: u64, place: u32) -> String {
+    let id = id as u32; // Kitty image ids are 32-bit
     format!("\x1b_Ga=d,d=i,i={id},p={place},q=2\x1b\\")
 }

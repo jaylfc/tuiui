@@ -192,6 +192,7 @@ impl Terminal {
         execute!(out, terminal::EnterAlternateScreen, EnableMouseCapture, cursor::Hide)?;
         use std::io::Write;
         write!(out, "\x1b[?1003h")?; // all-motion mouse tracking (for launcher hover)
+        write!(out, "\x1b_Ga=d,d=A\x1b\\")?; // clear any orphaned graphics from a prior session
         out.flush()?;
         // Resolve graphics support: env detection first (cheap), else ask the
         // terminal directly — this is the only reliable signal over SSH, where
