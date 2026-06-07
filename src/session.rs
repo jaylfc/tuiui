@@ -240,6 +240,8 @@ pub enum ClientMsg {
     DesktopCancel,
     /// Shut down the daemon entirely (kills all apps). Sent by `tuiui kill`.
     Shutdown,
+    /// Restart the frontend only, keeping the apphost (and apps) alive.
+    Reload,
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -292,6 +294,9 @@ pub struct SessionCore {
     quit: bool,
     /// Set by `ClientMsg::Shutdown` — the daemon should exit and kill all apps.
     shutdown: bool,
+    /// Set by `ClientMsg::Reload` — the daemon should restart the frontend only,
+    /// keeping the apphost (and all apps) alive.
+    reload: bool,
     /// The app launcher (menubar dropdown + Spotlight overlay).
     launcher: Launcher,
     /// The top-right power menu (Exit / Restart / Shutdown + confirm dialogs).
@@ -358,6 +363,7 @@ impl SessionCore {
             cursor: Point::new(w / 2, h / 2),
             quit: false,
             shutdown: false,
+            reload: false,
             launcher,
             power_menu: PowerMenu::new(),
             tray_state: std::sync::Arc::new(std::sync::RwLock::new(crate::system::SystemState::default())),
@@ -694,6 +700,9 @@ impl SessionCore {
 
     /// Whether `tuiui kill` requested a full daemon shutdown.
     pub fn shutdown_requested(&self) -> bool { self.shutdown }
+
+    /// Whether a frontend-only reload was requested (apps stay alive).
+    pub fn reload_requested(&self) -> bool { self.reload }
 
     /// Clear the detach (quit) flag — called by the daemon after a client detaches
     /// so the next client doesn't immediately detach again.
@@ -1084,6 +1093,7 @@ echo 'Done. Open the tuiui menu (top-right) \u{2192} Shutdown, then run:  tuiui'
             ClientMsg::DesktopCommit => self.desktop_commit(),
             ClientMsg::DesktopCancel => self.desktop.cancel_overlay(),
             ClientMsg::Shutdown => self.shutdown = true,
+            ClientMsg::Reload => self.reload = true,
         }
         // Refresh thumbnails after any message that may have changed the focused
         // file manager's listing (cheap: ImageStore loads are content-hash cached).

@@ -76,6 +76,9 @@ pub struct Flags {
     pub desktop_editing: bool,
     /// The daemon asked the client to detach (e.g. the Quit button was clicked).
     pub detach: bool,
+    /// The daemon is reloading the frontend; the client should reconnect (not
+    /// fully detach). Apps stay alive in the apphost.
+    pub reload: bool,
 }
 
 /// Per-user directory that holds the daemon socket. Created mode `0700` by the

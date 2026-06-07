@@ -2,6 +2,15 @@
 //! daemon, and forwards input. Holds no session state — it routes keyboard input
 //! using the [`Flags`] the daemon sends each frame.
 
+/// How a client session ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClientExit {
+    /// The user detached / shut down — stop.
+    Detached,
+    /// The daemon asked the client to reconnect (frontend reload).
+    Reload,
+}
+
 use crate::geometry::{Point, SnapZone};
 use crate::protocol::{Flags, FrameMsg};
 use crate::session::ClientMsg;
@@ -16,7 +25,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Attach to the daemon over `stream` and run until the user detaches.
-pub fn run(stream: UnixStream) -> std::io::Result<()> {
+pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
     let term = Terminal::enter()?;
     let caps = term.caps;
     let (w, h) = Terminal::size()?;
@@ -26,11 +35,13 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
 
     let flags = Arc::new(Mutex::new(Flags::default()));
     let detached = Arc::new(AtomicBool::new(false));
+    let reload = Arc::new(AtomicBool::new(false));
 
     // Reader thread: socket frames → ANSI → stdout.
     {
         let flags = flags.clone();
         let detached = detached.clone();
+        let reload = reload.clone();
         let reader_stream = stream.try_clone()?;
         std::thread::spawn(move || {
             let mut r = BufReader::new(reader_stream);
@@ -54,6 +65,10 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
                                 let _ = out.write_all(g.as_bytes());
                             }
                             let _ = out.flush();
+                            if msg.flags.reload {
+                                reload.store(true, Ordering::SeqCst);
+                                break;
+                            }
                             if msg.flags.detach {
                                 break;
                             }
@@ -261,7 +276,11 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
     // Detach: dropping `term` restores the screen; dropping the socket signals
     // the daemon, which keeps the session alive.
     drop(term);
-    Ok(())
+    if reload.load(Ordering::SeqCst) {
+        Ok(ClientExit::Reload)
+    } else {
+        Ok(ClientExit::Detached)
+    }
 }
 
 /// Build the Kitty graphics escapes for a frame: transmit not-yet-seen image

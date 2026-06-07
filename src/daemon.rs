@@ -55,17 +55,25 @@ pub fn run() -> std::io::Result<()> {
     }
     let mut comp = Compositor::new(w, h);
 
+    let mut reloading = false;
     for stream in listener.incoming() {
         let stream = stream?;
         serve_client(&mut core, &mut comp, stream);
-        core.clear_quit(); // detach was a detach, not a shutdown
+        core.clear_quit();
         if core.shutdown_requested() {
             break;
         }
+        if core.reload_requested() {
+            reloading = true;
+            break;
+        }
     }
-
     let _ = std::fs::remove_file(&path);
-    core.shutdown();
+    if !reloading {
+        core.shutdown(); // full stop: kills apps + tells the apphost to exit
+    }
+    // On reload we just drop `core` (its RemoteAppHost disconnects); the apphost
+    // keeps running so the next frontend can restore the apps.
     Ok(())
 }
 
@@ -161,6 +169,7 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             filemanager_editing: core.filemanager_editing(),
             desktop_editing: core.desktop_editing(),
             detach: core.quit_requested(),
+            reload: core.reload_requested(),
         };
         // Send PNG bytes once per image id (base64); later frames carry only the
         // small placement list.
@@ -191,6 +200,9 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
 
         if core.quit_requested() {
             return; // detach (flag already delivered)
+        }
+        if core.reload_requested() {
+            return; // reload flag delivered; daemon will restart, apphost untouched
         }
         std::thread::sleep(Duration::from_millis(16));
     }

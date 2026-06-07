@@ -4,6 +4,7 @@
 //! - `tuiui attach`     attach to an already-running daemon.
 //! - `tuiui --daemon`   run the daemon (normally spawned automatically).
 //! - `tuiui kill`       shut the daemon down (closing all windows).
+//! - `tuiui reload`     restart the frontend only; apps keep running.
 //!
 //! The daemon owns the windows and child processes and persists across client
 //! detaches, so closing a client (or an SSH disconnect) leaves everything running.
@@ -20,8 +21,9 @@ fn main() -> std::io::Result<()> {
         Some("--apphost") => tuiui::apphost::server::run(),
         Some("kill") => kill(),
         Some("attach") => attach(false),
+        Some("reload") => reload(),
         Some(other) => {
-            eprintln!("tuiui: unknown command '{other}' (try: attach, kill, --daemon)");
+            eprintln!("tuiui: unknown command '{other}' (try: attach, kill, reload, --daemon)");
             Ok(())
         }
         None => attach(true),
@@ -29,31 +31,41 @@ fn main() -> std::io::Result<()> {
 }
 
 /// Connect to the daemon and run a client. If `spawn_if_missing`, start a daemon
-/// first when none is running.
+/// first when none is running. On a `ClientExit::Reload`, waits for the old
+/// daemon socket to drop, then loops to spawn/connect a fresh daemon.
 fn attach(spawn_if_missing: bool) -> std::io::Result<()> {
-    let path = socket_path();
-    if UnixStream::connect(&path).is_err() {
-        if !spawn_if_missing {
-            eprintln!("tuiui: no daemon running (start it with `tuiui`)");
-            return Ok(());
-        }
-        spawn_daemon()?;
-        // Wait for the socket to come up.
-        let mut ready = false;
-        for _ in 0..100 {
-            if UnixStream::connect(&path).is_ok() {
-                ready = true;
-                break;
+    loop {
+        let path = socket_path();
+        if UnixStream::connect(&path).is_err() {
+            if !spawn_if_missing {
+                eprintln!("tuiui: no daemon running (start it with `tuiui`)");
+                return Ok(());
             }
-            std::thread::sleep(Duration::from_millis(50));
+            spawn_daemon()?;
+            let mut ready = false;
+            for _ in 0..100 {
+                if UnixStream::connect(&path).is_ok() { ready = true; break; }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            if !ready {
+                eprintln!("tuiui: daemon failed to start");
+                return Ok(());
+            }
         }
-        if !ready {
-            eprintln!("tuiui: daemon failed to start");
-            return Ok(());
+        let stream = UnixStream::connect(&path)?;
+        match tuiui::client::run(stream)? {
+            tuiui::client::ClientExit::Detached => return Ok(()),
+            tuiui::client::ClientExit::Reload => {
+                // The daemon is restarting; wait briefly for the old socket to
+                // drop, then loop to spawn/connect the fresh daemon.
+                for _ in 0..100 {
+                    if UnixStream::connect(socket_path()).is_err() { break; }
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                continue;
+            }
         }
     }
-    let stream = UnixStream::connect(&path)?;
-    tuiui::client::run(stream)
 }
 
 /// Spawn the daemon detached into its own process group so it survives the
@@ -67,6 +79,22 @@ fn spawn_daemon() -> std::io::Result<()> {
         .stderr(std::process::Stdio::null())
         .process_group(0)
         .spawn()?;
+    Ok(())
+}
+
+/// Tell a running daemon to reload its frontend (apps keep running via the
+/// apphost). An attached client reconnects on its own.
+fn reload() -> std::io::Result<()> {
+    match UnixStream::connect(socket_path()) {
+        Ok(mut stream) => {
+            let mut buf = serde_json::to_vec(&tuiui::session::ClientMsg::Reload)
+                .map_err(std::io::Error::other)?;
+            buf.push(b'\n');
+            stream.write_all(&buf)?;
+            println!("tuiui: reload requested");
+        }
+        Err(_) => println!("tuiui: no daemon running"),
+    }
     Ok(())
 }
 
