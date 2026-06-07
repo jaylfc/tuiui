@@ -71,9 +71,10 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
             .map(|id| RosterEntry { app: id.0, meta: local.meta(id).unwrap_or_default() })
             .collect(),
     };
-    if send(&mut writer, &roster).is_err() {
-        return;
-    }
+    // Best-effort: a short-lived connection (e.g. `tuiui kill` sending Shutdown)
+    // may close before we finish writing the roster. Don't abandon the
+    // connection on that — we still want to read any pending command (Shutdown).
+    let _ = send(&mut writer, &roster);
 
     // Per-connection change tracking.
     let mut last_grid: HashMap<AppId, crate::buffer::CellBuffer> = HashMap::new();
