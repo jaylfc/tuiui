@@ -158,7 +158,7 @@ struct Pending {
 }
 
 /// A placed image on the app's grid (cell coordinates relative to the app PTY).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Placement {
     pub image_id: u32,
     pub col: u16,

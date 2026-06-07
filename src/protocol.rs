@@ -92,3 +92,8 @@ pub fn socket_dir() -> PathBuf {
 pub fn socket_path() -> PathBuf {
     socket_dir().join("daemon.sock")
 }
+
+/// Path to the apphost socket (apps live behind this; survives frontend restarts).
+pub fn apphost_socket_path() -> PathBuf {
+    socket_dir().join("apphost.sock")
+}

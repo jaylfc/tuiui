@@ -8,6 +8,7 @@
 
 mod api;
 mod host;
+pub mod proto;
 
 pub use api::AppHost;
 pub use host::{AppId, LocalAppHost};

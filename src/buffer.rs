@@ -1,6 +1,6 @@
 use crate::cell::{Cell, Rgba};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CellBuffer { w: i32, h: i32, cells: Vec<Cell> }
 
 impl CellBuffer {
