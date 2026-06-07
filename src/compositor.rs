@@ -116,6 +116,21 @@ impl Compositor {
             }
         }
 
+        // Double-width glyphs (emoji, CJK) occupy two columns, but the buffer is
+        // one cell per column. Mark the cell to the right of each wide glyph as a
+        // continuation (`\0`) so the renderer skips it — otherwise painting that
+        // column overwrites and erases the glyph's right half (it then only shows
+        // when the cursor happens to invalidate just the glyph cell).
+        for y in 0..self.h {
+            for x in 0..self.w - 1 {
+                if is_wide(self.back.get(x, y).unwrap().ch) {
+                    let mut cont = *self.back.get(x + 1, y).unwrap();
+                    cont.ch = '\0';
+                    self.back.set(x + 1, y, cont);
+                }
+            }
+        }
+
         // Overlay cursor by toggling the inverse attribute.
         if let Some(p) = cursor {
             if let Some(c) = self.back.get(p.x, p.y) {
@@ -149,6 +164,24 @@ impl Compositor {
     pub fn commit(&mut self) {
         self.front = self.back.clone();
     }
+}
+
+/// Whether `c` renders as a double-width (two-column) glyph — emoji and CJK. A
+/// pragmatic range check covering the icon emoji we use plus the common wide
+/// scripts; good enough for the cell grid (full Unicode width tables aren't
+/// needed here).
+fn is_wide(c: char) -> bool {
+    matches!(c as u32,
+        0x1100..=0x115F        // Hangul Jamo
+        | 0x2E80..=0xA4CF      // CJK radicals … Yi
+        | 0xAC00..=0xD7A3      // Hangul syllables
+        | 0xF900..=0xFAFF      // CJK compatibility ideographs
+        | 0xFE30..=0xFE4F      // CJK compatibility forms
+        | 0xFF00..=0xFF60      // fullwidth forms
+        | 0xFFE0..=0xFFE6
+        | 0x1F300..=0x1FAFF    // emoji, symbols & pictographs
+        | 0x20000..=0x3FFFD    // CJK extension B+
+    )
 }
 
 /// Composite a single source cell `src` over a destination cell `dst`, modulating
@@ -186,5 +219,41 @@ fn blend_cell(src: Cell, dst: Cell, opacity: f32) -> Cell {
             bg: out_bg,
             attrs: dst.attrs,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::buffer::CellBuffer;
+    use crate::cell::{Cell, Rgba};
+    use crate::geometry::Point;
+
+    fn wide_layer() -> Layer {
+        let mut buf = CellBuffer::new(4, 1);
+        // A double-width emoji at (0,0); the rest are blank spaces.
+        buf.set(0, 0, Cell { ch: '\u{1F4C1}', fg: Rgba::rgb(255, 255, 255), bg: Rgba::TRANSPARENT, attrs: Default::default() });
+        Layer { z: 0, origin: Point::new(0, 0), buf, opacity: 1.0, scissor: None }
+    }
+
+    #[test]
+    fn wide_glyph_marks_next_cell_as_continuation() {
+        let mut comp = Compositor::new(4, 1);
+        let back = comp.composite(&[wide_layer()], None);
+        assert_eq!(back.get(0, 0).unwrap().ch, '\u{1F4C1}', "wide glyph kept");
+        assert_eq!(back.get(1, 0).unwrap().ch, '\0', "right half marked as continuation");
+    }
+
+    #[test]
+    fn renderer_skips_continuation_cells() {
+        // A continuation change must not emit cursor movement or output.
+        let change = CellChange {
+            x: 5,
+            y: 2,
+            cell: Cell { ch: '\0', fg: Rgba::rgb(1, 2, 3), bg: Rgba::TRANSPARENT, attrs: Default::default() },
+        };
+        let caps = crate::terminal::Caps { truecolor: true, pixel_mouse: true, kitty_graphics: true };
+        let out = crate::terminal::frame_to_ansi(&[change], &caps);
+        assert!(out.is_empty() || !out.contains("\u{1b}[3;6H"), "continuation cell should not be painted");
     }
 }

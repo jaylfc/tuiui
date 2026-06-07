@@ -89,6 +89,12 @@ pub fn frame_to_ansi(changes: &[CellChange], caps: &Caps) -> String {
     }
     let mut s = String::new();
     for ch in changes {
+        // Continuation cell (right half of a double-width glyph): the glyph to its
+        // left already covers this column, so skip it — painting it would erase the
+        // glyph's right half.
+        if ch.cell.ch == '\0' {
+            continue;
+        }
         // CUP: move cursor to 1-based (row, col).
         s.push_str(&format!("\x1b[{};{}H", ch.y + 1, ch.x + 1));
         let a = &ch.cell.attrs;
