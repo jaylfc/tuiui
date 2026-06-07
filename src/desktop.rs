@@ -10,9 +10,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 /// Layout: each icon occupies a tile this many cells wide/tall; the grid starts
-/// one row below the menubar.
-pub const ICON_W: i32 = 21;
-pub const ICON_H: i32 = 4;
+/// one row below the menubar. The top `ICON_H - 1` rows hold the (image) icon,
+/// the last row holds the centered label.
+pub const ICON_W: i32 = 12;
+pub const ICON_H: i32 = 5;
 pub const GRID_TOP: i32 = 1; // below the menubar row
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -212,6 +213,15 @@ impl<F: FsOps> DesktopIcons<F> {
         )
     }
 
+    /// The screen rect of the icon *image* within a tile — centered horizontally,
+    /// the top `ICON_H - 1` rows (the last row is the label).
+    pub fn icon_image_rect(cell: (u16, u16)) -> crate::geometry::Rect {
+        let t = Self::tile_rect(cell);
+        let iw = (ICON_W - 2).max(2);
+        let ih = (ICON_H - 1).max(1);
+        crate::geometry::Rect::new(t.x + (ICON_W - iw) / 2, t.y, iw, ih)
+    }
+
     /// The icon under `p`, if any.
     pub fn icon_at(&self, p: Point) -> Option<usize> {
         self.icons.iter().position(|i| Self::tile_rect(i.cell).contains(p))
@@ -261,19 +271,27 @@ impl<F: FsOps> DesktopIcons<F> {
         let mut buf = crate::buffer::CellBuffer::new(w, h);
         buf.fill(Cell { ch: ' ', fg: FG, bg: transparent, attrs: Default::default() });
         for (i, icon) in self.icons.iter().enumerate() {
-            let r = Self::tile_rect(icon.cell);
+            let tile = Self::tile_rect(icon.cell);
+            let ir = Self::icon_image_rect(icon.cell);
             let selected = self.selection.contains(&i);
             let bg = if selected { SEL_BG } else { transparent };
-            // glyph row
+            // Glyph fallback, centered in the icon area (the image layer covers it
+            // on Kitty-graphics terminals; this shows on the rest).
             let glyph = glyph_for(icon.role);
-            buf.set(r.x + ICON_W / 2, r.y, Cell { ch: glyph, fg: FG, bg, attrs: Default::default() });
-            // label row (centered-ish, truncated)
-            let name: String = icon.label.chars().take((ICON_W - 1) as usize).collect();
-            // paint selection bg across the label width, then write the string
-            for k in 0..name.chars().count() as i32 {
-                buf.set(r.x + k, r.y + 1, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() });
+            buf.set(
+                ir.x + ir.w / 2,
+                ir.y + ir.h / 2,
+                Cell { ch: glyph, fg: FG, bg: transparent, attrs: Default::default() },
+            );
+            // Label: centered on the tile's last row, truncated to the tile width.
+            let label_y = tile.y + ICON_H - 1;
+            let name: String = icon.label.chars().take(ICON_W as usize).collect();
+            let len = name.chars().count() as i32;
+            let lx = tile.x + (ICON_W - len).max(0) / 2;
+            for x in tile.x..tile.x + ICON_W {
+                buf.set(x, label_y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() });
             }
-            buf.write_str(r.x, r.y + 1, &name, FG, bg);
+            buf.write_str(lx, label_y, &name, FG, bg);
         }
         buf
     }
@@ -469,26 +487,29 @@ impl<F: FsOps> DesktopIcons<F> {
         }
     }
 
-    /// Placements for loaded thumbnails; `visible(tile_rect)` decides occlusion.
-    pub fn thumbnail_placements(
+    /// Image placements for every icon: a loaded photo thumbnail when available,
+    /// otherwise the generated icon for the entry's `role` (from `role_icons`).
+    /// `visible(tile_rect)` decides occlusion by windows.
+    pub fn icon_placements(
         &self,
+        role_icons: &std::collections::HashMap<Role, u64>,
         visible: impl Fn(crate::geometry::Rect) -> bool,
     ) -> Vec<crate::protocol::ImagePlacement> {
         let mut out = Vec::new();
         for icon in &self.icons {
-            if let Some(id) = icon.thumb {
-                let r = Self::tile_rect(icon.cell);
-                let cell = crate::geometry::Rect::new(r.x + 4, r.y, 13, 2);
+            let id = icon.thumb.or_else(|| role_icons.get(&icon.role).copied());
+            if let Some(id) = id {
+                let tile = Self::tile_rect(icon.cell);
+                let r = Self::icon_image_rect(icon.cell);
                 out.push(crate::protocol::ImagePlacement {
                     id,
-                    rect: cell,
-                    cols: cell.w.max(1) as u16,
-                    rows: cell.h.max(1) as u16,
-                    visible: visible(r),
+                    rect: r,
+                    cols: r.w.max(1) as u16,
+                    rows: r.h.max(1) as u16,
+                    visible: visible(tile),
                 });
             }
         }
-        out.sort_by_key(|p| p.id);
         out
     }
 

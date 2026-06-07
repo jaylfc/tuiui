@@ -330,6 +330,8 @@ pub struct SessionCore {
     thumb_loader: crate::thumbnail::ThumbLoader,
     /// Maps a source image path to its loaded thumbnail `ImageStore` id.
     thumb_ids: HashMap<std::path::PathBuf, u64>,
+    /// Pre-generated large file-type icons (one per role) → `ImageStore` id.
+    role_icon_ids: HashMap<crate::openwith::Role, u64>,
 }
 
 impl SessionCore {
@@ -367,9 +369,27 @@ impl SessionCore {
             app_image_ids: HashMap::new(),
             thumb_loader: crate::thumbnail::ThumbLoader::new(),
             thumb_ids: HashMap::new(),
+            role_icon_ids: HashMap::new(),
         };
+        core.generate_role_icons();
         core.reload_desktop();
         core
+    }
+
+    /// Generate the large file-type icons once and cache them in the image store.
+    fn generate_role_icons(&mut self) {
+        use crate::openwith::Role::*;
+        // Match the icon-image cell box aspect (cells are ~8×16px), at 2× for crispness.
+        let w = ((crate::desktop::ICON_W - 2).max(2) * 16) as u32;
+        let h = ((crate::desktop::ICON_H - 1).max(1) * 32) as u32;
+        for role in [
+            Image, Audio, Video, Text, Code, Archive, Pdf, Directory, Executable, Other,
+        ] {
+            if let Some(png) = crate::icons::role_icon_png(role, w, h) {
+                let id = self.images.store_png(png, w, h);
+                self.role_icon_ids.insert(role, id);
+            }
+        }
     }
 
     /// Rebuild the desktop icons from the configured pins + saved positions, lay
@@ -443,7 +463,7 @@ impl SessionCore {
             .iter()
             .filter(|w| !w.minimized && w.content_rect().contains(p))
             .map(|w| (w.id, w.content_rect()))
-            .last()
+            .next_back()
     }
 
     /// Persist the desktop's current icon positions to the config.
@@ -1861,7 +1881,8 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             }
         }
 
-        // Thumbnail placements for desktop image icons not covered by a window.
+        // Image placements for desktop icons (photo thumbnails or generated
+        // file-type icons) not covered by a window.
         if self.cfg.desktop_enabled {
             let occluded = |r: crate::geometry::Rect| {
                 self.wm
@@ -1869,7 +1890,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                     .iter()
                     .any(|w| !w.minimized && w.rect.intersect(r).is_some())
             };
-            images.extend(self.desktop.thumbnail_placements(|r| !occluded(r)));
+            images.extend(self.desktop.icon_placements(&self.role_icon_ids, |r| !occluded(r)));
         }
 
         // Image placements transmitted by hosted apps (A2 Kitty-graphics passthrough),

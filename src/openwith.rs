@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 /// A coarse file category used to pick a default application.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     Image,
     Video,

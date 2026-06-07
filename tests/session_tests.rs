@@ -84,7 +84,9 @@ fn image_window_emits_a_visible_placement() {
     let img = image::RgbaImage::from_pixel(8, 8, image::Rgba([10, 20, 30, 255]));
     image::DynamicImage::ImageRgba8(img).save(&path).unwrap();
 
-    let mut core = SessionCore::new(80, 24, Config { apps: vec![], ..Config::default() });
+    // Disable the desktop so the only image placement is the ImageView's (desktop
+    // icons now emit their own image placements).
+    let mut core = SessionCore::new(80, 24, Config { apps: vec![], desktop_enabled: false, ..Config::default() });
     core.apply(ClientMsg::OpenImage(path.to_string_lossy().to_string()));
     let frame = core.build_frame();
     assert_eq!(frame.images.len(), 1, "one image placement");

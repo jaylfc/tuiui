@@ -79,7 +79,8 @@ pub struct Config {
     #[serde(default = "default_true")]
     pub desktop_enabled: bool,
     /// Pinned desktop shortcuts (reuses AppEntry); shown alongside ~/Desktop files.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// Seeded with Files + Store for existing configs that predate this field.
+    #[serde(default = "default_desktop_pins", skip_serializing_if = "Vec::is_empty")]
     pub desktop_pins: Vec<AppEntry>,
     /// Saved grid positions: key (abs path or pin command) → (col, row).
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
@@ -120,16 +121,22 @@ impl Default for Config {
             default_apps: crate::openwith::default_handlers(),
             filemanager_view: None,
             desktop_enabled: true,
-            desktop_pins: vec![
-                AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: None, requires_cwd: None, cwd: None },
-                AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: None, requires_cwd: None, cwd: None },
-            ],
+            desktop_pins: default_desktop_pins(),
             desktop_positions: std::collections::BTreeMap::new(),
         }
     }
 }
 
 fn default_true() -> bool { true }
+
+/// Default desktop shortcuts, also used by serde to seed configs that predate the
+/// `desktop_pins` field (so existing users still get Files + Store on the desktop).
+fn default_desktop_pins() -> Vec<AppEntry> {
+    vec![
+        AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: None, requires_cwd: None, cwd: None },
+        AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: None, requires_cwd: None, cwd: None },
+    ]
+}
 
 fn default_shell() -> String { std::env::var("SHELL").unwrap_or_else(|_| "bash".into()) }
 

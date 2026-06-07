@@ -75,7 +75,7 @@ fn double_click_pin_runs_command() {
     let idx = dt.icons().iter().position(|i| i.label == "Files").unwrap();
     // place a click on that icon's cell
     let (col, row) = dt.icons()[idx].cell;
-    let p = Point::new((col as i32) * 21 + 1, 1 + (row as i32) * 4);
+    let p = Point::new((col as i32) * 12 + 1, 1 + (row as i32) * 5);
     dt.double_click(p);
     assert_eq!(dt.take_action(), Some(DesktopAction::Run { command: "@files".into(), args: vec![] }));
     let _ = fs::remove_dir_all(&d);
@@ -126,7 +126,7 @@ fn drag_snaps_to_target_cell_and_reports_position() {
     dt.layout(100, 30);
     // proj starts at (0,0); grab it and drop at a point inside cell (2,1)
     dt.begin_drag(Point::new(3, 1));
-    let drop = Point::new(2 * 21 + 3, 1 + 4 + 1); // inside cell (2,1): GRID_TOP + 1*ICON_H + 1
+    let drop = Point::new(2 * 12 + 3, 1 + 5 + 1); // inside cell (2,1): GRID_TOP + 1*ICON_H + 1
     let moved = dt.end_drag(drop);
     assert!(moved); // a move happened
     let key = dt.icon_key(0).unwrap();
