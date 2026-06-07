@@ -10,6 +10,7 @@ use std::fs::Permissions;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::process::CommandExt;
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -31,7 +32,8 @@ pub fn run() -> std::io::Result<()> {
     let cfg = Config::load();
     crate::theme::set(&cfg.theme);
     let (w, h) = (100, 30); // provisional until the first client reports its size
-    let mut core = SessionCore::new(w, h, cfg.clone());
+    let apphost = ensure_apphost()?;
+    let mut core = SessionCore::with_apphost(w, h, cfg.clone(), Box::new(apphost));
     // Start the background system poller and feed its shared snapshot to the
     // session so the menubar tray reflects live host state. Keep `_poller` bound
     // for the daemon's lifetime so its thread is not detached/dropped.
@@ -58,6 +60,30 @@ pub fn run() -> std::io::Result<()> {
     let _ = std::fs::remove_file(&path);
     core.shutdown();
     Ok(())
+}
+
+/// Ensure the apphost process is running and return a connected handle. Spawns
+/// `tuiui --apphost` (detached) if its socket is absent, then connects.
+fn ensure_apphost() -> std::io::Result<crate::apphost::RemoteAppHost> {
+    use crate::protocol::apphost_socket_path;
+    let path = apphost_socket_path();
+    if UnixStream::connect(&path).is_err() {
+        let exe = std::env::current_exe()?;
+        std::process::Command::new(exe)
+            .arg("--apphost")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .process_group(0)
+            .spawn()?;
+        for _ in 0..100 {
+            if UnixStream::connect(&path).is_ok() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+    crate::apphost::RemoteAppHost::connect(&path)
 }
 
 /// Serve one attached client until it detaches (socket closes) or asks to detach.

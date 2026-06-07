@@ -2017,6 +2017,7 @@ echo 'Done. Open the tuiui menu (top-right) \u{2192} Shutdown, then run:  tuiui'
             self.apphost.kill(aid);
         }
         self.contents.clear();
+        self.apphost.shutdown_host();
     }
 }
 

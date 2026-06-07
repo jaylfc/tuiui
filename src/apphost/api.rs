@@ -53,6 +53,10 @@ pub trait AppHost: Send {
     /// Drop the host's tracking of the app (does not kill).
     fn remove(&mut self, id: AppId);
 
+    /// Stop the underlying app host process, if any (default no-op for the
+    /// in-process host). The frontend calls this on full shutdown.
+    fn shutdown_host(&mut self) {}
+
     /// Test hook: inject a placement + image into the app's graphics state.
     /// Default no-op; `LocalAppHost` overrides it. Used only by integration tests.
     #[doc(hidden)]

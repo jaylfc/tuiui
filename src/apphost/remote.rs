@@ -176,6 +176,10 @@ impl AppHost for RemoteAppHost {
         c.apps.remove(&id);
         c.meta.remove(&id);
     }
+
+    fn shutdown_host(&mut self) {
+        let _ = send(&mut self.writer, &HostReq::Shutdown);
+    }
 }
 
 #[cfg(test)]

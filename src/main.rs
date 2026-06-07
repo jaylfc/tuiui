@@ -17,6 +17,7 @@ use tuiui::protocol::socket_path;
 fn main() -> std::io::Result<()> {
     match std::env::args().nth(1).as_deref() {
         Some("--daemon") => tuiui::daemon::run(),
+        Some("--apphost") => tuiui::apphost::server::run(),
         Some("kill") => kill(),
         Some("attach") => attach(false),
         Some(other) => {
@@ -80,6 +81,14 @@ fn kill() -> std::io::Result<()> {
             println!("tuiui: shutdown requested");
         }
         Err(_) => println!("tuiui: no daemon running"),
+    }
+    // Also stop the apphost (it outlives the frontend by design).
+    if let Ok(mut s) = UnixStream::connect(tuiui::protocol::apphost_socket_path()) {
+        let req = tuiui::apphost::proto::HostReq::Shutdown;
+        if let Ok(mut buf) = serde_json::to_vec(&req) {
+            buf.push(b'\n');
+            let _ = s.write_all(&buf);
+        }
     }
     Ok(())
 }
