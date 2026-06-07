@@ -437,6 +437,12 @@ impl SessionCore {
         self.desktop.selection().len()
     }
 
+    /// The screen tile rect of desktop icon `idx` (integration tests).
+    #[doc(hidden)]
+    pub fn desktop_icon_tile_for_test(&self, idx: usize) -> crate::geometry::Rect {
+        self.desktop.tile_rect(self.desktop.icons()[idx].cell)
+    }
+
     /// Begin the desktop new-folder overlay directly (integration tests).
     #[doc(hidden)]
     pub fn begin_desktop_new_folder_for_test(&mut self) {
@@ -1548,9 +1554,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             Some(crate::desktop::DesktopMenuItem::Open) => {
                 self.desktop.cancel_overlay();
                 if let Some(i) = idx {
-                    let r = crate::desktop::DesktopIcons::<crate::fileops::StdFs>::tile_rect(
-                        self.desktop.icons()[i].cell,
-                    );
+                    let r = self.desktop.tile_rect(self.desktop.icons()[i].cell);
                     self.desktop.double_click(Point::new(r.x + 1, r.y));
                     self.drain_desktop_action();
                 }

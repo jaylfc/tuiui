@@ -12,8 +12,8 @@ use std::path::PathBuf;
 /// Layout: each icon occupies a tile this many cells wide/tall; the grid starts
 /// one row below the menubar. The top `ICON_H - 1` rows hold the (image) icon,
 /// the last row holds the centered label.
-pub const ICON_W: i32 = 12;
-pub const ICON_H: i32 = 5;
+pub const ICON_W: i32 = 14;
+pub const ICON_H: i32 = 6;
 pub const GRID_TOP: i32 = 1; // below the menubar row
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -203,10 +203,12 @@ impl<F: FsOps> DesktopIcons<F> {
         (0, 0) // grid full: stack at origin
     }
 
-    /// The screen rect of an icon's tile.
-    pub fn tile_rect(cell: (u16, u16)) -> crate::geometry::Rect {
+    /// The screen rect of an icon's tile. Columns fill from the **top-right**
+    /// (like macOS): logical column 0 is the rightmost on-screen column.
+    pub fn tile_rect(&self, cell: (u16, u16)) -> crate::geometry::Rect {
+        let screen_col = self.cols.saturating_sub(1).saturating_sub(cell.0);
         crate::geometry::Rect::new(
-            cell.0 as i32 * ICON_W,
+            screen_col as i32 * ICON_W,
             GRID_TOP + cell.1 as i32 * ICON_H,
             ICON_W,
             ICON_H,
@@ -215,8 +217,8 @@ impl<F: FsOps> DesktopIcons<F> {
 
     /// The screen rect of the icon *image* within a tile — centered horizontally,
     /// the top `ICON_H - 1` rows (the last row is the label).
-    pub fn icon_image_rect(cell: (u16, u16)) -> crate::geometry::Rect {
-        let t = Self::tile_rect(cell);
+    pub fn icon_image_rect(&self, cell: (u16, u16)) -> crate::geometry::Rect {
+        let t = self.tile_rect(cell);
         let iw = (ICON_W - 2).max(2);
         let ih = (ICON_H - 1).max(1);
         crate::geometry::Rect::new(t.x + (ICON_W - iw) / 2, t.y, iw, ih)
@@ -224,7 +226,7 @@ impl<F: FsOps> DesktopIcons<F> {
 
     /// The icon under `p`, if any.
     pub fn icon_at(&self, p: Point) -> Option<usize> {
-        self.icons.iter().position(|i| Self::tile_rect(i.cell).contains(p))
+        self.icons.iter().position(|i| self.tile_rect(i.cell).contains(p))
     }
 
     /// Left click: select the icon under `p` (clear others unless `ctrl`); on empty
@@ -271,8 +273,8 @@ impl<F: FsOps> DesktopIcons<F> {
         let mut buf = crate::buffer::CellBuffer::new(w, h);
         buf.fill(Cell { ch: ' ', fg: FG, bg: transparent, attrs: Default::default() });
         for (i, icon) in self.icons.iter().enumerate() {
-            let tile = Self::tile_rect(icon.cell);
-            let ir = Self::icon_image_rect(icon.cell);
+            let tile = self.tile_rect(icon.cell);
+            let ir = self.icon_image_rect(icon.cell);
             let selected = self.selection.contains(&i);
             let bg = if selected { SEL_BG } else { transparent };
             // Glyph fallback, centered in the icon area (the image layer covers it
@@ -298,7 +300,7 @@ impl<F: FsOps> DesktopIcons<F> {
 
     pub fn begin_drag(&mut self, p: Point) {
         if let Some(i) = self.icon_at(p) {
-            let r = Self::tile_rect(self.icons[i].cell);
+            let r = self.tile_rect(self.icons[i].cell);
             self.drag = Some((i, Point::new(p.x - r.x, p.y - r.y)));
             self.selection.clear();
             self.selection.insert(i);
@@ -314,7 +316,10 @@ impl<F: FsOps> DesktopIcons<F> {
         let Some((i, _grab)) = self.drag.take() else {
             return false;
         };
-        let col = ((p.x / ICON_W).clamp(0, self.cols.max(1) as i32 - 1)) as u16;
+        // Invert the right-aligned screen column back to a logical column.
+        let max_col = self.cols.max(1) as i32 - 1;
+        let screen_col = (p.x / ICON_W).clamp(0, max_col);
+        let col = (max_col - screen_col).clamp(0, max_col) as u16;
         let row = (((p.y - GRID_TOP) / ICON_H).clamp(0, self.rows.max(1) as i32 - 1)) as u16;
         let target = self.nearest_free((col, row), i);
         let changed = self.icons[i].cell != target;
@@ -499,8 +504,8 @@ impl<F: FsOps> DesktopIcons<F> {
         for icon in &self.icons {
             let id = icon.thumb.or_else(|| role_icons.get(&icon.role).copied());
             if let Some(id) = id {
-                let tile = Self::tile_rect(icon.cell);
-                let r = Self::icon_image_rect(icon.cell);
+                let tile = self.tile_rect(icon.cell);
+                let r = self.icon_image_rect(icon.cell);
                 out.push(crate::protocol::ImagePlacement {
                     id,
                     rect: r,
@@ -575,7 +580,7 @@ impl<F: FsOps> DesktopIcons<F> {
         match &self.overlay {
             Some(DesktopOverlay::Rename { idx, .. }) => {
                 let cell = self.icons.get(*idx)?.cell;
-                let r = Self::tile_rect(cell);
+                let r = self.tile_rect(cell);
                 Some(crate::geometry::Rect::new(r.x, r.y, ICON_W, ICON_H))
             }
             Some(DesktopOverlay::NewFolder { .. }) => {

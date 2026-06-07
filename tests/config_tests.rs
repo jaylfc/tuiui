@@ -5,7 +5,9 @@ fn defaults_are_sane() {
     let c = Config::default();
     assert!(c.snapping_enabled);
     assert_eq!(c.snap_threshold, 3);
-    assert!(!c.apps.is_empty());
+    // No apps auto-start by default; the desktop seeds Files + Store pins instead.
+    assert!(c.apps.is_empty());
+    assert_eq!(c.desktop_pins.len(), 2);
 }
 
 #[test]

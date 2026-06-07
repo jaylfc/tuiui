@@ -114,9 +114,8 @@ impl Default for Config {
             default_project_dir: None,
             recent_dirs: Vec::new(),
             show_hidden_dirs: false,
-            apps: vec![
-                AppEntry { name: "shell".into(), command: default_shell(), args: vec![], category: Some("Shell".into()), requires_cwd: None, cwd: None },
-            ],
+            // No apps auto-start by default — launch from the menu/desktop instead.
+            apps: vec![],
             launcher: vec![],
             default_apps: crate::openwith::default_handlers(),
             filemanager_view: None,
@@ -138,7 +137,6 @@ fn default_desktop_pins() -> Vec<AppEntry> {
     ]
 }
 
-fn default_shell() -> String { std::env::var("SHELL").unwrap_or_else(|_| "bash".into()) }
 
 fn default_theme() -> String { "midnight".into() }
 

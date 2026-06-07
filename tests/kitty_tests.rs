@@ -10,8 +10,8 @@ fn base64_matches_known_vectors() {
 
 #[test]
 fn place_and_delete_strings() {
-    assert_eq!(place(7, 10, 4), "\x1b_Ga=p,i=7,c=10,r=4,q=2\x1b\\");
-    assert_eq!(delete(7), "\x1b_Ga=d,d=i,i=7,q=2\x1b\\");
+    assert_eq!(place(7, 3, 10, 4), "\x1b_Ga=p,i=7,p=3,c=10,r=4,q=2\x1b\\");
+    assert_eq!(delete(7, 3), "\x1b_Ga=d,d=i,i=7,p=3,q=2\x1b\\");
 }
 
 #[test]

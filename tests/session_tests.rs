@@ -139,8 +139,10 @@ fn desktop_click_selects_and_double_click_opens_files() {
     // Point the desktop at our temp dir via a test helper.
     let mut core = SessionCore::new(100, 30, Config { desktop_pins: vec![], ..Config::default() });
     core.set_desktop_dir_for_test(dir.clone()); // reloads desktop at `dir`
-    // "proj" is at cell (0,0): tile glyph at (7,1); click then double-click.
-    let p = tuiui::geometry::Point::new(2, 1);
+    // "proj" is the only icon (idx 0); derive a point inside its tile (the layout
+    // is right-aligned, so don't assume top-left).
+    let tr = core.desktop_icon_tile_for_test(0);
+    let p = tuiui::geometry::Point::new(tr.x + 1, tr.y + 1);
     core.apply(ClientMsg::MouseDown(p));
     assert_eq!(core.desktop_selection_len_for_test(), 1);
     let before = core.window_count();

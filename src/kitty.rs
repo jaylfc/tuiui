@@ -45,12 +45,14 @@ pub fn transmit(id: u64, png: &[u8]) -> String {
     transmit_b64(id, &b64(png))
 }
 
-/// Place image `id` at the current cursor cell, scaled to `cols × rows` cells.
-pub fn place(id: u64, cols: u16, rows: u16) -> String {
-    format!("\x1b_Ga=p,i={id},c={cols},r={rows},q=2\x1b\\")
+/// Place image `id` at the current cursor cell, scaled to `cols × rows` cells,
+/// under placement id `place`. A distinct `place` lets one image (e.g. a shared
+/// file-type icon) appear at many spots at once.
+pub fn place(id: u64, place: u32, cols: u16, rows: u16) -> String {
+    format!("\x1b_Ga=p,i={id},p={place},c={cols},r={rows},q=2\x1b\\")
 }
 
-/// Delete all placements of image `id` (keeps the transmitted data for re-placing).
-pub fn delete(id: u64) -> String {
-    format!("\x1b_Ga=d,d=i,i={id},q=2\x1b\\")
+/// Delete the placement `place` of image `id` (keeps the transmitted data).
+pub fn delete(id: u64, place: u32) -> String {
+    format!("\x1b_Ga=d,d=i,i={id},p={place},q=2\x1b\\")
 }

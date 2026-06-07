@@ -39,7 +39,7 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
             // Image ids already transmitted, and the placement geometry currently
             // displayed for each (so we only re-place on move/resize).
             let mut transmitted: std::collections::HashSet<u64> = std::collections::HashSet::new();
-            let mut active: std::collections::HashMap<u64, (i32, i32, u16, u16)> = std::collections::HashMap::new();
+            let mut active: std::collections::HashMap<u32, (u64, i32, i32, u16, u16)> = std::collections::HashMap::new();
             loop {
                 line.clear();
                 match r.read_line(&mut line) {
@@ -270,7 +270,7 @@ pub fn run(stream: UnixStream) -> std::io::Result<()> {
 fn reconcile_images(
     msg: &FrameMsg,
     transmitted: &mut std::collections::HashSet<u64>,
-    active: &mut std::collections::HashMap<u64, (i32, i32, u16, u16)>,
+    active: &mut std::collections::HashMap<u32, (u64, i32, i32, u16, u16)>,
 ) -> String {
     use std::fmt::Write;
     let mut g = String::new();
@@ -279,33 +279,42 @@ fn reconcile_images(
             g.push_str(&crate::kitty::transmit_b64(blob.id, &blob.png_base64));
         }
     }
-    // Compute the new visible set and which placements need (re)placing.
-    let mut now: std::collections::HashMap<u64, (i32, i32, u16, u16)> = std::collections::HashMap::new();
-    let mut to_place = Vec::new();
+    // Key placements by screen position, not image id, so one image (e.g. a shared
+    // file-type icon) can appear at many spots. `active` maps placement-key →
+    // (image_id, x, y, cols, rows).
+    let mut now: std::collections::HashMap<u32, (u64, i32, i32, u16, u16)> = std::collections::HashMap::new();
     for p in &msg.images {
         if p.visible {
-            let geo = (p.rect.x, p.rect.y, p.cols, p.rows);
-            now.insert(p.id, geo);
-            if active.get(&p.id) != Some(&geo) {
-                to_place.push((p.id, geo));
-            }
+            now.insert(place_key(p.rect.x, p.rect.y), (p.id, p.rect.x, p.rect.y, p.cols, p.rows));
         }
     }
-    let to_delete: Vec<u64> = active.keys().filter(|id| !now.contains_key(id)).copied().collect();
-    if !to_place.is_empty() || !to_delete.is_empty() {
+    let mut ops = String::new();
+    // Remove placements that are gone, or whose image changed at the same slot.
+    for (&pk, &(img, ..)) in active.iter() {
+        let keep = matches!(now.get(&pk), Some(&(new_img, ..)) if new_img == img);
+        if !keep {
+            ops.push_str(&crate::kitty::delete(img, pk));
+        }
+    }
+    // (Re)place new or moved/changed placements.
+    for (&pk, &(img, x, y, c, r)) in now.iter() {
+        if active.get(&pk) != Some(&(img, x, y, c, r)) {
+            let _ = write!(ops, "\x1b[{};{}H", y + 1, x + 1);
+            ops.push_str(&crate::kitty::place(img, pk, c, r));
+        }
+    }
+    if !ops.is_empty() {
         g.push_str("\x1b[s"); // save cursor
-        for (id, (x, y, c, r)) in to_place {
-            g.push_str(&crate::kitty::delete(id)); // clear any prior placement
-            let _ = write!(g, "\x1b[{};{}H", y + 1, x + 1);
-            g.push_str(&crate::kitty::place(id, c, r));
-        }
-        for id in to_delete {
-            g.push_str(&crate::kitty::delete(id));
-        }
+        g.push_str(&ops);
         g.push_str("\x1b[u"); // restore cursor
     }
     *active = now;
     g
+}
+
+/// A stable per-position placement id (Kitty `p=`), unique per cell coordinate.
+fn place_key(x: i32, y: i32) -> u32 {
+    (((x.max(0) as u32) & 0xffff) << 16) | ((y.max(0) as u32) & 0xffff)
 }
 
 /// Serialize a [`ClientMsg`] as a newline-delimited JSON frame.

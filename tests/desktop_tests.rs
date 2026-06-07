@@ -55,10 +55,11 @@ fn hit_test_and_select_then_double_click_opens() {
     let mut dt = DesktopIcons::new(d.clone());
     dt.reload(&[], &BTreeMap::new());
     dt.layout(100, 30);
-    // proj is at cell (0,0): tile origin (0*21, 1+0*4) = (0,1); glyph row y=1
-    let p = Point::new(3, 1);
+    // proj is at cell (0,0); derive a point inside its tile (layout is right-aligned).
+    let tr = dt.tile_rect((0, 0));
+    let p = Point::new(tr.x + 1, tr.y + 1);
     assert_eq!(dt.icon_at(p), Some(0));
-    assert!(dt.icon_at(Point::new(60, 20)).is_none()); // empty desktop
+    assert!(dt.icon_at(Point::new(tr.x - 5, 20)).is_none()); // empty desktop, left of the tile
     dt.click(p, false);
     assert_eq!(dt.selection(), vec![0]);
     dt.double_click(p);
@@ -73,9 +74,9 @@ fn double_click_pin_runs_command() {
     dt.reload(&pins(), &BTreeMap::new());
     dt.layout(100, 30);
     let idx = dt.icons().iter().position(|i| i.label == "Files").unwrap();
-    // place a click on that icon's cell
-    let (col, row) = dt.icons()[idx].cell;
-    let p = Point::new((col as i32) * 12 + 1, 1 + (row as i32) * 5);
+    // place a click on that icon's tile
+    let tr = dt.tile_rect(dt.icons()[idx].cell);
+    let p = Point::new(tr.x + 1, tr.y + 1);
     dt.double_click(p);
     assert_eq!(dt.take_action(), Some(DesktopAction::Run { command: "@files".into(), args: vec![] }));
     let _ = fs::remove_dir_all(&d);
@@ -89,9 +90,10 @@ fn right_click_opens_context_and_menu_targets() {
     let mut dt = DesktopIcons::new(d.clone());
     dt.reload(&[], &BTreeMap::new());
     dt.layout(100, 30);
-    dt.right_click(Point::new(3, 1)); // on the icon
+    let tr = dt.tile_rect((0, 0));
+    dt.right_click(Point::new(tr.x + 1, tr.y + 1)); // on the icon
     assert!(matches!(dt.overlay(), Some(DesktopOverlay::Context { .. })));
-    dt.right_click(Point::new(60, 20)); // empty desktop
+    dt.right_click(Point::new(tr.x - 5, 20)); // empty desktop
     assert!(matches!(dt.overlay(), Some(DesktopOverlay::DesktopMenu { .. })));
     let _ = fs::remove_dir_all(&d);
 }
@@ -125,8 +127,10 @@ fn drag_snaps_to_target_cell_and_reports_position() {
     dt.reload(&[], &BTreeMap::new());
     dt.layout(100, 30);
     // proj starts at (0,0); grab it and drop at a point inside cell (2,1)
-    dt.begin_drag(Point::new(3, 1));
-    let drop = Point::new(2 * 12 + 3, 1 + 5 + 1); // inside cell (2,1): GRID_TOP + 1*ICON_H + 1
+    let from = dt.tile_rect((0, 0));
+    dt.begin_drag(Point::new(from.x + 1, from.y + 1));
+    let to = dt.tile_rect((2, 1));
+    let drop = Point::new(to.x + 1, to.y + 1);
     let moved = dt.end_drag(drop);
     assert!(moved); // a move happened
     let key = dt.icon_key(0).unwrap();
