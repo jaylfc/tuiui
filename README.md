@@ -193,4 +193,11 @@ The app catalog is generated from [rothgar/awesome-tuis](https://github.com/roth
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+**[PolyForm Noncommercial 1.0.0](LICENSE)** — source-available. You may use, modify,
+and share tuiui for any **noncommercial** purpose (personal, hobby, research,
+education, nonprofits). **Commercial use is reserved to the copyright holder**
+(jaylfc); contact for a commercial license.
+
+tuiui's dependencies are permissive (MIT / Apache-2.0 / BSD / Zlib / Unlicense, plus
+one MPL-2.0 crate used unmodified); their notices are collected in
+[THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md).
