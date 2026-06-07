@@ -1,6 +1,9 @@
+use crate::buffer::CellBuffer;
+use crate::kittygfx::GraphicsState;
 use crate::ptyhost::AppInstance;
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::MutexGuard;
 
 /// Opaque handle to a hosted application. Stable for the app's lifetime; the
 /// frontend stores it in `WinContent::App` and uses it for every host call.
@@ -50,6 +53,43 @@ impl LocalAppHost {
         self.apps.remove(&id);
         self.meta.remove(&id);
     }
+
+    /// Forward bytes to the app's PTY (no-op if the id is unknown).
+    pub fn input(&mut self, id: AppId, bytes: &[u8]) {
+        if let Some(app) = self.apps.get_mut(&id) {
+            app.write_input(bytes);
+        }
+    }
+
+    /// Resize the app's PTY/terminal (no-op if unknown).
+    pub fn resize(&mut self, id: AppId, cols: i32, rows: i32) {
+        if let Some(app) = self.apps.get_mut(&id) {
+            app.resize(cols, rows);
+        }
+    }
+
+    /// Terminate the child (no-op if unknown). The handle stays in the map
+    /// until `remove`; `is_alive` will report `false`.
+    pub fn kill(&mut self, id: AppId) {
+        if let Some(app) = self.apps.get_mut(&id) {
+            app.kill();
+        }
+    }
+
+    /// Whether the child is still running. Unknown ids report `false`.
+    pub fn is_alive(&mut self, id: AppId) -> bool {
+        self.apps.get_mut(&id).map(|a| a.is_alive()).unwrap_or(false)
+    }
+
+    /// Current terminal grid for the app, or `None` if unknown.
+    pub fn snapshot(&self, id: AppId) -> Option<CellBuffer> {
+        self.apps.get(&id).map(|a| a.snapshot())
+    }
+
+    /// Lock and return the app's graphics state, or `None` if unknown.
+    pub fn graphics(&self, id: AppId) -> Option<MutexGuard<'_, GraphicsState>> {
+        self.apps.get(&id).map(|a| a.graphics())
+    }
 }
 
 impl Default for LocalAppHost {
@@ -79,5 +119,36 @@ mod tests {
         let a = host.spawn("true", &[], None, 80, 24).unwrap();
         let b = host.spawn("true", &[], None, 80, 24).unwrap();
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn snapshot_unknown_is_none() {
+        let host = LocalAppHost::new();
+        assert!(host.snapshot(AppId(999)).is_none());
+    }
+
+    #[test]
+    fn is_alive_tracks_child_exit() {
+        let mut host = LocalAppHost::new();
+        let id = host.spawn("true", &[], None, 80, 24).unwrap();
+        let mut alive_after = true;
+        for _ in 0..50 {
+            if !host.is_alive(id) {
+                alive_after = false;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(!alive_after, "child `true` should be reaped as not-alive");
+    }
+
+    #[test]
+    fn snapshot_after_spawn_has_requested_dimensions() {
+        let mut host = LocalAppHost::new();
+        let id = host.spawn("cat", &[], None, 80, 24).unwrap();
+        let snap = host.snapshot(id).expect("snapshot");
+        assert_eq!(snap.width(), 80);
+        assert_eq!(snap.height(), 24);
+        host.kill(id);
     }
 }
