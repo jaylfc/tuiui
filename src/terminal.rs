@@ -202,6 +202,13 @@ impl Terminal {
             caps.kitty_graphics = true;
             caps.truecolor = true;
         }
+        crate::dbg_log(&format!(
+            "caps: kitty_graphics={} truecolor={} term={} term_program={}",
+            caps.kitty_graphics,
+            caps.truecolor,
+            std::env::var("TERM").unwrap_or_default(),
+            std::env::var("TERM_PROGRAM").unwrap_or_default(),
+        ));
         Ok(Terminal { out, caps })
     }
 

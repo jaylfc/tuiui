@@ -44,7 +44,11 @@ pub struct StdFs;
 impl FsOps for StdFs {
     fn list(&self, dir: &Path, show_hidden: bool) -> io::Result<Vec<Entry>> {
         let mut out = Vec::new();
-        for ent in std::fs::read_dir(dir)? {
+        let read = std::fs::read_dir(dir).map_err(|e| {
+            crate::dbg_log(&format!("fileops::list ERR {}: {}", dir.display(), e));
+            e
+        })?;
+        for ent in read {
             let ent = ent?;
             let name = ent.file_name().to_string_lossy().to_string();
             if !show_hidden && name.starts_with('.') {

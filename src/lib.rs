@@ -58,6 +58,25 @@ pub fn dbg_log(msg: &str) {
         let _ = writeln!(f, "{ms} {msg}");
     }
 }
+
+/// Truncate `~/tuiui-debug.log` and write a session-start banner when
+/// `$TUIUI_DEBUG` is set.  Called once at daemon startup so each run starts
+/// with a clean, readable log.  No-op when the env var is unset.
+pub fn dbg_init() {
+    if std::env::var_os("TUIUI_DEBUG").is_none() {
+        return;
+    }
+    let Some(home) = dirs::home_dir() else { return };
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(home.join("tuiui-debug.log"))
+    {
+        let _ = writeln!(f, "=== tuiui debug session start (git {}) ===", GIT_SHA);
+    }
+}
 pub mod protocol;
 pub mod daemon;
 pub mod client;

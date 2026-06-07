@@ -399,6 +399,7 @@ impl SessionCore {
         // needs the real column/row count (else everything piles onto cell (0,0)).
         self.desktop.layout(self.w, self.h);
         self.desktop.reload(&self.cfg.desktop_pins, &self.cfg.desktop_positions);
+        crate::dbg_log(&format!("desktop reload: {} icons", self.desktop.icons().len()));
         self.refresh_desktop_thumbnails();
     }
 
@@ -482,6 +483,7 @@ impl SessionCore {
 
     /// Open an image file in a new ImageView window.
     fn open_image(&mut self, path: String) {
+        crate::dbg_log(&format!("open_image: {}", path));
         let expanded = expand_tilde(&path);
         // Bound the decode to a screen-sized image (assume an 8×16 px cell).
         let id = self.images.load(&expanded, (self.w.max(1) as u32) * 8, (self.h.max(1) as u32) * 16);
@@ -719,6 +721,16 @@ impl SessionCore {
     /// dispatches to private sub-handlers so that none of the internal
     /// machinery (WM, PTY handles, drag state) leaks through the public API.
     pub fn apply(&mut self, msg: ClientMsg) {
+        if !matches!(
+            msg,
+            ClientMsg::MouseDown(_)
+                | ClientMsg::MouseUp(_)
+                | ClientMsg::MouseDrag(_)
+                | ClientMsg::Resize { .. }
+                | ClientMsg::Key(_)
+        ) {
+            crate::dbg_log(&format!("apply {:?}", msg));
+        }
         match msg {
             ClientMsg::Launch { name, command, args } => {
                 self.launch(name, command, args);
@@ -1173,6 +1185,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
 
     /// Open (or re-focus) the file manager rooted at `root`, then load thumbnails.
     fn open_filemanager_root(&mut self, root: std::path::PathBuf) {
+        crate::dbg_log(&format!("open_filemanager_root: {}", root.display()));
         if let Some(id) = self.filemanager_win {
             if self.contents.contains_key(&id) {
                 self.wm.unminimize(id);
@@ -1247,9 +1260,11 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         let cwd = self.focused_fm_cwd();
         match action {
             Some(crate::filemanager::FileManagerAction::OpenImage(path)) => {
+                crate::dbg_log(&format!("fm action: OpenImage {}", path.display()));
                 self.open_image(path.to_string_lossy().to_string());
             }
             Some(crate::filemanager::FileManagerAction::RunApp { command, args }) => {
+                crate::dbg_log(&format!("fm action: RunApp {}", command));
                 let name = args
                     .last()
                     .and_then(|a| a.rsplit('/').next())
@@ -1270,6 +1285,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         let action = self.desktop.take_action();
         match action {
             Some(crate::desktop::DesktopAction::Open(path)) => {
+                crate::dbg_log(&format!("desktop action: Open {}", path.display()));
                 let is_dir = path.is_dir();
                 match crate::openwith::resolve(&path, is_dir, &self.cfg.default_apps) {
                     crate::openwith::OpenAction::Navigate => self.open_filemanager_root(path),
@@ -1290,6 +1306,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 }
             }
             Some(crate::desktop::DesktopAction::Run { command, args }) => {
+                crate::dbg_log(&format!("desktop action: Run {}", command));
                 self.launch_entry(AppEntry {
                     name: command.clone(),
                     command,
@@ -1300,6 +1317,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 });
             }
             Some(crate::desktop::DesktopAction::Unpin(cmd)) => {
+                crate::dbg_log(&format!("desktop action: Unpin {}", cmd));
                 self.cfg.desktop_pins.retain(|p| p.command != cmd);
                 let _ = self.cfg.save();
                 self.reload_desktop();
@@ -1370,6 +1388,7 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
     /// Spawn a new PTY-backed window, starting the child in `cwd` (or the user's
     /// home when `None`).
     fn launch_in(&mut self, name: String, command: String, args: Vec<String>, cwd: Option<std::path::PathBuf>) {
+        crate::dbg_log(&format!("launch_in {} cmd={}", name, command));
         // Cascade new windows with a generous offset so each one is clearly
         // visible (not buried under the previous window), clamped so the whole
         // window stays on-screen within the work area.
@@ -1745,6 +1764,11 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
             .titles
             .iter()
             .any(|(i, t)| *i == id && t.starts_with("install:"));
+        crate::dbg_log(&format!(
+            "close window {:?}{}",
+            id,
+            if was_install { " (install)" } else { "" }
+        ));
         if let Some(mut content) = self.contents.remove(&id) {
             content.kill();
         }

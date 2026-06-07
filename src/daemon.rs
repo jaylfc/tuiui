@@ -15,6 +15,7 @@ use std::time::Duration;
 
 /// Run the daemon event loop until `tuiui kill` (or a fatal socket error).
 pub fn run() -> std::io::Result<()> {
+    crate::dbg_init();
     // Confine the socket to a per-user 0700 directory so other local users
     // cannot connect to (and thus drive/observe) the session. Creating the
     // restrictive directory first avoids any window where the socket is exposed.
