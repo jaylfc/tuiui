@@ -2,10 +2,9 @@
 name = "tuiui"
 version = "0.1.0"
 edition = "2021"
-license-file = "LICENSE"
+license = "MIT"
 description = "A TUI desktop environment for the terminal"
 repository = "https://github.com/jaylfc/tuiui"
-publish = false
 
 [dependencies]
 crossterm = "0.28"
