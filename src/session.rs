@@ -377,7 +377,8 @@ impl SessionCore {
     fn refresh_desktop_thumbnails(&mut self) {
         let reqs = self.desktop.thumbnail_requests();
         for (idx, path) in reqs {
-            if let Some(id) = self.images.load(&path, 13 * 8, 16) {
+            // Bound thumbnail pixels: icon tile is 21 cells wide, 4 tall; cells are ~8x16px.
+            if let Some(id) = self.images.load(&path, 13 * 8, 4 * 16) {
                 self.desktop.set_thumb(idx, id);
             }
         }

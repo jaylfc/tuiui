@@ -11,8 +11,8 @@ use std::path::PathBuf;
 
 /// Layout: each icon occupies a tile this many cells wide/tall; the grid starts
 /// one row below the menubar.
-pub const ICON_W: i32 = 14;
-pub const ICON_H: i32 = 3;
+pub const ICON_W: i32 = 21;
+pub const ICON_H: i32 = 4;
 pub const GRID_TOP: i32 = 1; // below the menubar row
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -478,7 +478,7 @@ impl<F: FsOps> DesktopIcons<F> {
         for icon in &self.icons {
             if let Some(id) = icon.thumb {
                 let r = Self::tile_rect(icon.cell);
-                let cell = crate::geometry::Rect::new(r.x + ICON_W / 2 - 1, r.y, 2, 1);
+                let cell = crate::geometry::Rect::new(r.x + 4, r.y, 13, 2);
                 out.push(crate::protocol::ImagePlacement {
                     id,
                     rect: cell,
@@ -555,7 +555,7 @@ impl<F: FsOps> DesktopIcons<F> {
             Some(DesktopOverlay::Rename { idx, .. }) => {
                 let cell = self.icons.get(*idx)?.cell;
                 let r = Self::tile_rect(cell);
-                Some(crate::geometry::Rect::new(r.x, r.y, ICON_W, 3))
+                Some(crate::geometry::Rect::new(r.x, r.y, ICON_W, ICON_H))
             }
             Some(DesktopOverlay::NewFolder { .. }) => {
                 Some(crate::geometry::Rect::new(2, GRID_TOP, MENU_W, 3))
