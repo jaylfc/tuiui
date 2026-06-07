@@ -31,11 +31,6 @@ impl PowerAction {
             PowerAction::Shutdown => "Shutdown",
         }
     }
-
-    /// Restart is deferred until the apphost frontend-reload lands (Phase 3).
-    fn enabled(self) -> bool {
-        !matches!(self, PowerAction::Restart)
-    }
 }
 
 /// The dropdown items, top to bottom.
@@ -46,6 +41,8 @@ const ITEMS: [PowerAction; 3] = [PowerAction::Exit, PowerAction::Restart, PowerA
 pub enum PowerOutcome {
     /// Detach the client, leaving the daemon + apps alive (Exit).
     Detach,
+    /// Reload the frontend only — apps stay alive in the apphost.
+    Reload,
     /// Full shutdown — daemon exits, apps killed.
     Shutdown,
 }
@@ -138,8 +135,8 @@ impl PowerMenu {
                 self.close();
                 return match action {
                     PowerAction::Exit => PowerClick::Act(PowerOutcome::Detach),
+                    PowerAction::Restart => PowerClick::Act(PowerOutcome::Reload),
                     PowerAction::Shutdown => PowerClick::Act(PowerOutcome::Shutdown),
-                    PowerAction::Restart => PowerClick::Consumed, // disabled; unreachable
                 };
             }
             if cancel.contains(p) {
@@ -158,11 +155,8 @@ impl PowerMenu {
         if self.open {
             for (i, action) in ITEMS.iter().enumerate() {
                 if item_rect(w, i).contains(p) {
-                    if action.enabled() {
-                        self.confirm = Some(*action);
-                        self.open = false;
-                    }
-                    // Disabled item: no-op, dropdown stays open.
+                    self.confirm = Some(*action);
+                    self.open = false;
                     return PowerClick::Consumed;
                 }
             }
@@ -200,13 +194,8 @@ impl PowerMenu {
             buf.set(d.w - 1, d.h - 1, b('╯'));
             for (i, action) in ITEMS.iter().enumerate() {
                 let y = 1 + i as i32;
-                let fg = if action.enabled() { t.text } else { t.dim };
-                let label = if action.enabled() {
-                    format!(" {}", action.label())
-                } else {
-                    format!(" {} (soon)", action.label())
-                };
-                buf.write_str(1, y, &label, fg, t.window_bg);
+                let label = format!(" {}", action.label());
+                buf.write_str(1, y, &label, t.text, t.window_bg);
             }
             layers.push(Layer { z: 5200, origin: Point::new(d.x, d.y), buf, opacity: 1.0, scissor: None });
         }
@@ -234,8 +223,8 @@ impl PowerMenu {
             // Message + confirm-button label.
             let (msg, confirm_label) = match action {
                 PowerAction::Exit => ("Exit tuiui? Apps keep running in the background.", "Exit"),
+                PowerAction::Restart => ("Restart tuiui? The UI reloads; your apps keep running.", "Restart"),
                 PowerAction::Shutdown => ("Shut down tuiui? All running apps will close.", "Shut Down"),
-                PowerAction::Restart => ("", ""),
             };
             buf.write_str(2, 2, msg, t.text, t.window_bg);
             // Buttons (local coords; pad the labels to fill their hit rects).
@@ -292,13 +281,14 @@ mod tests {
     }
 
     #[test]
-    fn restart_is_disabled_and_opens_no_dialog() {
+    fn restart_then_confirm_reloads() {
         let (w, h) = (120, 40);
         let mut m = PowerMenu::new();
         m.toggle();
         m.on_click(center(item_rect(w, 1)), w, h); // Restart is item 1
-        assert!(m.confirm.is_none(), "Restart must not open a confirm dialog yet");
-        assert!(m.open, "the dropdown stays open after clicking disabled Restart");
+        assert!(m.confirm.is_some(), "Restart now opens a confirm dialog");
+        let (_, confirm) = dialog_buttons(w, h);
+        assert_eq!(m.on_click(center(confirm), w, h), PowerClick::Act(PowerOutcome::Reload));
     }
 
     #[test]

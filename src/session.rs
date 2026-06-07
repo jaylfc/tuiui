@@ -1519,6 +1519,7 @@ echo 'Done. Open the tuiui menu (top-right) \u{2192} Shutdown, then run:  tuiui'
         if kind == MouseKind::Down && self.power_menu.is_open() {
             match self.power_menu.on_click(p, self.w, self.h) {
                 PowerClick::Act(PowerOutcome::Detach) => self.quit = true,
+                PowerClick::Act(PowerOutcome::Reload) => self.reload = true,
                 PowerClick::Act(PowerOutcome::Shutdown) => self.shutdown = true,
                 PowerClick::Consumed => {}
             }
