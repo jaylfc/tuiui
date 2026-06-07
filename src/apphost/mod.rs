@@ -10,6 +10,8 @@ mod api;
 mod host;
 pub mod proto;
 pub mod server;
+mod remote;
 
 pub use api::AppHost;
 pub use host::{AppId, LocalAppHost};
+pub use remote::RemoteAppHost;
