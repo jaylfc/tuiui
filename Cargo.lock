@@ -1120,6 +1120,7 @@ dependencies = [
  "flate2",
  "image",
  "infer",
+ "libc",
  "mime_guess",
  "portable-pty",
  "serde",

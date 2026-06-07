@@ -120,6 +120,46 @@ pub fn frame_to_ansi(changes: &[CellChange], caps: &Caps) -> String {
     s
 }
 
+/// Ask the terminal whether it supports the Kitty graphics protocol, by sending a
+/// graphics query immediately followed by a Device-Attributes query as a sentinel.
+/// Graphics-capable terminals reply `ESC _ G … ;OK ESC \` before the DA reply
+/// (`ESC [ … c`); others just answer DA. Reads the reply with a short timeout, so
+/// it never hangs. Must run in raw mode, before any other stdin reader starts.
+fn probe_graphics(out: &mut Stdout) -> bool {
+    use std::io::{Read, Write};
+    // a=q queries support without displaying; t=d/f=24 = a 1×1 RGB payload.
+    let _ = out.write_all(b"\x1b_Gi=4294967290,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\\x1b[c");
+    let _ = out.flush();
+
+    let start = std::time::Instant::now();
+    let budget = std::time::Duration::from_millis(300);
+    let mut buf: Vec<u8> = Vec::new();
+    let mut tmp = [0u8; 256];
+    let has = |hay: &[u8], n: &[u8]| hay.windows(n.len()).any(|w| w == n);
+    loop {
+        let elapsed = start.elapsed();
+        if elapsed >= budget {
+            break;
+        }
+        let remaining_ms = (budget - elapsed).as_millis() as libc::c_int;
+        let mut pfd = libc::pollfd { fd: libc::STDIN_FILENO, events: libc::POLLIN, revents: 0 };
+        // SAFETY: a single valid pollfd on stdin with a finite timeout.
+        let ready = unsafe { libc::poll(&mut pfd, 1, remaining_ms) };
+        if ready <= 0 {
+            break; // timeout or error
+        }
+        match std::io::stdin().lock().read(&mut tmp) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => buf.extend_from_slice(&tmp[..n]),
+        }
+        // Stop once the DA reply (ends in 'c') has arrived.
+        if has(&buf, b"\x1b[") && buf.contains(&b'c') {
+            break;
+        }
+    }
+    has(&buf, b"\x1b_G") && has(&buf, b"OK")
+}
+
 // ── Terminal lifecycle ────────────────────────────────────────────────────────
 
 /// Owns the raw-mode / alternate-screen / mouse-capture lifecycle.
@@ -153,7 +193,15 @@ impl Terminal {
         use std::io::Write;
         write!(out, "\x1b[?1003h")?; // all-motion mouse tracking (for launcher hover)
         out.flush()?;
-        Ok(Terminal { out, caps: Caps::detect() })
+        // Resolve graphics support: env detection first (cheap), else ask the
+        // terminal directly — this is the only reliable signal over SSH, where
+        // TERM_PROGRAM/COLORTERM are stripped.
+        let mut caps = Caps::detect();
+        if !caps.kitty_graphics && probe_graphics(&mut out) {
+            caps.kitty_graphics = true;
+            caps.truecolor = true;
+        }
+        Ok(Terminal { out, caps })
     }
 
     /// Return the current terminal size as `(columns, rows)`.

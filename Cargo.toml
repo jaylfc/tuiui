@@ -17,6 +17,7 @@ infer = "0.16"
 mime_guess = "2"
 base64 = "0.22"
 flate2 = "1"
+libc = "0.2"
 
 [lib]
 name = "tuiui"
