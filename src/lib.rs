@@ -5,6 +5,7 @@ pub mod buffer;
 pub mod compositor;
 pub mod terminal;
 pub mod ptyhost;
+pub mod apphost;
 pub mod window;
 pub mod wm;
 pub mod chrome;
