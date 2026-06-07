@@ -18,7 +18,7 @@ use crate::compositor::Layer;
 use crate::config::{AppEntry, Config};
 use crate::geometry::{Point, Rect, SnapZone};
 use crate::input::{route_mouse, MouseKind, Hit, Action};
-use crate::apphost::{AppId, LocalAppHost};
+use crate::apphost::{AppHost, AppId, LocalAppHost};
 use crate::launcher::Launcher;
 use crate::settings::Settings;
 use crate::store::{self, Store};
@@ -44,7 +44,7 @@ enum WinContent {
 }
 
 impl WinContent {
-    fn render(&self, host: &LocalAppHost, w: i32, h: i32) -> crate::buffer::CellBuffer {
+    fn render(&self, host: &dyn AppHost, w: i32, h: i32) -> crate::buffer::CellBuffer {
         match self {
             WinContent::App(id) => host.snapshot(*id).unwrap_or_else(|| crate::buffer::CellBuffer::new(w, h)),
             WinContent::Store(s) => s.render(w, h),
@@ -263,7 +263,7 @@ pub struct Frame {
 pub struct SessionCore {
     wm: WindowManager,
     contents: HashMap<WindowId, WinContent>,
-    apphost: LocalAppHost,
+    apphost: Box<dyn AppHost>,
     /// The store window's id, if open (so it can be re-focused, not re-opened).
     store_win: Option<WindowId>,
     /// The settings window's id, if open.
@@ -320,13 +320,20 @@ impl SessionCore {
     /// The work area is set to exclude the single-row menubar at the top and
     /// the single-row dock at the bottom, i.e. `Rect::new(0, 1, w, h - 2)`.
     pub fn new(w: i32, h: i32, cfg: Config) -> Self {
+        Self::with_apphost(w, h, cfg, Box::new(LocalAppHost::new()))
+    }
+
+    /// Construct a session backed by a specific [`AppHost`]. The daemon injects
+    /// a `RemoteAppHost` here (Phase 2b); tests and in-process use get the
+    /// default `LocalAppHost` via [`new`](Self::new).
+    pub fn with_apphost(w: i32, h: i32, cfg: Config, apphost: Box<dyn AppHost>) -> Self {
         let work = Rect::new(0, 1, w, h - 2);
         let launcher = Launcher::new(Self::build_launcher_apps(&cfg));
         let desktop_dir = dirs::home_dir().map(|h| h.join("Desktop")).unwrap_or_default();
         let mut core = Self {
             wm: WindowManager::new(work),
             contents: HashMap::new(),
-            apphost: LocalAppHost::new(),
+            apphost,
             store_win: None,
             settings_win: None,
             filemanager_win: None,
@@ -512,14 +519,12 @@ impl SessionCore {
         let mut needed: Vec<(WindowId, u32, Vec<u8>)> = Vec::new();
         for (id, content) in &self.contents {
             if let WinContent::App(aid) = content {
-                if let Some(g) = self.apphost.graphics(*aid) {
-                    for pl in &g.placements {
-                        if self.app_image_ids.contains_key(&(*id, pl.image_id)) {
-                            continue;
-                        }
-                        if let Some(png) = g.png(pl.image_id) {
-                            needed.push((*id, pl.image_id, png.to_vec()));
-                        }
+                for pl in self.apphost.placements(*aid) {
+                    if self.app_image_ids.contains_key(&(*id, pl.image_id)) {
+                        continue;
+                    }
+                    if let Some(png) = self.apphost.image_png(*aid, pl.image_id) {
+                        needed.push((*id, pl.image_id, png));
                     }
                 }
             }
@@ -549,16 +554,7 @@ impl SessionCore {
                 _ => None,
             });
         if let Some(aid) = app_id {
-            if let Some(mut g) = self.apphost.graphics(aid) {
-                g.insert_image_for_test(1, png.to_vec());
-                g.push_placement_for_test(crate::kittygfx::Placement {
-                    image_id: 1,
-                    col: 0,
-                    row: 0,
-                    cols: 2,
-                    rows: 1,
-                });
-            }
+            self.apphost.inject_test_image(aid, png);
         }
         self.refresh_app_graphics();
     }
@@ -1828,7 +1824,7 @@ echo 'Done. Open the tuiui menu (top-right) \u{2192} Shutdown, then run:  tuiui'
             }
             let cr = w.content_rect();
             let content = self.contents.get(&w.id)
-                .map(|c| c.render(&self.apphost, cr.w, cr.h))
+                .map(|c| c.render(self.apphost.as_ref(), cr.w, cr.h))
                 .unwrap_or_else(|| crate::buffer::CellBuffer::new(cr.w, cr.h));
             layers.extend(render_window(w, &content, Some(w.id) == focused, self.cfg.window_shadows));
         }
@@ -1949,16 +1945,13 @@ echo 'Done. Open the tuiui menu (top-right) \u{2192} Shutdown, then run:  tuiui'
                 Some(WinContent::App(aid)) => *aid,
                 _ => continue,
             };
-            let g = match self.apphost.graphics(aid) {
-                Some(g) => g,
-                None => continue,
-            };
-            if g.placements.is_empty() {
+            let placements = self.apphost.placements(aid);
+            if placements.is_empty() {
                 continue;
             }
             let cr = w.content_rect();
             let vis = self.fully_unobstructed(w);
-            for pl in &g.placements {
+            for pl in &placements {
                 if let Some(&img) = self.app_image_ids.get(&(w.id, pl.image_id)) {
                     let x = cr.x + pl.col as i32;
                     let y = cr.y + pl.row as i32;

@@ -6,6 +6,8 @@
 //! Phase 1 the host lives in the same process as the frontend; a later phase
 //! moves an identical API behind a socket without the frontend noticing.
 
+mod api;
 mod host;
 
+pub use api::AppHost;
 pub use host::{AppId, LocalAppHost};

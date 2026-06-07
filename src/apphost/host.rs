@@ -1,9 +1,9 @@
+use crate::apphost::AppHost;
 use crate::buffer::CellBuffer;
-use crate::kittygfx::GraphicsState;
+use crate::kittygfx::Placement;
 use crate::ptyhost::AppInstance;
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::MutexGuard;
 
 /// Opaque handle to a hosted application. Stable for the app's lifetime; the
 /// frontend stores it in `WinContent::App` and uses it for every host call.
@@ -24,9 +24,16 @@ impl LocalAppHost {
     pub fn new() -> Self {
         LocalAppHost { apps: HashMap::new(), meta: HashMap::new(), next: 1 }
     }
+}
 
-    /// Spawn a child in a PTY and return its handle. Propagates spawn failure.
-    pub fn spawn(
+impl Default for LocalAppHost {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AppHost for LocalAppHost {
+    fn spawn(
         &mut self,
         cmd: &str,
         args: &[String],
@@ -42,76 +49,79 @@ impl LocalAppHost {
         Ok(id)
     }
 
-    /// All currently-hosted app handles (order unspecified).
-    pub fn list(&self) -> Vec<AppId> {
-        self.apps.keys().copied().collect()
-    }
-
-    /// Drop the app instance and any metadata. Does not kill — call `kill`
-    /// first if the child should be terminated.
-    pub fn remove(&mut self, id: AppId) {
-        self.apps.remove(&id);
-        self.meta.remove(&id);
-    }
-
-    /// Forward bytes to the app's PTY (no-op if the id is unknown).
-    pub fn input(&mut self, id: AppId, bytes: &[u8]) {
+    fn input(&mut self, id: AppId, bytes: &[u8]) {
         if let Some(app) = self.apps.get_mut(&id) {
             app.write_input(bytes);
         }
     }
 
-    /// Resize the app's PTY/terminal (no-op if unknown).
-    pub fn resize(&mut self, id: AppId, cols: i32, rows: i32) {
+    fn resize(&mut self, id: AppId, cols: i32, rows: i32) {
         if let Some(app) = self.apps.get_mut(&id) {
             app.resize(cols, rows);
         }
     }
 
-    /// Terminate the child (no-op if unknown). The handle stays in the map
-    /// until `remove`; `is_alive` will report `false`.
-    pub fn kill(&mut self, id: AppId) {
+    fn kill(&mut self, id: AppId) {
         if let Some(app) = self.apps.get_mut(&id) {
             app.kill();
         }
     }
 
-    /// Whether the child is still running. Unknown ids report `false`.
-    pub fn is_alive(&mut self, id: AppId) -> bool {
+    fn is_alive(&mut self, id: AppId) -> bool {
         self.apps.get_mut(&id).map(|a| a.is_alive()).unwrap_or(false)
     }
 
-    /// Current terminal grid for the app, or `None` if unknown.
-    pub fn snapshot(&self, id: AppId) -> Option<CellBuffer> {
+    fn snapshot(&self, id: AppId) -> Option<CellBuffer> {
         self.apps.get(&id).map(|a| a.snapshot())
     }
 
-    /// Lock and return the app's graphics state, or `None` if unknown.
-    pub fn graphics(&self, id: AppId) -> Option<MutexGuard<'_, GraphicsState>> {
-        self.apps.get(&id).map(|a| a.graphics())
+    fn placements(&self, id: AppId) -> Vec<Placement> {
+        self.apps
+            .get(&id)
+            .map(|a| a.graphics().placements.clone())
+            .unwrap_or_default()
     }
 
-    /// Store opaque frontend metadata (window geometry/title/z) for restore.
-    /// Overwrites any previous value.
-    pub fn set_meta(&mut self, id: AppId, meta: Vec<u8>) {
+    fn image_png(&self, id: AppId, image_id: u32) -> Option<Vec<u8>> {
+        self.apps.get(&id).and_then(|a| a.graphics().png(image_id).map(|b| b.to_vec()))
+    }
+
+    fn list(&self) -> Vec<AppId> {
+        self.apps.keys().copied().collect()
+    }
+
+    fn set_meta(&mut self, id: AppId, meta: Vec<u8>) {
         self.meta.insert(id, meta);
     }
 
-    /// The last metadata stored for the app, if any.
-    pub fn meta(&self, id: AppId) -> Option<&[u8]> {
-        self.meta.get(&id).map(|v| v.as_slice())
+    fn meta(&self, id: AppId) -> Option<Vec<u8>> {
+        self.meta.get(&id).cloned()
     }
-}
 
-impl Default for LocalAppHost {
-    fn default() -> Self {
-        Self::new()
+    fn remove(&mut self, id: AppId) {
+        self.apps.remove(&id);
+        self.meta.remove(&id);
+    }
+
+    fn inject_test_image(&self, id: AppId, png: &[u8]) {
+        if let Some(app) = self.apps.get(&id) {
+            let mut g = app.graphics();
+            g.insert_image_for_test(1, png.to_vec());
+            g.push_placement_for_test(Placement {
+                image_id: 1,
+                col: 0,
+                row: 0,
+                cols: 2,
+                rows: 1,
+            });
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::apphost::AppHost;
 
     #[test]
     fn spawn_then_list_then_remove() {
@@ -169,9 +179,9 @@ mod tests {
         let id = host.spawn("true", &[], None, 80, 24).unwrap();
         assert!(host.meta(id).is_none());
         host.set_meta(id, vec![1, 2, 3]);
-        assert_eq!(host.meta(id), Some(&[1, 2, 3][..]));
+        assert_eq!(host.meta(id), Some(vec![1, 2, 3]));
         host.set_meta(id, vec![9]);
-        assert_eq!(host.meta(id), Some(&[9][..]));
+        assert_eq!(host.meta(id), Some(vec![9]));
     }
 
     #[test]
