@@ -395,8 +395,10 @@ impl SessionCore {
     /// Rebuild the desktop icons from the configured pins + saved positions, lay
     /// them out for the current screen, and refresh any image thumbnails.
     fn reload_desktop(&mut self) {
-        self.desktop.reload(&self.cfg.desktop_pins, &self.cfg.desktop_positions);
+        // layout() must run first: reload() assigns icons to free grid cells, which
+        // needs the real column/row count (else everything piles onto cell (0,0)).
         self.desktop.layout(self.w, self.h);
+        self.desktop.reload(&self.cfg.desktop_pins, &self.cfg.desktop_positions);
         self.refresh_desktop_thumbnails();
     }
 
