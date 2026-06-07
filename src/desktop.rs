@@ -57,6 +57,7 @@ pub struct DesktopIcons<F: FsOps = StdFs> {
     drag: Option<(usize, Point)>,
     overlay: Option<DesktopOverlay>,
     action: Option<DesktopAction>,
+    width: i32, // screen width in cells (for right-anchored layout)
     cols: u16,
     rows: u16,
 }
@@ -77,6 +78,7 @@ impl<F: FsOps> DesktopIcons<F> {
             drag: None,
             overlay: None,
             action: None,
+            width: 80,
             cols: 1,
             rows: 1,
         }
@@ -166,6 +168,7 @@ impl<F: FsOps> DesktopIcons<F> {
 
     /// Recompute the grid dimensions for a `w×h` screen.
     pub fn layout(&mut self, w: i32, h: i32) {
+        self.width = w;
         self.cols = ((w / ICON_W).max(1)) as u16;
         // leave the menubar (1) and dock (1) rows out
         self.rows = (((h - GRID_TOP - 1) / ICON_H).max(1)) as u16;
@@ -204,15 +207,12 @@ impl<F: FsOps> DesktopIcons<F> {
     }
 
     /// The screen rect of an icon's tile. Columns fill from the **top-right**
-    /// (like macOS): logical column 0 is the rightmost on-screen column.
+    /// (like macOS): logical column 0 is the rightmost, flush to the right edge
+    /// (minus a one-cell margin).
     pub fn tile_rect(&self, cell: (u16, u16)) -> crate::geometry::Rect {
-        let screen_col = self.cols.saturating_sub(1).saturating_sub(cell.0);
-        crate::geometry::Rect::new(
-            screen_col as i32 * ICON_W,
-            GRID_TOP + cell.1 as i32 * ICON_H,
-            ICON_W,
-            ICON_H,
-        )
+        const MARGIN: i32 = 1;
+        let x = self.width - MARGIN - (cell.0 as i32 + 1) * ICON_W;
+        crate::geometry::Rect::new(x, GRID_TOP + cell.1 as i32 * ICON_H, ICON_W, ICON_H)
     }
 
     /// The screen rect of the icon *image* within a tile — centered horizontally,
@@ -316,10 +316,9 @@ impl<F: FsOps> DesktopIcons<F> {
         let Some((i, _grab)) = self.drag.take() else {
             return false;
         };
-        // Invert the right-aligned screen column back to a logical column.
+        // Invert the right-anchored layout (x = width - 1 - (col+1)*ICON_W).
         let max_col = self.cols.max(1) as i32 - 1;
-        let screen_col = (p.x / ICON_W).clamp(0, max_col);
-        let col = (max_col - screen_col).clamp(0, max_col) as u16;
+        let col = (((self.width - 2 - p.x).max(0) / ICON_W).clamp(0, max_col)) as u16;
         let row = (((p.y - GRID_TOP) / ICON_H).clamp(0, self.rows.max(1) as i32 - 1)) as u16;
         let target = self.nearest_free((col, row), i);
         let changed = self.icons[i].cell != target;
