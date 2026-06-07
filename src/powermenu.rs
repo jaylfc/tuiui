@@ -16,8 +16,7 @@ use crate::geometry::{Point, Rect};
 pub enum PowerAction {
     /// Detach the client; the daemon and all apps keep running in the background.
     Exit,
-    /// Reload the frontend while keeping apps alive — needs the apphost split
-    /// (Phase 3). Shown disabled until that lands.
+    /// Reload the frontend (restart the UI) while apps keep running in the apphost.
     Restart,
     /// Stop tuiui entirely (daemon exits, every app is killed).
     Shutdown,

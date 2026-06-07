@@ -82,6 +82,28 @@ fn spawn_daemon() -> std::io::Result<()> {
     Ok(())
 }
 
+/// Send one newline-framed message, then keep the connection open reading to EOF
+/// so the recipient processes the message before our socket closes.
+///
+/// Without this, a control command (`kill`/`reload`) that writes-then-exits can
+/// race the daemon: the daemon hits a broken pipe on its next frame *write* and
+/// bails before its reader thread has delivered our queued message. Holding the
+/// connection open (until the daemon acts and closes its end) removes the race.
+fn send_and_drain(stream: &mut UnixStream, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Read;
+    stream.write_all(bytes)?;
+    let _ = stream.shutdown(std::net::Shutdown::Write);
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(3)));
+    let mut sink = [0u8; 256];
+    loop {
+        match stream.read(&mut sink) {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+    }
+    Ok(())
+}
+
 /// Tell a running daemon to reload its frontend (apps keep running via the
 /// apphost). An attached client reconnects on its own.
 fn reload() -> std::io::Result<()> {
@@ -90,7 +112,7 @@ fn reload() -> std::io::Result<()> {
             let mut buf = serde_json::to_vec(&tuiui::session::ClientMsg::Reload)
                 .map_err(std::io::Error::other)?;
             buf.push(b'\n');
-            stream.write_all(&buf)?;
+            send_and_drain(&mut stream, &buf)?;
             println!("tuiui: reload requested");
         }
         Err(_) => println!("tuiui: no daemon running"),
@@ -105,7 +127,7 @@ fn kill() -> std::io::Result<()> {
             let mut buf = serde_json::to_vec(&tuiui::session::ClientMsg::Shutdown)
                 .map_err(std::io::Error::other)?;
             buf.push(b'\n');
-            stream.write_all(&buf)?;
+            send_and_drain(&mut stream, &buf)?;
             println!("tuiui: shutdown requested");
         }
         Err(_) => println!("tuiui: no daemon running"),
@@ -115,7 +137,7 @@ fn kill() -> std::io::Result<()> {
         let req = tuiui::apphost::proto::HostReq::Shutdown;
         if let Ok(mut buf) = serde_json::to_vec(&req) {
             buf.push(b'\n');
-            let _ = s.write_all(&buf);
+            let _ = send_and_drain(&mut s, &buf);
         }
     }
     Ok(())
