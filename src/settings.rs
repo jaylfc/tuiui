@@ -344,7 +344,7 @@ impl Settings {
             }
             2 => {
                 self.row(&mut buf, cx, 3, 0, "Check for updates", String::new());
-                self.row(&mut buf, cx, 4, 1, "Update tuiui now", String::new());
+                self.row(&mut buf, cx, 4, 1, "Update & Reload", String::new());
                 let sha = &crate::GIT_SHA[..crate::GIT_SHA.len().min(7)];
                 buf.write_str(cx, 6, &format!("installed: v{} ({})", crate::VERSION, sha), DIM, BG);
                 if !self.update_status.is_empty() {

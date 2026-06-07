@@ -960,8 +960,8 @@ impl SessionCore {
                     Some(crate::settings::SettingsAction::InstallUpdate) => {
                         let cmd = format!(
                             "clear; echo 'Updating tuiui from {repo} …'; echo; \
-cargo install --git {repo} --force; echo; echo '────'; \
-echo 'Done. Open the tuiui menu (top-right) \u{2192} Shutdown, then run:  tuiui'; exec \"$SHELL\"",
+cargo install --git {repo} --force && {{ echo; echo 'Reloading tuiui …'; tuiui reload; }} || \
+echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                             repo = crate::REPO_URL,
                         );
                         self.launch("update tuiui".into(), "sh".into(), vec!["-lc".into(), cmd]);
