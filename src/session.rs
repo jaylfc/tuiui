@@ -26,6 +26,16 @@ use crate::window::WindowId;
 use crate::wm::{WindowManager, render_window};
 use std::collections::HashMap;
 
+/// Opaque per-app window state the frontend stashes in the apphost so a fresh
+/// frontend (after `reload` or a crash) can rebuild the window in place.
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Debug)]
+struct WinMeta {
+    rect: crate::geometry::Rect,
+    title: String,
+    z: i32,
+    minimized: bool,
+}
+
 /// The content hosted by a window: a PTY-backed app or a native Tuiui widget.
 ///
 /// This is the [`WindowContent`](../../docs) seam — the window manager, chrome,
@@ -312,6 +322,9 @@ pub struct SessionCore {
     thumb_ids: HashMap<std::path::PathBuf, u64>,
     /// Pre-generated large file-type icons (one per role) → `ImageStore` id.
     role_icon_ids: HashMap<crate::openwith::Role, u64>,
+    /// Last `WinMeta` blob pushed to the apphost per app window (change-gate so
+    /// we only send `set_meta` when a window actually moved/retitled/minimized).
+    last_meta: HashMap<WindowId, Vec<u8>>,
 }
 
 impl SessionCore {
@@ -359,6 +372,7 @@ impl SessionCore {
             thumb_loader: crate::thumbnail::ThumbLoader::new(),
             thumb_ids: HashMap::new(),
             role_icon_ids: HashMap::new(),
+            last_meta: HashMap::new(),
         };
         core.generate_role_icons();
         core.reload_desktop();
@@ -537,6 +551,39 @@ impl SessionCore {
                 self.app_image_ids.insert((win, kitty_id), img);
             }
         }
+    }
+
+    /// Push each app window's current geometry/state to the apphost as opaque
+    /// `meta`, but only when it changed. Called once per frame by the daemon.
+    /// For the in-process `LocalAppHost` this just updates a local map (cheap);
+    /// for `RemoteAppHost` it sends `SetMeta` so a restarted frontend can restore.
+    pub fn sync_app_meta(&mut self) {
+        let mut updates: Vec<(AppId, WindowId, Vec<u8>)> = Vec::new();
+        for w in self.wm.z_ordered() {
+            if let Some(WinContent::App(aid)) = self.contents.get(&w.id) {
+                let title = self
+                    .titles
+                    .iter()
+                    .find(|(i, _)| *i == w.id)
+                    .map(|(_, t)| t.clone())
+                    .unwrap_or_default();
+                let meta = WinMeta { rect: w.rect, title, z: w.z, minimized: w.minimized };
+                let bytes = serde_json::to_vec(&meta).unwrap_or_default();
+                if self.last_meta.get(&w.id) != Some(&bytes) {
+                    updates.push((*aid, w.id, bytes));
+                }
+            }
+        }
+        for (aid, win, bytes) in updates {
+            self.apphost.set_meta(aid, bytes.clone());
+            self.last_meta.insert(win, bytes);
+        }
+    }
+
+    /// Number of entries in the last-meta cache (for tests).
+    #[doc(hidden)]
+    pub fn app_meta_count_for_test(&self) -> usize {
+        self.last_meta.len()
     }
 
     /// Inject a placement + image directly into the most-recently-launched app's

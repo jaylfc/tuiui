@@ -228,6 +228,16 @@ fn app_graphics_placement_is_emitted_in_frame() {
 }
 
 #[test]
+fn sync_app_meta_records_window_state() {
+    let mut core = SessionCore::new(100, 30, Config::default());
+    core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    core.sync_app_meta();
+    // The app's meta is now populated (non-empty) for restore.
+    assert!(core.app_meta_count_for_test() > 0);
+    core.shutdown();
+}
+
+#[test]
 fn cascade_keyboard_launches_app_from_submenu() {
     let mut core = SessionCore::new(120, 40, Config::default());
     core.apply(ClientMsg::ToggleMenu);
