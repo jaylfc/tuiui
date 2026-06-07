@@ -44,10 +44,18 @@ impl RemoteAppHost {
         let reader = writer.try_clone()?;
         let cache: Arc<Mutex<Cache>> = Arc::new(Mutex::new(Cache::default()));
         let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
+
+        // The server sends Roster first; read it synchronously so the frontend
+        // can rebuild windows immediately after connect.
+        let mut buf_reader = std::io::BufReader::new(reader);
+        if let Ok(Some(evt)) = crate::apphost::proto::recv::<crate::apphost::proto::HostEvt, _>(&mut buf_reader) {
+            apply_evt(evt, &cache, &pending);
+        }
+
         {
             let cache = cache.clone();
             let pending = pending.clone();
-            std::thread::spawn(move || reader_loop(reader, cache, pending));
+            std::thread::spawn(move || reader_loop_buffered(buf_reader, cache, pending));
         }
         Ok(RemoteAppHost { writer, cache, pending, next_req: AtomicU64::new(1) })
     }
@@ -58,8 +66,7 @@ impl RemoteAppHost {
     }
 }
 
-fn reader_loop(reader: UnixStream, cache: Arc<Mutex<Cache>>, pending: Pending) {
-    let mut r = BufReader::new(reader);
+fn reader_loop_buffered(mut r: BufReader<UnixStream>, cache: Arc<Mutex<Cache>>, pending: Pending) {
     while let Ok(Some(evt)) = recv::<HostEvt, _>(&mut r) {
         apply_evt(evt, &cache, &pending);
     }

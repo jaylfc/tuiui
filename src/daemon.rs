@@ -39,12 +39,19 @@ pub fn run() -> std::io::Result<()> {
     // for the daemon's lifetime so its thread is not detached/dropped.
     let _poller = crate::poller::SystemPoller::start();
     core.attach_tray_state(_poller.state());
-    for app in &cfg.apps {
-        core.apply(ClientMsg::Launch {
-            name: app.name.clone(),
-            command: app.command.clone(),
-            args: app.args.clone(),
-        });
+    // Rebuild windows for any apps the apphost already owns (reload / crash
+    // recovery). Only auto-launch the configured apps on a truly fresh start.
+    let restored = core.restore_windows_from_host();
+    if restored == 0 {
+        for app in &cfg.apps {
+            core.apply(ClientMsg::Launch {
+                name: app.name.clone(),
+                command: app.command.clone(),
+                args: app.args.clone(),
+            });
+        }
+    } else {
+        crate::dbg_log(&format!("frontend: restored {restored} app window(s) from apphost"));
     }
     let mut comp = Compositor::new(w, h);
 
@@ -136,6 +143,7 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
 
         core.reap_dead();
         core.refresh_app_graphics();
+        core.sync_app_meta();
         core.pump_thumbnails();
         let frame = core.build_frame();
         comp.composite(&frame.layers, frame.cursor);

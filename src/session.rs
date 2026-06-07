@@ -606,6 +606,49 @@ impl SessionCore {
         self.refresh_app_graphics();
     }
 
+    /// Rebuild a window for every app the apphost already owns (after a frontend
+    /// reload or crash). Returns the number of windows restored. Apps with no
+    /// stored `meta` are skipped (they will still be reaped/closed normally if
+    /// the user never had a window for them).
+    pub fn restore_windows_from_host(&mut self) -> usize {
+        // Snapshot ids first so we don't borrow the host across mutations.
+        let ids: Vec<AppId> = self.apphost.list();
+        let mut restored = 0;
+        for aid in ids {
+            // Skip if we already have a window bound to this app.
+            if self.contents.values().any(|c| matches!(c, WinContent::App(a) if *a == aid)) {
+                continue;
+            }
+            let Some(bytes) = self.apphost.meta(aid) else { continue };
+            let Ok(meta) = serde_json::from_slice::<WinMeta>(&bytes) else { continue };
+            let id = self.wm.add_window(meta.title.clone(), meta.rect);
+            if meta.minimized {
+                self.wm.minimize(id);
+            }
+            self.contents.insert(id, WinContent::App(aid));
+            self.titles.push((id, meta.title));
+            self.last_meta.insert(id, bytes);
+            restored += 1;
+        }
+        if restored > 0 {
+            self.auto_tile_if_enabled();
+        }
+        restored
+    }
+
+    /// Drop all window bookkeeping while leaving the apphost's apps alive — used
+    /// to simulate a fresh frontend in restore tests.
+    #[doc(hidden)]
+    pub fn forget_windows_for_test(&mut self) {
+        let ids: Vec<WindowId> = self.contents.keys().copied().collect();
+        for id in ids {
+            self.wm.close(id);
+        }
+        self.contents.clear();
+        self.titles.clear();
+        self.last_meta.clear();
+    }
+
     /// Whether the picker's new-folder name input is active.
     pub fn dirpicker_creating(&self) -> bool {
         self.dirpicker.as_ref().map(|d| d.is_creating()).unwrap_or(false)

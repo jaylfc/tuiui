@@ -228,6 +228,26 @@ fn app_graphics_placement_is_emitted_in_frame() {
 }
 
 #[test]
+fn restore_rebuilds_app_window_from_meta() {
+    // Launch an app, push its meta, then simulate a fresh frontend over the SAME
+    // in-process host by constructing a new SessionCore around a host that already
+    // owns the app. We approximate this by reusing the same core: drop its window
+    // mapping, then restore.
+    let mut core = SessionCore::new(100, 30, Config::default());
+    core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    core.sync_app_meta();
+    let before = core.window_count();
+    assert_eq!(before, 1);
+    // Forget the window (as a fresh frontend would) but keep the app in the host.
+    core.forget_windows_for_test();
+    assert_eq!(core.window_count(), 0);
+    let restored = core.restore_windows_from_host();
+    assert_eq!(restored, 1);
+    assert_eq!(core.window_count(), 1);
+    core.shutdown();
+}
+
+#[test]
 fn sync_app_meta_records_window_state() {
     let mut core = SessionCore::new(100, 30, Config::default());
     core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
