@@ -106,10 +106,25 @@ fn file_manager_emits_thumbnail_placement_for_image() {
     core.apply(ClientMsg::OpenFileManager);
     // navigate the FM into our temp dir by faking it: open at temp via a second open
     core.open_filemanager_at(dir.clone()); // test helper below
-    let frame = core.build_frame();
+    // Thumbnails load on a background thread now; pump until it arrives.
+    let frame = pump_until_image(&mut core);
     assert!(frame.images.iter().any(|p| p.cols >= 1), "expected a thumbnail placement");
     core.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Drive the background thumbnail loader until `build_frame` emits an image
+/// placement (or a timeout), returning that frame.
+fn pump_until_image(core: &mut SessionCore) -> tuiui::session::Frame {
+    for _ in 0..200 {
+        core.pump_thumbnails();
+        let frame = core.build_frame();
+        if frame.images.iter().any(|p| p.cols >= 1) {
+            return frame;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    core.build_frame()
 }
 
 #[test]
@@ -176,7 +191,8 @@ fn desktop_image_icon_emits_thumbnail_placement() {
 
     let mut core = SessionCore::new(100, 30, Config { desktop_pins: vec![], ..Config::default() });
     core.set_desktop_dir_for_test(dir.clone());
-    let frame = core.build_frame();
+    // Thumbnails load on a background thread now; pump until it arrives.
+    let frame = pump_until_image(&mut core);
     assert!(frame.images.iter().any(|pl| pl.cols >= 1), "expected a desktop thumbnail placement");
     core.shutdown();
     let _ = std::fs::remove_dir_all(&dir);

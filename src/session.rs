@@ -325,6 +325,11 @@ pub struct SessionCore {
     /// Maps a hosted app's Kitty image id `(window, kitty_id)` to the `ImageStore`
     /// id its PNG was loaded under (populated by [`refresh_app_graphics`]).
     app_image_ids: HashMap<(WindowId, u32), u64>,
+    /// Background loader for file-manager / desktop thumbnails (off the desktop
+    /// loop so a slow/offloaded image never freezes the UI).
+    thumb_loader: crate::thumbnail::ThumbLoader,
+    /// Maps a source image path to its loaded thumbnail `ImageStore` id.
+    thumb_ids: HashMap<std::path::PathBuf, u64>,
 }
 
 impl SessionCore {
@@ -360,6 +365,8 @@ impl SessionCore {
             images: crate::imagestore::ImageStore::new(),
             desktop: crate::desktop::DesktopIcons::new(desktop_dir),
             app_image_ids: HashMap::new(),
+            thumb_loader: crate::thumbnail::ThumbLoader::new(),
+            thumb_ids: HashMap::new(),
         };
         core.reload_desktop();
         core
@@ -373,15 +380,28 @@ impl SessionCore {
         self.refresh_desktop_thumbnails();
     }
 
-    /// Load image thumbnails for the desktop's image icons into the shared store.
+    /// Assign already-loaded thumbnails to the desktop's image icons and queue any
+    /// not-yet-loaded ones on the background loader. Never blocks on file I/O.
     fn refresh_desktop_thumbnails(&mut self) {
-        let reqs = self.desktop.thumbnail_requests();
-        for (idx, path) in reqs {
-            // Bound thumbnail pixels: icon tile is 21 cells wide, 4 tall; cells are ~8x16px.
-            if let Some(id) = self.images.load(&path, 13 * 8, 4 * 16) {
+        for (idx, path) in self.desktop.thumbnail_requests() {
+            if let Some(&id) = self.thumb_ids.get(&path) {
                 self.desktop.set_thumb(idx, id);
+            } else {
+                // Icon tile is 21 cells wide, 4 tall; cells are ~8x16px.
+                self.thumb_loader.request(path, 13 * 8, 4 * 16);
             }
         }
+    }
+
+    /// Drain finished thumbnails into the image store, then (re)assign them to the
+    /// desktop and the open file manager. Called once per frame; cheap (no I/O).
+    pub fn pump_thumbnails(&mut self) {
+        for r in self.thumb_loader.drain() {
+            let id = self.images.store_png(r.png, r.w, r.h);
+            self.thumb_ids.insert(r.path, id);
+        }
+        self.refresh_desktop_thumbnails();
+        self.refresh_fm_thumbnails();
     }
 
     /// Point the desktop at a specific directory and reload (integration tests).
@@ -1071,20 +1091,25 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
         }
     }
 
-    /// Open the file-manager window, or focus it if it's already open.
-    /// Load thumbnails for the focused file manager's image entries into the
-    /// shared ImageStore and hand the ids back to the widget.
+    /// Assign already-loaded thumbnails to the focused file manager's image
+    /// entries and queue any not-yet-loaded ones on the background loader. Never
+    /// blocks on file I/O (a slow/offloaded image can no longer freeze the loop).
     fn refresh_fm_thumbnails(&mut self) {
         let reqs = match self.focused_filemanager_mut() {
             Some(f) => f.thumbnail_requests(),
             None => return,
         };
+        let mut ready: Vec<(usize, u64)> = Vec::new();
         for (idx, path) in reqs {
-            // Bound thumbnail pixels: a tile is ~13 cells wide; cells are ~8x16px.
-            if let Some(id) = self.images.load(&path, 13 * 8, 16) {
-                if let Some(f) = self.focused_filemanager_mut() {
-                    f.set_thumb(idx, id);
-                }
+            if let Some(&id) = self.thumb_ids.get(&path) {
+                ready.push((idx, id));
+            } else {
+                self.thumb_loader.request(path, 13 * 8, 16);
+            }
+        }
+        if let Some(f) = self.focused_filemanager_mut() {
+            for (idx, id) in ready {
+                f.set_thumb(idx, id);
             }
         }
     }

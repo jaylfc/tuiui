@@ -53,8 +53,12 @@ impl Role {
     }
 }
 
-/// Classify `path` into a `Role`. `is_dir` is passed in (the caller already
-/// stat'd the entry). Uses the extension first, then magic-byte sniffing.
+/// Classify `path` into a `Role` from its extension only — **never reads file
+/// contents**. This is called for every entry while listing a directory, so it
+/// must do zero I/O: magic-byte sniffing (`infer`) opens files, which stalls for
+/// seconds on large files and hangs indefinitely on iCloud-offloaded ("dataless")
+/// files, freezing the single-threaded desktop loop. Extension-less / mislabeled
+/// files simply classify as `Other`.
 pub fn classify(path: &Path, is_dir: bool) -> Role {
     if is_dir {
         return Role::Directory;
@@ -64,16 +68,7 @@ pub fn classify(path: &Path, is_dir: bool) -> Role {
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase())
         .unwrap_or_default();
-    if let Some(r) = role_for_ext(&ext) {
-        return r;
-    }
-    // Magic-byte fallback for extension-less / mislabeled files.
-    if let Ok(Some(kind)) = infer::get_from_path(path) {
-        if let Some(r) = role_for_mime(kind.mime_type()) {
-            return r;
-        }
-    }
-    Role::Other
+    role_for_ext(&ext).unwrap_or(Role::Other)
 }
 
 fn role_for_ext(ext: &str) -> Option<Role> {
@@ -86,21 +81,6 @@ fn role_for_ext(ext: &str) -> Option<Role> {
         "zip" | "tar" | "gz" | "tgz" | "bz2" | "xz" | "7z" | "rar" | "zst" => Role::Archive,
         "pdf" => Role::Pdf,
         _ => return None,
-    })
-}
-
-fn role_for_mime(mime: &str) -> Option<Role> {
-    let top = mime.split('/').next().unwrap_or("");
-    Some(match top {
-        "image" => Role::Image,
-        "video" => Role::Video,
-        "audio" => Role::Audio,
-        "text" => Role::Text,
-        _ => match mime {
-            "application/pdf" => Role::Pdf,
-            "application/zip" | "application/gzip" | "application/x-tar" => Role::Archive,
-            _ => return None,
-        },
     })
 }
 
