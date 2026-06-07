@@ -800,6 +800,21 @@ impl<F: FsOps> FileManager<F> {
         }
     }
 
+    /// Handle a content-local double click: on an entry, select then open it
+    /// (navigate into a folder / open a file via the default app); elsewhere fall
+    /// back to single-click behaviour (toolbar / sidebar nav). Returns true if the
+    /// caller should drain a resulting open action.
+    pub fn double_click(&mut self, p: Point, w: i32, h: i32) -> bool {
+        match self.hit_test(p, w, h) {
+            Some(Target::Entry(i)) => {
+                self.select_at(i, false, false);
+                self.activate();
+                true
+            }
+            _ => self.handle_click(p, w, h, false, false),
+        }
+    }
+
     fn render_overlay(&self, buf: &mut CellBuffer, w: i32, h: i32) {
         let Some(ov) = &self.overlay else { return; };
         match ov {
@@ -921,6 +936,20 @@ mod tests {
         let target = crate::geometry::Point::new(SIDEBAR_W + 2, LIST_TOP + 1);
         let hit = fm.hit_test(target, 80, 24);
         assert_eq!(hit, Some(Target::Entry(1)));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn double_click_folder_navigates_into_it() {
+        let d = tmp("dclick");
+        fs::create_dir(d.join("sub")).unwrap();
+        fs::write(d.join("sub/inner.txt"), b"x").unwrap();
+        let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+        fm.set_view(ViewMode::List); // 1-per-row; "sub" is the first (dirs-first) entry
+        let _ = fm.render(80, 24);
+        let entry0 = crate::geometry::Point::new(SIDEBAR_W + 2, LIST_TOP);
+        assert!(fm.double_click(entry0, 80, 24));
+        assert_eq!(fm.cwd(), d.join("sub"));
         let _ = fs::remove_dir_all(&d);
     }
 }

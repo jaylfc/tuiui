@@ -435,6 +435,17 @@ impl SessionCore {
         !self.wm.z_ordered().iter().any(|w| !w.minimized && w.rect.contains(p))
     }
 
+    /// The topmost non-minimized window whose **content area** contains `p`, with
+    /// that content rect. `z_ordered` is bottom-to-top, so the last match is on top.
+    fn topmost_window_content_at(&self, p: Point) -> Option<(WindowId, Rect)> {
+        self.wm
+            .z_ordered()
+            .iter()
+            .filter(|w| !w.minimized && w.content_rect().contains(p))
+            .map(|w| (w.id, w.content_rect()))
+            .last()
+    }
+
     /// Persist the desktop's current icon positions to the config.
     fn persist_desktop_positions(&mut self) {
         self.cfg.desktop_positions = self.desktop.positions();
@@ -937,6 +948,17 @@ echo 'Done. Quit (\u{2715} Quit) then run:  tuiui kill ; tuiui'; exec \"$SHELL\"
                 if self.cfg.desktop_enabled && self.window_at_is_none(p) {
                     self.desktop.double_click(p);
                     self.drain_desktop_action();
+                } else if let Some((id, cr)) = self.topmost_window_content_at(p) {
+                    // Double-click inside a file-manager window opens the entry
+                    // under the cursor (navigate into a folder / open a file).
+                    let local = Point::new(p.x - cr.x, p.y - cr.y);
+                    let mut acted = false;
+                    if let Some(WinContent::FileManager(f)) = self.contents.get_mut(&id) {
+                        acted = f.double_click(local, cr.w, cr.h);
+                    }
+                    if acted {
+                        self.drain_fm_action();
+                    }
                 }
             }
             ClientMsg::DesktopChar(c) => self.desktop.overlay_char(c),
