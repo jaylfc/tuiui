@@ -2033,6 +2033,14 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             }
         }
 
+        // From here on come the floating, panel-sized overlays (launcher, tray,
+        // dir-picker, help, power menu). Record where they start so we can collect
+        // their rects and suppress only the desktop icons they actually cover —
+        // terminals draw the icon graphics over text, so an icon under a menu
+        // would otherwise hide it. (Panel-sized layers give precise rects; the
+        // full-screen desktop-overlay layer above is handled via overlay_rect().)
+        let overlay_start = layers.len();
+
         // Launcher (dropdown / Spotlight) renders above all chrome.
         layers.extend(self.launcher.render(self.w, self.h).layers);
 
@@ -2054,6 +2062,12 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
 
         // The power menu (dropdown + confirm dialog) renders above all chrome.
         layers.extend(self.power_menu.render(self.w, self.h));
+
+        // Screen rects of the floating overlays now showing (empty when none open).
+        let overlay_rects: Vec<crate::geometry::Rect> = layers[overlay_start..]
+            .iter()
+            .map(|l| crate::geometry::Rect::new(l.origin.x, l.origin.y, l.buf.width(), l.buf.height()))
+            .collect();
 
         // Image placements for ImageView windows (visible only when their content
         // rect is fully unobstructed; the placeholder cells show otherwise).
@@ -2091,30 +2105,16 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         }
 
         // Image placements for desktop icons (photo thumbnails or generated
-        // file-type icons) not covered by a window.
-        //
-        // Terminals draw graphics ON TOP of text, so any open menu/overlay would
-        // be hidden behind the icon images. Suppress ALL desktop icons while a
-        // floating menu is open (power menu, launcher, help, dir-picker, tray
-        // popover) — the power menu lives top-right, exactly where icons sit.
-        let menus_open = self.power_menu.is_open()
-            || self.launcher.is_open()
-            || self.help_open
-            || self.dirpicker.is_some()
-            || self.tray.open().is_some();
-        if self.cfg.desktop_enabled && !menus_open {
+        // file-type icons) not covered by a window. (Menu/overlay overlap is
+        // handled uniformly for ALL images by the suppression pass below.)
+        if self.cfg.desktop_enabled {
             let occluded = |r: crate::geometry::Rect| {
                 self.wm
                     .z_ordered()
                     .iter()
                     .any(|w| !w.minimized && w.rect.intersect(r).is_some())
             };
-            // Suppress icons under an open desktop overlay (menu / rename field) so
-            // the text overlay isn't hidden behind the graphics-layer icons.
-            let overlay = self.desktop.overlay_rect();
-            images.extend(self.desktop.icon_placements(&self.role_icon_ids, |r| {
-                !occluded(r) && overlay.map(|o| o.intersect(r).is_none()).unwrap_or(true)
-            }));
+            images.extend(self.desktop.icon_placements(&self.role_icon_ids, |r| !occluded(r)));
         }
 
         // Image placements transmitted by hosted apps (A2 Kitty-graphics passthrough),
@@ -2152,6 +2152,20 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                     });
                 }
             }
+        }
+
+        // Terminals composite images OVER text, so any image sitting under a
+        // floating menu/overlay would hide it. Drop every image (desktop icon,
+        // FM thumbnail, image viewer, or hosted-app graphic) that intersects an
+        // open overlay's rect — the launcher/power-menu/help/tray panels and the
+        // desktop context menu. Only icons actually under a menu are removed, so
+        // a top-left launcher leaves the top-right icons as image tiles.
+        let mut menu_rects = overlay_rects;
+        if let Some(dm) = self.desktop.overlay_rect() {
+            menu_rects.push(dm);
+        }
+        if !menu_rects.is_empty() {
+            images.retain(|p| menu_rects.iter().all(|o| o.intersect(p.rect).is_none()));
         }
 
         Frame { layers, cursor: Some(self.cursor), images }
