@@ -247,8 +247,12 @@ pub fn install_command(app: &CatalogApp) -> String {
     // A verified curated recipe wins over the heuristic chain.
     if let Some(r) = catalog::recipe(&app.name) {
         if r.verified && !r.install.is_empty() {
+            // If the recipe's toolchain (go/cargo/npm/pip/brew) is missing, warn
+            // and offer to install it first; declining or a failed install aborts
+            // the window before the app install runs.
+            let pre = crate::toolchain::preamble(&app.name, &r.method, &app.homepage);
             return format!(
-                "clear; echo 'Installing {name} …'; echo; {cmd}; echo; echo '────────'; \
+                "clear; {pre}echo 'Installing {name} …'; echo; {cmd}; echo; echo '────────'; \
 echo 'Done. If it succeeded, {name} is now in your launcher.'; \
 echo 'Close this window (\u{2715}) when finished.'; exec \"$SHELL\"",
                 name = app.name,
