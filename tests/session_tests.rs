@@ -431,3 +431,19 @@ fn spurious_bottom_click_does_not_open_a_shell() {
     assert_eq!(core.window_count(), before, "a spurious bottom-row click must not open a shell");
     core.shutdown();
 }
+
+#[test]
+fn closing_launcher_by_clicking_brand_does_not_launch_shell() {
+    // Open the launcher (click the brand), then click the brand again to close it.
+    // Closing must NOT activate the auto-selected first row (now "Shell").
+    use tuiui::chrome::menubar_brand_region;
+    let mut core = SessionCore::new(120, 40, Config::default());
+    let before = core.window_count();
+    let p = Point::new(menubar_brand_region().x + 1, 0);
+    core.apply(ClientMsg::MouseDown(p)); // open
+    assert!(core.launcher_open());
+    core.apply(ClientMsg::MouseDown(p)); // click brand again → close
+    assert!(!core.launcher_open(), "clicking the brand again should close the launcher");
+    assert_eq!(core.window_count(), before, "closing the launcher must not open a shell");
+    core.shutdown();
+}

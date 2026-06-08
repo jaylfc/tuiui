@@ -1307,6 +1307,19 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 if self.mouse_seen && self.is_spurious_jump(p) { return; }
                 self.mouse_seen = true;
                 self.cursor = p;
+                // If the launcher is open, route the double-click to it (a second
+                // fast click on the brand dismisses the menu rather than falling
+                // through to titlebar/desktop handling — and must not launch the
+                // selected row).
+                if self.launcher.is_open() {
+                    if let Some(app) = self.launcher.click(p) {
+                        self.launcher.close();
+                        self.launch_entry(app);
+                    } else {
+                        self.launcher.close();
+                    }
+                    return;
+                }
                 // Double-click on a window's titlebar (not on a control button)
                 // starts a rename of that window. Check this before desktop/content.
                 if let Some(id) = self.topmost_window_titlebar_at(p) {

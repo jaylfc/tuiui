@@ -437,8 +437,11 @@ impl Launcher {
     }
 
     /// Mouse-click: hover then activate (descend a submenu, or launch a leaf).
+    /// A click *outside* the visible panels returns `None` (the caller closes the
+    /// menu) — it must NOT activate the currently-selected row, or clicking away
+    /// to dismiss the menu would launch/descend the selection.
     pub fn click(&mut self, p: Point) -> Option<AppEntry> {
-        if self.open != Some(LauncherMode::Menu) {
+        if self.open != Some(LauncherMode::Menu) || !self.point_in_menu(p) {
             return None;
         }
         self.hover(p);
