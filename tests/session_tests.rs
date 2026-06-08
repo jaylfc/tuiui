@@ -367,3 +367,41 @@ fn clicking_titlebar_does_not_move_tiled_window() {
     assert_eq!(before, after, "a plain titlebar click must not move/untile a tiled window");
     core.shutdown();
 }
+
+#[test]
+fn double_click_titlebar_full_sequence_keeps_tiled_window_put() {
+    // Faithful repro of a real double-click on a tiled window's titlebar with
+    // all-motion mouse: Down, Drag(same p), Up, Double, Up.
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "a".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    core.apply(ClientMsg::SendToCell(1));
+    let before = core.focused_window_rect_for_test().unwrap();
+    let p = Point::new(before.x + 2, before.y);
+    core.apply(ClientMsg::MouseDown(p));
+    core.apply(ClientMsg::MouseDrag(p));   // all-motion Moved at same cell
+    core.apply(ClientMsg::MouseUp(p));
+    core.apply(ClientMsg::MouseDouble(p)); // second click → rename
+    core.apply(ClientMsg::MouseUp(p));
+    let after = core.focused_window_rect_for_test().unwrap();
+    assert_eq!(before, after, "double-click titlebar must not move the tiled window (before={before:?} after={after:?})");
+    core.shutdown();
+}
+
+#[test]
+fn spurious_teleport_drag_does_not_fling_window() {
+    // Repro of the real bug: while dragging, a single stray mouse report jumped
+    // >half the screen (a click at the top yielded a drag to the bottom),
+    // flinging the window off-screen. Such teleports must be ignored.
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "a".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    core.apply(ClientMsg::SendToCell(1));
+    let before = core.focused_window_rect_for_test().unwrap();
+    let p = Point::new(before.x + 2, before.y);
+    core.apply(ClientMsg::MouseDown(p));
+    // Stray report teleporting to row 30 (jump > h/2 = 20) — impossible for a real drag.
+    core.apply(ClientMsg::MouseDrag(Point::new(p.x, 30)));
+    core.apply(ClientMsg::MouseUp(Point::new(p.x, 30)));
+    let after = core.focused_window_rect_for_test().unwrap();
+    assert_eq!(before, after, "a spurious teleport drag must not move the window (before={before:?} after={after:?})");
+    core.shutdown();
+}

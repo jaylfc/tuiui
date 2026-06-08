@@ -114,10 +114,17 @@ impl WindowManager {
     }
 
     /// Move a window so its top-left is exactly `(x, y)`; un-snaps it to `Floating`.
+    /// The position is clamped so the titlebar always stays reachable within the
+    /// work area (a window can never be dragged fully off-screen and lost).
     pub fn move_to(&mut self, id: WindowId, x: i32, y: i32) {
+        let work = self.work;
         if let Some(w) = self.get_mut(id) {
-            w.rect.x = x;
-            w.rect.y = y;
+            const KEEP_VISIBLE: i32 = 6; // cells of the titlebar that must stay on-screen
+            let min_x = work.x - w.rect.w + KEEP_VISIBLE;
+            let max_x = work.x + work.w - KEEP_VISIBLE;
+            let max_y = work.y + work.h - 1; // titlebar row never below the work area
+            w.rect.x = x.clamp(min_x, max_x.max(min_x));
+            w.rect.y = y.clamp(work.y, max_y.max(work.y));
             w.state = WindowState::Floating;
         }
     }

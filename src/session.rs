@@ -1031,10 +1031,21 @@ impl SessionCore {
                 self.handle_mouse(MouseKind::Down, p);
             }
             ClientMsg::MouseDrag(p) => {
+                // While dragging a window, drop a "teleport" report — a motion
+                // event that jumps more than half the screen in one step. Real
+                // drags move gradually; such jumps are spurious terminal mouse
+                // reports that would fling the window off-screen (observed: a
+                // single click yielding a stray drag to the bottom edge).
+                if self.drag.is_some() && self.is_spurious_jump(p) {
+                    return; // keep the last good cursor; ignore this event
+                }
                 self.cursor = p;
                 self.handle_mouse(MouseKind::Drag, p);
             }
             ClientMsg::MouseUp(p) => {
+                // End a drag at the last good position if the release coordinate
+                // is itself a spurious teleport (don't snap the window to it).
+                let p = if self.drag.is_some() && self.is_spurious_jump(p) { self.cursor } else { p };
                 self.cursor = p;
                 self.handle_mouse(MouseKind::Up, p);
             }
@@ -1762,6 +1773,13 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 self.wm.close(id);
             }
         }
+    }
+
+    /// Whether `p` is more than half the screen away from the last cursor
+    /// position on either axis — a physically impossible single-event jump that
+    /// indicates a spurious terminal mouse report.
+    fn is_spurious_jump(&self, p: Point) -> bool {
+        (p.x - self.cursor.x).abs() > self.w / 2 || (p.y - self.cursor.y).abs() > self.h / 2
     }
 
     /// Route a mouse event through dock hit-testing then the WM input router.
