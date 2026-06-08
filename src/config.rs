@@ -85,6 +85,10 @@ pub struct Config {
     /// Saved grid positions: key (abs path or pin command) → (col, row).
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub desktop_positions: std::collections::BTreeMap<String, (u16, u16)>,
+    /// Per-app dock badge colors: keyword (matched case-insensitively as a
+    /// substring of the app name/command) → color (named or `#rrggbb`).
+    #[serde(default = "default_dock_badges", skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub dock_badges: std::collections::BTreeMap<String, String>,
 }
 
 impl Config {
@@ -122,6 +126,7 @@ impl Default for Config {
             desktop_enabled: true,
             desktop_pins: default_desktop_pins(),
             desktop_positions: std::collections::BTreeMap::new(),
+            dock_badges: default_dock_badges(),
         }
     }
 }
@@ -137,6 +142,11 @@ fn default_desktop_pins() -> Vec<AppEntry> {
     ]
 }
 
+
+fn default_dock_badges() -> std::collections::BTreeMap<String, String> {
+    [("claude", "orange"), ("kilo", "yellow")]
+        .iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+}
 
 fn default_theme() -> String { "midnight".into() }
 
