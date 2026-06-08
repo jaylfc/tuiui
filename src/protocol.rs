@@ -106,6 +106,14 @@ pub fn socket_path() -> PathBuf {
     socket_dir().join("daemon.sock")
 }
 
+/// Path of the daemon's out-of-band control socket. `tuiui kill` / `tuiui reload`
+/// send here so they work even while a client is attached — the daemon serves a
+/// single client on `socket_path()` serially, so a control message on the main
+/// socket would queue behind the attached client and never be read.
+pub fn daemon_ctl_path() -> PathBuf {
+    socket_dir().join("daemon-ctl.sock")
+}
+
 /// Path to the apphost socket (apps live behind this; survives frontend restarts).
 pub fn apphost_socket_path() -> PathBuf {
     socket_dir().join("apphost.sock")

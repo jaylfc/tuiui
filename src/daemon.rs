@@ -4,15 +4,23 @@
 
 use crate::compositor::Compositor;
 use crate::config::Config;
-use crate::protocol::{socket_dir, socket_path, Flags, FrameMsg};
+use crate::protocol::{daemon_ctl_path, socket_dir, socket_path, Flags, FrameMsg};
 use crate::session::{ClientMsg, SessionCore};
 use std::fs::Permissions;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::mpsc;
+use std::sync::Arc;
 use std::time::Duration;
+
+/// Shared out-of-band control state, set by the control-socket thread and polled
+/// by the render loop: 0 = none, 1 = shutdown, 2 = reload.
+const CTL_NONE: u8 = 0;
+const CTL_SHUTDOWN: u8 = 1;
+const CTL_RELOAD: u8 = 2;
 
 /// Run the daemon event loop until `tuiui kill` (or a fatal socket error).
 pub fn run() -> std::io::Result<()> {
@@ -28,6 +36,20 @@ pub fn run() -> std::io::Result<()> {
     let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path)?;
     std::fs::set_permissions(&path, Permissions::from_mode(0o600))?;
+
+    // Out-of-band control socket so `tuiui kill` / `tuiui reload` are honored even
+    // while a client is attached (the client socket is served serially, so a
+    // control message there would queue behind the attached client forever). A
+    // listener thread reads Shutdown/Reload and flips this shared flag, which the
+    // render loop polls each tick.
+    let ctl_path = daemon_ctl_path();
+    let _ = std::fs::remove_file(&ctl_path);
+    let ctl = Arc::new(AtomicU8::new(CTL_NONE));
+    if let Ok(ctl_listener) = UnixListener::bind(&ctl_path) {
+        let _ = std::fs::set_permissions(&ctl_path, Permissions::from_mode(0o600));
+        let ctl_flag = Arc::clone(&ctl);
+        std::thread::spawn(move || serve_control(ctl_listener, ctl_flag));
+    }
 
     let cfg = Config::load();
     crate::theme::set(&cfg.theme);
@@ -67,10 +89,18 @@ pub fn run() -> std::io::Result<()> {
     }
     let mut comp = Compositor::new(w, h);
 
+    // While unattached, the loop blocks in `accept()`; a control message can't be
+    // seen until a client connects. So `tuiui kill`/`reload` ALSO poke the main
+    // socket (a no-op connection) to wake this accept — see `main.rs`. Either way
+    // we re-check the control flag on each wake.
     let mut reloading = false;
     for stream in listener.incoming() {
-        let stream = stream?;
-        serve_client(&mut core, &mut comp, stream);
+        if apply_ctl(&ctl, &mut core) {
+            // A control message arrived while unattached; this stream is the wake
+            // poke. Don't serve it as a client.
+        } else if let Ok(stream) = stream {
+            serve_client(&mut core, &mut comp, stream, &ctl);
+        }
         core.clear_quit();
         if core.shutdown_requested() {
             break;
@@ -81,6 +111,7 @@ pub fn run() -> std::io::Result<()> {
         }
     }
     let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(&ctl_path);
     if !reloading {
         core.shutdown(); // full stop: kills apps + tells the apphost to exit
     }
@@ -140,7 +171,12 @@ fn wait_for_socket(path: &std::path::Path) -> bool {
 }
 
 /// Serve one attached client until it detaches (socket closes) or asks to detach.
-fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStream) {
+fn serve_client(
+    core: &mut SessionCore,
+    comp: &mut Compositor,
+    stream: UnixStream,
+    ctl: &Arc<AtomicU8>,
+) {
     let Ok(reader_stream) = stream.try_clone() else { return };
     let mut writer = stream;
 
@@ -183,6 +219,9 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
                 Err(mpsc::TryRecvError::Disconnected) => return, // client gone
             }
         }
+        // Out-of-band `tuiui kill` / `tuiui reload` (control socket) — honored even
+        // though this client is attached.
+        apply_ctl(ctl, core);
         if core.shutdown_requested() {
             return;
         }
@@ -246,5 +285,39 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             return; // reload flag delivered; daemon will restart, apphost untouched
         }
         std::thread::sleep(Duration::from_millis(16));
+    }
+}
+
+/// If a control message has arrived, apply it to `core` (setting its
+/// shutdown/reload flag, which the loops already act on) and return `true`.
+fn apply_ctl(ctl: &Arc<AtomicU8>, core: &mut SessionCore) -> bool {
+    match ctl.swap(CTL_NONE, Ordering::SeqCst) {
+        CTL_SHUTDOWN => {
+            core.apply(ClientMsg::Shutdown);
+            true
+        }
+        CTL_RELOAD => {
+            core.apply(ClientMsg::Reload);
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Accept control connections for the daemon's lifetime, flipping the shared flag
+/// on `Shutdown` / `Reload`. Each connection is one short-lived message from the
+/// `tuiui kill` / `tuiui reload` CLI.
+fn serve_control(listener: UnixListener, ctl: Arc<AtomicU8>) {
+    for stream in listener.incoming() {
+        let Ok(stream) = stream else { continue };
+        let mut r = BufReader::new(stream);
+        let mut line = String::new();
+        if r.read_line(&mut line).is_ok() {
+            match serde_json::from_str::<ClientMsg>(line.trim()) {
+                Ok(ClientMsg::Shutdown) => ctl.store(CTL_SHUTDOWN, Ordering::SeqCst),
+                Ok(ClientMsg::Reload) => ctl.store(CTL_RELOAD, Ordering::SeqCst),
+                _ => {}
+            }
+        }
     }
 }

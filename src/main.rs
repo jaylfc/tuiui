@@ -116,35 +116,54 @@ fn send_and_drain(stream: &mut UnixStream, bytes: &[u8]) -> std::io::Result<()> 
     Ok(())
 }
 
+/// Send a control message (Shutdown/Reload) to the daemon. Returns whether a
+/// daemon was reachable.
+///
+/// The daemon serves its single attached client serially, so a control message
+/// on the main socket would queue behind that client and never be read. We send
+/// to the out-of-band control socket (read by the daemon's control thread even
+/// while attached), and also poke the main socket so an *unattached* daemon —
+/// blocked in `accept()` — wakes and re-checks the control flag (this also covers
+/// an older daemon that predates the control socket).
+fn send_control(msg: &tuiui::session::ClientMsg) -> std::io::Result<bool> {
+    let mut buf = serde_json::to_vec(msg).map_err(std::io::Error::other)?;
+    buf.push(b'\n');
+    let mut reached = false;
+    if let Ok(mut s) = UnixStream::connect(tuiui::protocol::daemon_ctl_path()) {
+        let _ = send_and_drain(&mut s, &buf);
+        reached = true;
+    }
+    if let Ok(mut s) = UnixStream::connect(socket_path()) {
+        // Best-effort wake poke: write and close without draining so we don't
+        // block when the daemon is busy serving an attached client.
+        let _ = s.write_all(&buf);
+        let _ = s.shutdown(std::net::Shutdown::Write);
+        reached = true;
+    }
+    Ok(reached)
+}
+
 /// Tell a running daemon to reload its frontend (apps keep running via the
 /// apphost). An attached client reconnects on its own.
 fn reload() -> std::io::Result<()> {
-    match UnixStream::connect(socket_path()) {
-        Ok(mut stream) => {
-            let mut buf = serde_json::to_vec(&tuiui::session::ClientMsg::Reload)
-                .map_err(std::io::Error::other)?;
-            buf.push(b'\n');
-            send_and_drain(&mut stream, &buf)?;
-            println!("tuiui: reload requested");
-        }
-        Err(_) => println!("tuiui: no daemon running"),
+    if send_control(&tuiui::session::ClientMsg::Reload)? {
+        println!("tuiui: reload requested");
+    } else {
+        println!("tuiui: no daemon running");
     }
     Ok(())
 }
 
-/// Tell a running daemon to shut down.
+/// Tell a running daemon to shut down, and stop the apphost.
 fn kill() -> std::io::Result<()> {
-    match UnixStream::connect(socket_path()) {
-        Ok(mut stream) => {
-            let mut buf = serde_json::to_vec(&tuiui::session::ClientMsg::Shutdown)
-                .map_err(std::io::Error::other)?;
-            buf.push(b'\n');
-            send_and_drain(&mut stream, &buf)?;
-            println!("tuiui: shutdown requested");
-        }
-        Err(_) => println!("tuiui: no daemon running"),
+    if send_control(&tuiui::session::ClientMsg::Shutdown)? {
+        println!("tuiui: shutdown requested");
+    } else {
+        println!("tuiui: no daemon running");
     }
-    // Also stop the apphost (it outlives the frontend by design).
+    // Also stop the apphost directly. When a daemon is attached it shuts the
+    // apphost down in-band; this covers the case where the apphost is running
+    // with no daemon (e.g. the per-user service apphost on its own).
     if let Ok(mut s) = UnixStream::connect(tuiui::protocol::apphost_socket_path()) {
         let req = tuiui::apphost::proto::HostReq::Shutdown;
         if let Ok(mut buf) = serde_json::to_vec(&req) {
