@@ -318,6 +318,9 @@ pub struct SessionCore {
     /// titlebar must NOT move/untile the window — only a real drag does.
     drag_start: Option<Point>,
     drag_armed: bool,
+    /// Whether at least one mouse event has been seen, so the first event can
+    /// establish `cursor` before the spurious-teleport guard starts applying.
+    mouse_seen: bool,
     cursor: Point,
     /// Set when the user clicks the menubar quit button; polled by the loop.
     /// In daemon mode this means "detach", not "shut down".
@@ -398,6 +401,7 @@ impl SessionCore {
             drag: None,
             drag_start: None,
             drag_armed: false,
+            mouse_seen: false,
             cursor: Point::new(w / 2, h / 2),
             quit: false,
             shutdown: false,
@@ -1027,25 +1031,29 @@ impl SessionCore {
                 self.launch(name, command, args);
             }
             ClientMsg::MouseDown(p) => {
+                if self.mouse_seen && self.is_spurious_jump(p) { return; }
+                self.mouse_seen = true;
                 self.cursor = p;
                 self.handle_mouse(MouseKind::Down, p);
             }
             ClientMsg::MouseDrag(p) => {
-                // While dragging a window, drop a "teleport" report — a motion
-                // event that jumps more than half the screen in one step. Real
-                // drags move gradually; such jumps are spurious terminal mouse
-                // reports that would fling the window off-screen (observed: a
-                // single click yielding a stray drag to the bottom edge).
-                if self.drag.is_some() && self.is_spurious_jump(p) {
-                    return; // keep the last good cursor; ignore this event
-                }
+                // Drop a "teleport" report — a mouse event that jumps more than
+                // half the screen from the last position in one step. With
+                // all-motion tracking every real move is reported gradually, so a
+                // lone far jump is a spurious/garbage terminal mouse report
+                // (observed: a top-left click reported at the bottom-left, landing
+                // on the dock "+" button and launching a shell, or flinging a
+                // dragged window off-screen). Keep the last good cursor.
+                if self.mouse_seen && self.is_spurious_jump(p) { return; }
+                self.mouse_seen = true;
                 self.cursor = p;
                 self.handle_mouse(MouseKind::Drag, p);
             }
             ClientMsg::MouseUp(p) => {
-                // End a drag at the last good position if the release coordinate
-                // is itself a spurious teleport (don't snap the window to it).
-                let p = if self.drag.is_some() && self.is_spurious_jump(p) { self.cursor } else { p };
+                // Always end any in-progress drag; if the release coordinate is a
+                // spurious teleport, end it at the last good position.
+                let p = if self.mouse_seen && self.is_spurious_jump(p) { self.cursor } else { p };
+                self.mouse_seen = true;
                 self.cursor = p;
                 self.handle_mouse(MouseKind::Up, p);
             }
@@ -1290,10 +1298,14 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 }
             }
             ClientMsg::MouseRightDown(p) => {
+                if self.mouse_seen && self.is_spurious_jump(p) { return; }
+                self.mouse_seen = true;
                 self.cursor = p;
                 self.handle_desktop_right(p);
             }
             ClientMsg::MouseDouble(p) => {
+                if self.mouse_seen && self.is_spurious_jump(p) { return; }
+                self.mouse_seen = true;
                 self.cursor = p;
                 // Double-click on a window's titlebar (not on a control button)
                 // starts a rename of that window. Check this before desktop/content.
@@ -1782,11 +1794,14 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         }
     }
 
-    /// Whether `p` is more than half the screen away from the last cursor
-    /// position on either axis — a physically impossible single-event jump that
-    /// indicates a spurious terminal mouse report.
+    /// Whether `p` is more than half the screen *vertically* away from the last
+    /// cursor position — a physically impossible single-event jump that indicates
+    /// a spurious terminal mouse report. (Vertical only: the observed bad reports
+    /// teleport to the bottom row, and horizontal jumps are legit — e.g. clicking
+    /// the far-left brand then the far-right power button on the menubar. Off-
+    /// screen horizontal motion is handled by `wm::move_to` clamping instead.)
     fn is_spurious_jump(&self, p: Point) -> bool {
-        (p.x - self.cursor.x).abs() > self.w / 2 || (p.y - self.cursor.y).abs() > self.h / 2
+        (p.y - self.cursor.y).abs() > self.h / 2
     }
 
     /// Route a mouse event through dock hit-testing then the WM input router.
