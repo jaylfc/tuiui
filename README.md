@@ -133,6 +133,34 @@ sudo apt install gpm        # Debian/Ubuntu (use your distro's package elsewhere
 
 tuiui auto-detects the console and connects to gpm's socket — no config needed (`TUIUI_GPM=0` disables it, `TUIUI_GPM=1` forces an attempt). It speaks gpm's socket protocol directly (no `libgpm` linkage), so it stays MIT-clean. Recommended for anyone running tuiui on a Linux shell without a desktop. Note: a bare console still can't display the inline image tiles (those need a Kitty-graphics terminal); windows, the dock, the launcher, and the mouse all work.
 
+### Run the apphost as a service
+
+The **apphost** (the process that owns your running apps) is normally spawned on
+demand and kept alive across frontend reloads/detaches. To have it **auto-start on
+login and restart if it crashes** — so your apps are always waiting for you — install
+it as a per-user service:
+
+```bash
+tuiui service install      # set up + start the apphost service for this platform
+tuiui service status       # show the backend, whether it's installed/running
+tuiui service uninstall    # stop + remove it
+```
+
+Per platform (chosen automatically):
+
+- **macOS** → a launchd **LaunchAgent** (`~/Library/LaunchAgents/co.uk.janlabs.tuiui-apphost.plist`).
+  Because it runs inside your GUI login session, the apphost gets **Keychain access**,
+  which also lets tools like the Claude Code CLI stay logged in when run inside tuiui.
+- **Linux / WSL with systemd** → a `systemctl --user` unit (`tuiui-apphost.service`).
+  Tip: `loginctl enable-linger $USER` keeps it running across logout.
+- **Old WSL / minimal distros (no user systemd)** → a guarded block appended to
+  `~/.profile` that starts the apphost on login (best-effort; no crash supervision).
+
+The installer bakes your current `PATH`/`HOME`/`SHELL`/`LANG` into the service so it
+can find and launch your apps — re-run `tuiui service install` to refresh them. The
+apphost is idempotent: a redundant start (service + the daemon's on-demand spawn)
+exits cleanly instead of fighting over the socket.
+
 ### Current development setup
 
 This project is currently developed and tested on **macOS** using **[Ghostty](https://ghostty.org)**, frequently driving a tuiui instance **running on a remote machine over SSH** (the Mac is the thin client; tuiui and the apps run on the host). Two things matter in that setup:
@@ -217,6 +245,7 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 - **✅ Simple view mode:** `⊞`/`▦` top-bar toggle between the windowed desktop and a full-screen-single-app view.
 - **✅ Dock grouping + window rename + app badges:** same-app windows group into one pill with a colored letter badge; rename windows (double-click titlebar / `Ctrl+Space r`).
 - **✅ Bare-console mouse (Linux):** native `gpm` support for a mouse on a raw Linux VT (no GUI terminal needed).
+- **✅ Apphost as a service:** `tuiui service install` runs the apphost as a per-user service (launchd / systemd `--user` / `~/.profile` fallback) that auto-starts on login and restarts on crash; the macOS LaunchAgent also restores Keychain access (e.g. Claude Code login) inside tuiui.
 - **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client) — plus a parked idea: a fullscreen **browser PWA** of tuiui (multiple simultaneous frontends on one apphost).
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 
