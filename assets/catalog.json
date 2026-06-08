@@ -4177,5 +4177,61 @@
   "category": "Productivity",
   "description": "Plain-text note-taking, bookmarking, and knowledge base.",
   "homepage": "https://github.com/xwmx/nb"
+ },
+ {
+  "name": "gum",
+  "bin": "gum",
+  "category": "Development",
+  "description": "A tool for glamorous shell scripts (prompts, menus, spinners).",
+  "homepage": "https://github.com/charmbracelet/gum"
+ },
+ {
+  "name": "vhs",
+  "bin": "vhs",
+  "category": "Multimedia",
+  "description": "Write terminal GIFs as code — scriptable session recorder.",
+  "homepage": "https://github.com/charmbracelet/vhs"
+ },
+ {
+  "name": "freeze",
+  "bin": "freeze",
+  "category": "Development",
+  "description": "Generate images of code and terminal output.",
+  "homepage": "https://github.com/charmbracelet/freeze"
+ },
+ {
+  "name": "dust",
+  "bin": "dust",
+  "category": "Miscellaneous",
+  "description": "A more intuitive, visual version of du (disk usage).",
+  "homepage": "https://github.com/bootandy/dust"
+ },
+ {
+  "name": "dua",
+  "bin": "dua",
+  "category": "Miscellaneous",
+  "description": "Fast interactive disk-usage analyzer and cleaner.",
+  "homepage": "https://github.com/Byron/dua-cli"
+ },
+ {
+  "name": "pgcli",
+  "bin": "pgcli",
+  "category": "Development",
+  "description": "Postgres CLI with auto-completion and syntax highlighting.",
+  "homepage": "https://github.com/dbcli/pgcli"
+ },
+ {
+  "name": "mycli",
+  "bin": "mycli",
+  "category": "Development",
+  "description": "MySQL/MariaDB CLI with auto-completion and syntax highlighting.",
+  "homepage": "https://github.com/dbcli/mycli"
+ },
+ {
+  "name": "litecli",
+  "bin": "litecli",
+  "category": "Development",
+  "description": "SQLite CLI with auto-completion and syntax highlighting.",
+  "homepage": "https://github.com/dbcli/litecli"
  }
 ]

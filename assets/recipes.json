@@ -5520,5 +5520,79 @@
    "linux"
   ],
   "verified": true
+ },
+ "gum": {
+  "install": "brew install gum",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "vhs": {
+  "install": "brew install vhs",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "freeze": {
+  "install": "brew install charmbracelet/tap/freeze",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "dust": {
+  "install": "cargo install du-dust",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "dua": {
+  "install": "cargo install dua-cli",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "pgcli": {
+  "install": "brew install pgcli",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "mycli": {
+  "install": "brew install mycli",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "litecli": {
+  "install": "brew install litecli",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
  }
 }
