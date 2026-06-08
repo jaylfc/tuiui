@@ -4161,6 +4161,16 @@
   ],
   "verified": true
  },
+ "sheets": {
+  "install": "go install github.com/maaslalani/sheets@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "sfm": {
   "install": "git clone https://github.com/afify/sfm && cd sfm && make && make install",
   "method": "source",

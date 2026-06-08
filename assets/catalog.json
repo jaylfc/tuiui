@@ -3696,6 +3696,13 @@
   "homepage": "https://github.com/zaphar/sheetsui"
  },
  {
+  "name": "sheets",
+  "bin": "sheets",
+  "category": "Productivity",
+  "description": "Terminal-based spreadsheet tool backed by CSV files.",
+  "homepage": "https://github.com/maaslalani/sheets"
+ },
+ {
   "name": "slides",
   "bin": "slides",
   "category": "Productivity",
