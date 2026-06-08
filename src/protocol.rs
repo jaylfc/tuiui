@@ -79,6 +79,10 @@ pub struct Flags {
     /// The daemon is reloading the frontend; the client should reconnect (not
     /// fully detach). Apps stay alive in the apphost.
     pub reload: bool,
+    /// The focused app's content rect, set only when that app wants mouse. The
+    /// client routes events inside it as `ClientMsg::MouseInput` (passthrough);
+    /// `None` keeps all mouse on the normal chrome/WM path.
+    pub app_area: Option<Rect>,
 }
 
 /// Per-user directory that holds the daemon socket. Created mode `0700` by the

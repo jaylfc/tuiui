@@ -242,6 +242,8 @@ pub enum ClientMsg {
     Shutdown,
     /// Restart the frontend only, keeping the apphost (and apps) alive.
     Reload,
+    /// A raw mouse event destined for the focused app's PTY (passthrough).
+    MouseInput(crate::mouse::MouseInput),
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -854,6 +856,7 @@ impl SessionCore {
             ClientMsg::MouseDown(_)
                 | ClientMsg::MouseUp(_)
                 | ClientMsg::MouseDrag(_)
+                | ClientMsg::MouseInput(_)
                 | ClientMsg::Resize { .. }
                 | ClientMsg::Key(_)
         ) {
@@ -1143,6 +1146,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             ClientMsg::DesktopCancel => self.desktop.cancel_overlay(),
             ClientMsg::Shutdown => self.shutdown = true,
             ClientMsg::Reload => self.reload = true,
+            ClientMsg::MouseInput(m) => self.forward_mouse_to_app(m),
         }
         // Refresh thumbnails after any message that may have changed the focused
         // file manager's listing (cheap: ImageStore loads are content-hash cached).
@@ -2269,6 +2273,42 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         }
         if install_finished {
             self.refresh_installed_apps();
+        }
+    }
+
+    /// The focused app's content rect IFF that app currently captures the
+    /// pointer (wants mouse, or alt-scroll). Used by the client to route
+    /// in-app mouse events. `None` → all mouse stays on the chrome/WM path.
+    pub fn app_mouse_area(&self) -> Option<crate::geometry::Rect> {
+        let fid = self.wm.focused()?;
+        let aid = match self.contents.get(&fid)? {
+            WinContent::App(aid) => *aid,
+            _ => return None,
+        };
+        if !self.apphost.mouse_mode(aid).captures_pointer() {
+            return None;
+        }
+        if self.simple {
+            Some(self.simple_content_rect())
+        } else {
+            let w = self.wm.get(fid)?;
+            if w.minimized { return None; }
+            Some(w.content_rect())
+        }
+    }
+
+    /// Forward a passthrough mouse event to the focused app's PTY.
+    fn forward_mouse_to_app(&mut self, m: crate::mouse::MouseInput) {
+        let Some(area) = self.app_mouse_area() else { return };
+        if m.col < area.x || m.col >= area.x + area.w || m.row < area.y || m.row >= area.y + area.h {
+            return;
+        }
+        let Some(fid) = self.wm.focused() else { return };
+        let aid = match self.contents.get(&fid) { Some(WinContent::App(aid)) => *aid, _ => return };
+        let mode = self.apphost.mouse_mode(aid);
+        let local = crate::mouse::MouseInput { col: m.col - area.x, row: m.row - area.y, ..m };
+        if let Some(bytes) = crate::mouse::encode(&local, &mode) {
+            self.apphost.input(aid, &bytes);
         }
     }
 
