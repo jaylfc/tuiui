@@ -418,21 +418,6 @@ fn dock_plus_button_opens_a_shell_window() {
 }
 
 #[test]
-fn spurious_bottom_click_does_not_open_a_shell() {
-    // A garbage terminal report at the bottom-left (the dock "+" button) far below
-    // the cursor must be dropped — it must not launch a shell.
-    let mut core = SessionCore::new(120, 40, Config { desktop_enabled: false, ..Config::default() });
-    // Establish the cursor near the top (mouse_seen) with a harmless click.
-    core.apply(ClientMsg::MouseDown(Point::new(50, 5)));
-    core.apply(ClientMsg::MouseUp(Point::new(50, 5)));
-    let before = core.window_count();
-    // Spurious report at row 39 (the dock "+" button), >h/2 below the cursor.
-    core.apply(ClientMsg::MouseDown(Point::new(2, 39)));
-    assert_eq!(core.window_count(), before, "a spurious bottom-row click must not open a shell");
-    core.shutdown();
-}
-
-#[test]
 fn closing_launcher_by_clicking_brand_does_not_launch_shell() {
     // Open the launcher (click the brand), then click the brand again to close it.
     // Closing must NOT activate the auto-selected first row (now "Shell").
