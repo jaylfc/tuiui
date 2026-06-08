@@ -10,7 +10,7 @@ It's a multiplexer at heart (apps run as real child processes in PTYs and are co
 
 - **Floating, overlapping windows** with drop shadows, each running a real TUI (btop, a shell, vim, …) in its own pseudo-terminal.
 - **Faithful rendering** via a full terminal emulator ([`alacritty_terminal`](https://docs.rs/alacritty_terminal)) — even demanding apps like btop render correctly.
-- **Mouse-driven**: drag titlebars to move, drag edges to resize, click the dock to focus, click titlebar buttons to minimize/maximize/close.
+- **Mouse-driven**: drag titlebars to move, drag edges to resize, click the dock to focus, click titlebar buttons to minimize/maximize/close — and the mouse **passes through into apps** that request it (btop, yazi, lazygit, vim with `mouse=a`): clicks, drag, scroll, and modifiers, in both windowed and full-screen views.
 - **Configurable grid tiling** — set a rows×columns grid (e.g. 2×3 for an ultra-wide) and use drag-to-cell snapping (with a live preview), a one-key *tile-all*, an *auto-tile* mode, or send a window straight to a numbered cell.
 - **Menubar status tray** — clock, CPU/memory, volume, WiFi, Bluetooth, and battery, with click-through popovers that control the **host's** volume, switch to a known WiFi network, and connect a paired Bluetooth device.
 - **Native image viewing** — real raster images inside windows via the Kitty graphics protocol (Ghostty/Kitty/WezTerm), with a cell placeholder fallback elsewhere. Open one with a launcher entry `command = "@image"`, `args = ["~/pic.png"]`.
@@ -110,7 +110,20 @@ Configuration lives at `~/.config/tuiui/config.toml` (see [example below](#confi
 
 ### Recommended terminal
 
-tuiui wants a **truecolor, mouse-capable terminal**: **Ghostty**, Kitty, WezTerm, or iTerm2. Avoid macOS Terminal.app (weak truecolor + flaky mouse).
+tuiui wants a **truecolor, mouse-capable terminal**: **Ghostty**, Kitty, WezTerm, or iTerm2. Avoid macOS Terminal.app (weak truecolor + flaky mouse). Inline images (image viewer, file-manager thumbnails, desktop icon tiles) need a terminal that speaks the **Kitty graphics protocol** (Ghostty/Kitty/WezTerm); without it those fall back to text glyphs.
+
+This works over SSH too: your **local** terminal emulator does the mouse + graphics reporting, so a headless remote box needs nothing special — the emulator on the machine you're sitting at sends the events.
+
+### Mouse on a bare Linux console (gpm)
+
+If you run tuiui **directly on a bare Linux virtual console** — no X/Wayland, just a shell on a TTY (locally, or after SSHing into a headless box and dropping to its console) — the kernel console emits no terminal mouse sequences. Install **gpm** (the General Purpose Mouse daemon) and tuiui will talk to it directly for full mouse support:
+
+```bash
+sudo apt install gpm        # Debian/Ubuntu (use your distro's package elsewhere)
+# make sure the gpm service is running on the console, then launch tuiui
+```
+
+tuiui auto-detects the console and connects to gpm's socket — no config needed (`TUIUI_GPM=0` disables it, `TUIUI_GPM=1` forces an attempt). It speaks gpm's socket protocol directly (no `libgpm` linkage), so it stays MIT-clean. Recommended for anyone running tuiui on a Linux shell without a desktop. Note: a bare console still can't display the inline image tiles (those need a Kitty-graphics terminal); windows, the dock, the launcher, and the mouse all work.
 
 ### Current development setup
 
