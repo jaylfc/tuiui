@@ -432,3 +432,58 @@ fn closing_launcher_by_clicking_brand_does_not_launch_shell() {
     assert_eq!(core.window_count(), before, "closing the launcher must not open a shell");
     core.shutdown();
 }
+
+#[test]
+fn closing_app_window_requires_confirmation() {
+    // Clicking the titlebar ✕ on an app window opens a modal confirm dialog and
+    // does NOT kill the app until the user confirms (it kills the process).
+    let mut core = SessionCore::new(
+        80,
+        24,
+        Config { apps: vec![], desktop_enabled: false, ..Config::default() },
+    );
+    core.apply(ClientMsg::Launch {
+        name: "shell".into(),
+        command: "sh".into(),
+        args: vec!["-c".into(), "sleep 5".into()],
+    });
+    assert_eq!(core.window_count(), 1);
+    let r = core.focused_window_rect_for_test().unwrap();
+    let close = Point::new(r.x + r.w - 3, r.y); // close glyph column
+
+    // First click: dialog opens, window stays.
+    core.apply(ClientMsg::MouseDown(close));
+    assert!(core.confirm_close_open(), "closing an app window opens the confirm dialog");
+    assert_eq!(core.window_count(), 1, "window must not close until confirmed");
+
+    // Cancel keeps the window.
+    core.apply(ClientMsg::ConfirmCloseNo);
+    assert!(!core.confirm_close_open());
+    assert_eq!(core.window_count(), 1);
+
+    // Click again, then confirm: the window closes.
+    core.apply(ClientMsg::MouseDown(close));
+    assert!(core.confirm_close_open());
+    core.apply(ClientMsg::ConfirmCloseYes);
+    assert!(!core.confirm_close_open());
+    assert_eq!(core.window_count(), 0, "confirming closes the app window");
+    core.shutdown();
+}
+
+#[test]
+fn closing_filemanager_does_not_confirm() {
+    // Built-in panels (File Manager / Store / Settings) have no process to lose,
+    // so the titlebar ✕ closes them immediately with no confirm dialog.
+    let mut core = SessionCore::new(
+        100,
+        30,
+        Config { apps: vec![], desktop_enabled: false, ..Config::default() },
+    );
+    core.apply(ClientMsg::OpenFileManager);
+    assert_eq!(core.window_count(), 1);
+    let r = core.focused_window_rect_for_test().unwrap();
+    core.apply(ClientMsg::MouseDown(Point::new(r.x + r.w - 3, r.y)));
+    assert!(!core.confirm_close_open(), "built-in panels close without a prompt");
+    assert_eq!(core.window_count(), 0, "file manager closes immediately");
+    core.shutdown();
+}

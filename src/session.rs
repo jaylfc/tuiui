@@ -14,6 +14,7 @@ use crate::chrome::{
     render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_mode_region, menubar_power_region, DockItem, DockKind,
 };
 use crate::powermenu::{PowerClick, PowerMenu, PowerOutcome};
+use crate::confirmclose::ConfirmClose;
 use crate::compositor::Layer;
 use crate::config::{AppEntry, Config};
 use crate::geometry::{Point, Rect, SnapZone};
@@ -252,6 +253,10 @@ pub enum ClientMsg {
     RenameCommit,
     /// Cancel the window rename without changing the title.
     RenameCancel,
+    /// Confirm the close-window dialog (Enter / y): close the pending window.
+    ConfirmCloseYes,
+    /// Dismiss the close-window dialog (Esc / n) without closing.
+    ConfirmCloseNo,
     /// Shut down the daemon entirely (kills all apps). Sent by `tuiui kill`.
     Shutdown,
     /// Restart the frontend only, keeping the apphost (and apps) alive.
@@ -331,6 +336,8 @@ pub struct SessionCore {
     launcher: Launcher,
     /// The top-right power menu (Exit / Restart / Shutdown + confirm dialogs).
     power_menu: PowerMenu,
+    /// Modal "are you sure?" shown when closing an app window (which kills it).
+    confirm_close: ConfirmClose,
     /// Shared host-state snapshot refreshed by the daemon's `SystemPoller`.
     tray_state: std::sync::Arc<std::sync::RwLock<crate::system::SystemState>>,
     /// The menubar status tray (open popover state + hit-testing).
@@ -404,6 +411,7 @@ impl SessionCore {
             reload: false,
             launcher,
             power_menu: PowerMenu::new(),
+            confirm_close: ConfirmClose::new(),
             tray_state: std::sync::Arc::new(std::sync::RwLock::new(crate::system::SystemState::default())),
             tray: crate::tray::Tray::new(),
             backend: crate::system::backend(),
@@ -844,6 +852,13 @@ impl SessionCore {
                 a.category = crate::catalog::category_for(&a.name)
                     .or_else(|| crate::catalog::category_for(&a.command));
             }
+            // Backfill the cwd-prompt flag from the catalog (by name, then binary)
+            // when a config entry doesn't set it explicitly, so a known cwd-app
+            // gets its working-directory picker without the user remembering the flag.
+            if a.requires_cwd.is_none() {
+                a.requires_cwd = crate::catalog::requires_cwd_for(&a.name)
+                    .or_else(|| crate::catalog::requires_cwd_for(&a.command));
+            }
         }
         for detected in crate::catalog::detect_installed() {
             if !apps.iter().any(|a| a.name.eq_ignore_ascii_case(&detected.name)) {
@@ -885,6 +900,10 @@ impl SessionCore {
 
     /// Whether the top-right power menu (dropdown or confirm dialog) is open.
     pub fn power_menu_open(&self) -> bool { self.power_menu.is_open() }
+
+    /// Whether the confirm-close dialog is showing (the client routes Enter/Esc
+    /// and y/n to it while open).
+    pub fn confirm_close_open(&self) -> bool { self.confirm_close.is_open() }
 
     /// Return the number of live windows (app instances spawned successfully).
     pub fn window_count(&self) -> usize { self.contents.len() }
@@ -1367,6 +1386,12 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             ClientMsg::RenameCancel => {
                 self.rename = None;
             }
+            ClientMsg::ConfirmCloseYes => {
+                if let Some(id) = self.confirm_close.confirm() {
+                    self.close(id);
+                }
+            }
+            ClientMsg::ConfirmCloseNo => self.confirm_close.cancel(),
             ClientMsg::Shutdown => self.shutdown = true,
             ClientMsg::Reload => self.reload = true,
             ClientMsg::MouseInput(m) => self.forward_mouse_to_app(m),
@@ -1826,6 +1851,15 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             return;
         }
 
+        // The confirm-close dialog is modal while open: route the click to it and
+        // close the window if confirmed.
+        if kind == MouseKind::Down && self.confirm_close.is_open() {
+            if let Some(id) = self.confirm_close.on_click(p, self.w, self.h) {
+                self.close(id);
+            }
+            return;
+        }
+
         // The working-directory picker captures clicks while open: a click on a
         // row selects + expands it; a click outside the box cancels.
         if kind == MouseKind::Down && self.dirpicker.is_some() {
@@ -2120,7 +2154,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 self.wm.resize_to(id, w - r.x + 1, h - r.y + 1);
                 self.sync_app_size(id);
             }
-            Action::Close(id) => self.close(id),
+            Action::Close(id) => self.request_close(id),
             Action::Minimize(id) => self.wm.minimize(id),
             Action::ToggleMaximize(id) => {
                 self.wm.maximize_toggle(id);
@@ -2240,6 +2274,23 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
     }
 
     /// Kill a window's content, remove its dock entry, and close the WM window.
+    /// Handle a close request from the titlebar ✕. App windows (whose close kills
+    /// a running process) raise a modal confirm dialog first; built-in panels
+    /// (Store / Settings / File Manager) close immediately.
+    fn request_close(&mut self, id: WindowId) {
+        if matches!(self.contents.get(&id), Some(WinContent::App(_))) {
+            let title = self
+                .titles
+                .iter()
+                .find(|(i, _)| *i == id)
+                .map(|(_, t)| t.clone())
+                .unwrap_or_default();
+            self.confirm_close.open(id, title);
+        } else {
+            self.close(id);
+        }
+    }
+
     fn close(&mut self, id: WindowId) {
         // An install window is kept alive (it `exec`s a shell after the install so
         // the output stays readable), so it never trips `reap_dead`; instead we
@@ -2427,6 +2478,9 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         // The power menu (dropdown + confirm dialog) renders above all chrome.
         layers.extend(self.power_menu.render(self.w, self.h));
 
+        // The confirm-close dialog is the topmost modal of all.
+        layers.extend(self.confirm_close.render(self.w, self.h));
+
         // Screen rects of the floating overlays now showing (empty when none open).
         let overlay_rects: Vec<crate::geometry::Rect> = layers[overlay_start..]
             .iter()
@@ -2574,6 +2628,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
 
         // Overlays that must still work in simple mode.
+        let overlay_start = layers.len();
         layers.extend(self.launcher.render(self.w, self.h).layers);
         {
             let st = self.tray_state.read().unwrap();
@@ -2583,6 +2638,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             layers.extend(crate::help::render_help(self.w, self.h));
         }
         layers.extend(self.power_menu.render(self.w, self.h));
+        layers.extend(self.confirm_close.render(self.w, self.h));
 
         // Images for the focused window only, mapped into the work area.
         let mut images = Vec::new();
@@ -2626,6 +2682,15 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 _ => {}
             }
         }
+
+        // Drop any image under an open overlay (launcher / tray / help / power
+        // menu / confirm-close dialog), since terminals composite graphics over
+        // text and would otherwise bleed through the dialog.
+        let overlay_rects: Vec<crate::geometry::Rect> = layers[overlay_start..]
+            .iter()
+            .map(|l| crate::geometry::Rect::new(l.origin.x, l.origin.y, l.buf.width(), l.buf.height()))
+            .collect();
+        images.retain(|p| overlay_rects.iter().all(|o| o.intersect(p.rect).is_none()));
 
         Frame { layers, cursor: Some(self.cursor), images }
     }
@@ -2676,6 +2741,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             || self.help_open
             || self.dirpicker.is_some()
             || self.power_menu.is_open()
+            || self.confirm_close.is_open()
             || self.tray.open().is_some()
             || self.desktop.overlay_rect().is_some()
             || self.dock_popup.is_some()

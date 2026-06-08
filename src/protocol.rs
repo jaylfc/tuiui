@@ -86,6 +86,9 @@ pub struct Flags {
     /// A window rename is in progress; the client should forward typed
     /// characters to the rename buffer rather than the focused app.
     pub renaming: bool,
+    /// The confirm-close dialog is open; the client routes Enter/Esc and y/n to
+    /// it (confirm / cancel) instead of the focused app.
+    pub confirm_close: bool,
 }
 
 /// Per-user directory that holds the daemon socket. Created mode `0700` by the

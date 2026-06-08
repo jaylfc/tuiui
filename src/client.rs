@@ -96,7 +96,19 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                     let ctrl_alt = ctrl && k.modifiers.contains(KeyModifiers::ALT);
                     let is_leader = (ctrl && k.code == KeyCode::Char(' ')) || k.code == KeyCode::Null;
 
-                    if leader {
+                    if f.confirm_close {
+                        // The confirm-close dialog is modal: Enter/y confirm, Esc/n cancel.
+                        leader = false;
+                        match k.code {
+                            KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
+                                send(&mut out_stream, &ClientMsg::ConfirmCloseYes)?
+                            }
+                            KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
+                                send(&mut out_stream, &ClientMsg::ConfirmCloseNo)?
+                            }
+                            _ => {}
+                        }
+                    } else if leader {
                         leader = false;
                         match k.code {
                             KeyCode::Char(' ') => send(&mut out_stream, &ClientMsg::ToggleSpotlight)?,

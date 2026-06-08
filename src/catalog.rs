@@ -99,6 +99,16 @@ pub fn category_for(name_or_bin: &str) -> Option<String> {
         .map(|c| c.category.clone())
 }
 
+/// Whether a known app wants a working-directory prompt on launch, by display
+/// name or binary. `None` when the app isn't in the catalog (so callers can keep
+/// an explicitly-configured flag instead of overriding it).
+pub fn requires_cwd_for(name_or_bin: &str) -> Option<bool> {
+    let c = catalog().iter().find(|c| {
+        c.name.eq_ignore_ascii_case(name_or_bin) || c.bin.eq_ignore_ascii_case(name_or_bin)
+    })?;
+    Some(recipe(&c.name).map(|r| r.requires_cwd).unwrap_or(false))
+}
+
 /// Cached set of `$PATH` executable names. `None` until first use; replaced by
 /// [`refresh_installed`] after an install so newly-added binaries are detected
 /// without restarting the daemon.
