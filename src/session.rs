@@ -2280,6 +2280,19 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
     /// pointer (wants mouse, or alt-scroll). Used by the client to route
     /// in-app mouse events. `None` → all mouse stays on the chrome/WM path.
     pub fn app_mouse_area(&self) -> Option<crate::geometry::Rect> {
+        // Any open overlay/menu (launcher, power menu, help, dir-picker, tray
+        // popover, desktop menu) owns the mouse via the normal chrome path. Never
+        // route clicks into the app while one is showing — otherwise clicking an
+        // app in the Go launcher (drawn over a focused mouse-app) is swallowed.
+        if self.launcher.is_open()
+            || self.help_open
+            || self.dirpicker.is_some()
+            || self.power_menu.is_open()
+            || self.tray.open().is_some()
+            || self.desktop.overlay_rect().is_some()
+        {
+            return None;
+        }
         let fid = self.wm.focused()?;
         let aid = match self.contents.get(&fid)? {
             WinContent::App(aid) => *aid,

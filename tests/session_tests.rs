@@ -306,3 +306,15 @@ fn app_mouse_area_none_without_mouse_mode() {
     assert!(core.app_mouse_area().is_none());
     core.shutdown();
 }
+
+#[test]
+fn app_mouse_area_suppressed_while_launcher_open() {
+    // An open overlay (the Go launcher) must take the mouse — even over a focused
+    // app — so clicking an app in the menu is never swallowed by passthrough.
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    core.apply(ClientMsg::ToggleMenu); // open the Go launcher
+    assert!(core.launcher_open());
+    assert!(core.app_mouse_area().is_none(), "no app passthrough area while the launcher is open");
+    core.shutdown();
+}
