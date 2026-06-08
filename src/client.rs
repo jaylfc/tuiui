@@ -15,9 +15,7 @@ use crate::geometry::{Point, SnapZone};
 use crate::protocol::{Flags, FrameMsg};
 use crate::session::ClientMsg;
 use crate::terminal::{frame_to_ansi, Terminal};
-use crossterm::event::{
-    self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
-};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -247,36 +245,8 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                         ctrl: me.modifiers.contains(KeyModifiers::CONTROL),
                         alt: me.modifiers.contains(KeyModifiers::ALT),
                     };
-                    let in_app = f.app_area.map(|r| r.contains(p)).unwrap_or(false);
-                    if in_app {
-                        if let Some(input) = to_mouse_input(&me, p, mods) {
-                            send(&mut out_stream, &ClientMsg::MouseInput(input))?;
-                        }
-                    } else {
-                        match me.kind {
-                            MouseEventKind::Down(MouseButton::Left) => {
-                                let now = std::time::Instant::now();
-                                let dbl = last_click
-                                    .map(|(lp, lt)| lp == p && now.duration_since(lt) < std::time::Duration::from_millis(400))
-                                    .unwrap_or(false);
-                                if dbl {
-                                    send(&mut out_stream, &ClientMsg::MouseDouble(p))?;
-                                    last_click = None;
-                                } else {
-                                    send(&mut out_stream, &ClientMsg::MouseDown(p))?;
-                                    last_click = Some((p, now));
-                                }
-                            }
-                            MouseEventKind::Down(MouseButton::Right) => send(&mut out_stream, &ClientMsg::MouseRightDown(p))?,
-                            MouseEventKind::Drag(MouseButton::Left) => send(&mut out_stream, &ClientMsg::MouseDrag(p))?,
-                            MouseEventKind::Up(MouseButton::Left) => send(&mut out_stream, &ClientMsg::MouseUp(p))?,
-                            MouseEventKind::Moved => send(&mut out_stream, &ClientMsg::MouseDrag(p))?,
-                            MouseEventKind::ScrollUp if f.store_focused => send(&mut out_stream, &ClientMsg::StoreUp)?,
-                            MouseEventKind::ScrollDown if f.store_focused => send(&mut out_stream, &ClientMsg::StoreDown)?,
-                            MouseEventKind::ScrollUp if f.filemanager_focused => send(&mut out_stream, &ClientMsg::FileManagerUp)?,
-                            MouseEventKind::ScrollDown if f.filemanager_focused => send(&mut out_stream, &ClientMsg::FileManagerDown)?,
-                            _ => {}
-                        }
+                    if let Some(ev) = to_mouse_input(&me, p, mods) {
+                        route_mouse(&mut out_stream, &f, ev, &mut last_click)?;
                     }
                 }
                 Event::Resize(nc, nr) => send(&mut out_stream, &ClientMsg::Resize { w: nc as i32, h: nr as i32 })?,
@@ -346,6 +316,47 @@ fn reconcile_images(
 /// A stable per-position placement id (Kitty `p=`), unique per cell coordinate.
 fn place_key(x: i32, y: i32) -> u32 {
     (((x.max(0) as u32) & 0xffff) << 16) | ((y.max(0) as u32) & 0xffff)
+}
+
+/// Route one mouse event: into the focused app (passthrough) when the pointer is
+/// in `f.app_area`, otherwise via the existing chrome/WM variants. Shared by the
+/// crossterm path and the gpm reader so both behave identically.
+pub(crate) fn route_mouse(
+    out: &mut UnixStream,
+    f: &Flags,
+    ev: crate::mouse::MouseInput,
+    last_click: &mut Option<(Point, std::time::Instant)>,
+) -> std::io::Result<()> {
+    use crate::mouse::{MouseAction as A, MouseButton as B};
+    let p = Point::new(ev.col, ev.row);
+    if f.app_area.map(|r| r.contains(p)).unwrap_or(false) {
+        return send(out, &ClientMsg::MouseInput(ev));
+    }
+    match (ev.button, ev.action) {
+        (B::Left, A::Down) => {
+            let now = std::time::Instant::now();
+            let dbl = last_click
+                .map(|(lp, lt)| lp == p && now.duration_since(lt) < std::time::Duration::from_millis(400))
+                .unwrap_or(false);
+            if dbl {
+                send(out, &ClientMsg::MouseDouble(p))?;
+                *last_click = None;
+            } else {
+                send(out, &ClientMsg::MouseDown(p))?;
+                *last_click = Some((p, now));
+            }
+        }
+        (B::Right, A::Down) => send(out, &ClientMsg::MouseRightDown(p))?,
+        (B::Left, A::Drag) => send(out, &ClientMsg::MouseDrag(p))?,
+        (B::Left, A::Up) => send(out, &ClientMsg::MouseUp(p))?,
+        (_, A::Move) => send(out, &ClientMsg::MouseDrag(p))?,
+        (_, A::ScrollUp) if f.store_focused => send(out, &ClientMsg::StoreUp)?,
+        (_, A::ScrollDown) if f.store_focused => send(out, &ClientMsg::StoreDown)?,
+        (_, A::ScrollUp) if f.filemanager_focused => send(out, &ClientMsg::FileManagerUp)?,
+        (_, A::ScrollDown) if f.filemanager_focused => send(out, &ClientMsg::FileManagerDown)?,
+        _ => {}
+    }
+    Ok(())
 }
 
 /// Map a crossterm [`event::MouseEvent`] to a [`crate::mouse::MouseInput`] for
