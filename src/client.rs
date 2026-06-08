@@ -78,6 +78,10 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
         });
     }
 
+    // On a bare Linux console, gpm provides the mouse (the VT emits no xterm
+    // mouse sequences). No-op on GUI terminals / non-Linux.
+    crate::gpm::start(flags.clone(), out_stream.try_clone()?);
+
     let mut leader = false;
     let mut last_click: Option<(Point, std::time::Instant)> = None;
     loop {
