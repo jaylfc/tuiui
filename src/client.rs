@@ -240,31 +240,43 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                         send(&mut out_stream, &ClientMsg::Key(encode_key(k.code, k.modifiers)))?;
                     }
                 }
-                Event::Mouse(m) => {
-                    let p = Point::new(m.column as i32, m.row as i32);
-                    match m.kind {
-                        MouseEventKind::Down(MouseButton::Left) => {
-                            let now = std::time::Instant::now();
-                            let dbl = last_click
-                                .map(|(lp, lt)| lp == p && now.duration_since(lt) < std::time::Duration::from_millis(400))
-                                .unwrap_or(false);
-                            if dbl {
-                                send(&mut out_stream, &ClientMsg::MouseDouble(p))?;
-                                last_click = None;
-                            } else {
-                                send(&mut out_stream, &ClientMsg::MouseDown(p))?;
-                                last_click = Some((p, now));
-                            }
+                Event::Mouse(me) => {
+                    let p = Point::new(me.column as i32, me.row as i32);
+                    let mods = crate::mouse::MouseMods {
+                        shift: me.modifiers.contains(KeyModifiers::SHIFT),
+                        ctrl: me.modifiers.contains(KeyModifiers::CONTROL),
+                        alt: me.modifiers.contains(KeyModifiers::ALT),
+                    };
+                    let in_app = f.app_area.map(|r| r.contains(p)).unwrap_or(false);
+                    if in_app {
+                        if let Some(input) = to_mouse_input(&me, p, mods) {
+                            send(&mut out_stream, &ClientMsg::MouseInput(input))?;
                         }
-                        MouseEventKind::Down(MouseButton::Right) => send(&mut out_stream, &ClientMsg::MouseRightDown(p))?,
-                        MouseEventKind::Drag(MouseButton::Left) => send(&mut out_stream, &ClientMsg::MouseDrag(p))?,
-                        MouseEventKind::Up(MouseButton::Left) => send(&mut out_stream, &ClientMsg::MouseUp(p))?,
-                        MouseEventKind::Moved => send(&mut out_stream, &ClientMsg::MouseDrag(p))?,
-                        MouseEventKind::ScrollUp if f.store_focused => send(&mut out_stream, &ClientMsg::StoreUp)?,
-                        MouseEventKind::ScrollDown if f.store_focused => send(&mut out_stream, &ClientMsg::StoreDown)?,
-                        MouseEventKind::ScrollUp if f.filemanager_focused => send(&mut out_stream, &ClientMsg::FileManagerUp)?,
-                        MouseEventKind::ScrollDown if f.filemanager_focused => send(&mut out_stream, &ClientMsg::FileManagerDown)?,
-                        _ => {}
+                    } else {
+                        match me.kind {
+                            MouseEventKind::Down(MouseButton::Left) => {
+                                let now = std::time::Instant::now();
+                                let dbl = last_click
+                                    .map(|(lp, lt)| lp == p && now.duration_since(lt) < std::time::Duration::from_millis(400))
+                                    .unwrap_or(false);
+                                if dbl {
+                                    send(&mut out_stream, &ClientMsg::MouseDouble(p))?;
+                                    last_click = None;
+                                } else {
+                                    send(&mut out_stream, &ClientMsg::MouseDown(p))?;
+                                    last_click = Some((p, now));
+                                }
+                            }
+                            MouseEventKind::Down(MouseButton::Right) => send(&mut out_stream, &ClientMsg::MouseRightDown(p))?,
+                            MouseEventKind::Drag(MouseButton::Left) => send(&mut out_stream, &ClientMsg::MouseDrag(p))?,
+                            MouseEventKind::Up(MouseButton::Left) => send(&mut out_stream, &ClientMsg::MouseUp(p))?,
+                            MouseEventKind::Moved => send(&mut out_stream, &ClientMsg::MouseDrag(p))?,
+                            MouseEventKind::ScrollUp if f.store_focused => send(&mut out_stream, &ClientMsg::StoreUp)?,
+                            MouseEventKind::ScrollDown if f.store_focused => send(&mut out_stream, &ClientMsg::StoreDown)?,
+                            MouseEventKind::ScrollUp if f.filemanager_focused => send(&mut out_stream, &ClientMsg::FileManagerUp)?,
+                            MouseEventKind::ScrollDown if f.filemanager_focused => send(&mut out_stream, &ClientMsg::FileManagerDown)?,
+                            _ => {}
+                        }
                     }
                 }
                 Event::Resize(nc, nr) => send(&mut out_stream, &ClientMsg::Resize { w: nc as i32, h: nr as i32 })?,
@@ -334,6 +346,35 @@ fn reconcile_images(
 /// A stable per-position placement id (Kitty `p=`), unique per cell coordinate.
 fn place_key(x: i32, y: i32) -> u32 {
     (((x.max(0) as u32) & 0xffff) << 16) | ((y.max(0) as u32) & 0xffff)
+}
+
+/// Map a crossterm [`event::MouseEvent`] to a [`crate::mouse::MouseInput`] for
+/// passthrough to the focused PTY app. Returns `None` only if the event kind is
+/// somehow unrecognised (should not happen in practice).
+fn to_mouse_input(
+    me: &event::MouseEvent,
+    p: Point,
+    mods: crate::mouse::MouseMods,
+) -> Option<crate::mouse::MouseInput> {
+    use crate::mouse::{MouseAction, MouseButton, MouseInput};
+    use crossterm::event::{MouseButton as XB, MouseEventKind as K};
+    let (button, action) = match me.kind {
+        K::Down(XB::Left) => (MouseButton::Left, MouseAction::Down),
+        K::Down(XB::Middle) => (MouseButton::Middle, MouseAction::Down),
+        K::Down(XB::Right) => (MouseButton::Right, MouseAction::Down),
+        K::Up(XB::Left) => (MouseButton::Left, MouseAction::Up),
+        K::Up(XB::Middle) => (MouseButton::Middle, MouseAction::Up),
+        K::Up(XB::Right) => (MouseButton::Right, MouseAction::Up),
+        K::Drag(XB::Left) => (MouseButton::Left, MouseAction::Drag),
+        K::Drag(XB::Middle) => (MouseButton::Middle, MouseAction::Drag),
+        K::Drag(XB::Right) => (MouseButton::Right, MouseAction::Drag),
+        K::Moved => (MouseButton::None, MouseAction::Move),
+        K::ScrollUp => (MouseButton::None, MouseAction::ScrollUp),
+        K::ScrollDown => (MouseButton::None, MouseAction::ScrollDown),
+        K::ScrollLeft => (MouseButton::None, MouseAction::ScrollLeft),
+        K::ScrollRight => (MouseButton::None, MouseAction::ScrollRight),
+    };
+    Some(MouseInput { col: p.x, row: p.y, button, action, mods })
 }
 
 /// Serialize a [`ClientMsg`] as a newline-delimited JSON frame.
