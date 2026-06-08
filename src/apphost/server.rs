@@ -16,10 +16,17 @@ use std::time::Duration;
 
 /// Run the apphost event loop until a frontend sends `Shutdown`.
 pub fn run() -> std::io::Result<()> {
+    let path = apphost_socket_path();
+    // If another apphost is already listening (e.g. the service started it, or the
+    // daemon spawned it), exit cleanly rather than rebinding the socket. Combined
+    // with "restart on failure only", a redundant service start won't loop.
+    if UnixStream::connect(&path).is_ok() {
+        crate::dbg_log("apphost: another instance already running; exiting");
+        return Ok(());
+    }
     let dir = socket_dir();
     std::fs::create_dir_all(&dir)?;
     std::fs::set_permissions(&dir, Permissions::from_mode(0o700))?;
-    let path = apphost_socket_path();
     let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path)?;
     std::fs::set_permissions(&path, Permissions::from_mode(0o600))?;
