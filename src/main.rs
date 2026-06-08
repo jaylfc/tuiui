@@ -5,6 +5,7 @@
 //! - `tuiui --daemon`   run the daemon (normally spawned automatically).
 //! - `tuiui kill`       shut the daemon down (closing all windows).
 //! - `tuiui reload`     restart the frontend only; apps keep running.
+//! - `tuiui service …`  install|uninstall|status the per-user apphost service.
 //!
 //! The daemon owns the windows and child processes and persists across client
 //! detaches, so closing a client (or an SSH disconnect) leaves everything running.
@@ -22,8 +23,19 @@ fn main() -> std::io::Result<()> {
         Some("kill") => kill(),
         Some("attach") => attach(false),
         Some("reload") => reload(),
+        Some("service") => match std::env::args().nth(2).as_deref() {
+            Some("install") => tuiui::service::install(),
+            Some("uninstall") => tuiui::service::uninstall(),
+            Some("status") | None => tuiui::service::status(),
+            Some(other) => {
+                eprintln!("tuiui service: unknown '{other}' (try: install, uninstall, status)");
+                Ok(())
+            }
+        },
         Some(other) => {
-            eprintln!("tuiui: unknown command '{other}' (try: attach, kill, reload, --daemon)");
+            eprintln!(
+                "tuiui: unknown command '{other}' (try: attach, kill, reload, service, --daemon)"
+            );
             Ok(())
         }
         None => attach(true),
