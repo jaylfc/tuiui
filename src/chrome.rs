@@ -18,13 +18,27 @@ const MODE_SIMPLE: &str = " \u{25A6} ";  // ▦  full-screen single app
 
 // ── Public types ───────────────────────────────────────────────────────────────
 
-/// One entry in the dock bar — corresponds to an open window.
+/// What a dock pill activates.
+#[derive(Clone, Debug)]
+pub enum DockKind {
+    /// A single window — clicking focuses it.
+    Single(WindowId),
+    /// A group of windows of the same app — clicking expands a chooser.
+    Group(String, Vec<WindowId>), // (app_key, window ids)
+}
+
+/// One pill in the dock.
+#[derive(Clone, Debug)]
 pub struct DockItem {
-    /// The window this item represents.
-    pub id: WindowId,
-    /// Short text shown in the dock pill.
+    pub kind: DockKind,
+    /// Text shown after the badge (single → its label; group → app key).
     pub label: String,
-    /// Whether this window is currently focused.
+    /// Number of windows (>1 ⇒ a group; shown as a count).
+    pub count: usize,
+    /// Badge letter + color.
+    pub badge_letter: char,
+    pub badge_color: crate::cell::Rgba,
+    /// Whether any window in this pill is focused.
     pub focused: bool,
 }
 
@@ -88,36 +102,130 @@ pub fn render_dock(width: i32, height: i32, items: &[DockItem]) -> Layer {
     let t = crate::theme::current();
     let mut buf = CellBuffer::new(width, 1);
     buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.dock_bg, attrs: Default::default() });
-    for (i, (_, r, label)) in dock_layout(items).into_iter().enumerate() {
-        let bg = if items[i].focused { t.active_bg } else { t.dock_bg };
-        buf.write_str(r.x, 0, &label, t.text, bg);
+    for (i, (_idx, r, badge_x, label_text)) in dock_layout(items).into_iter().enumerate() {
+        let item = &items[i];
+        let bg = if item.focused { t.active_bg } else { t.dock_bg };
+        // Write the full pill background first
+        buf.write_str(r.x, 0, &label_text, t.text, bg);
+        // Overwrite the badge cell (first char of label_text) with badge color
+        buf.set(badge_x, 0, crate::cell::Cell {
+            ch: item.badge_letter,
+            fg: crate::cell::Rgba::rgb(255, 255, 255),
+            bg: item.badge_color,
+            attrs: Default::default(),
+        });
     }
     Layer { z: 1000, origin: Point::new(0, height - 1), buf, opacity: 1.0, scissor: None }
 }
 
-/// Return `(WindowId, Rect)` hit regions in *screen* coordinates (bottom row).
+/// Return `(pill_index, Rect)` hit regions in *screen* coordinates (bottom row).
 ///
-/// The caller uses these to translate a dock click into a `WindowId` without
-/// coupling input routing to chrome rendering.
-pub fn dock_hit_regions(_width: i32, height: i32, items: &[DockItem]) -> Vec<(WindowId, Rect)> {
+/// The caller uses these to translate a dock click into a pill index, then
+/// looks up `items[pill_index].kind` to decide what to do.
+pub fn dock_hit_regions(_width: i32, height: i32, items: &[DockItem]) -> Vec<(usize, Rect)> {
     dock_layout(items).into_iter()
-        .map(|(id, r, _)| (id, Rect::new(r.x, height - 1, r.w, 1)))
+        .map(|(idx, r, _, _)| (idx, Rect::new(r.x, height - 1, r.w, 1)))
         .collect()
+}
+
+/// Render a small bordered popup ABOVE the dock for a window-group chooser.
+///
+/// Returns `(layers, row_rects)` where each entry in `row_rects` is the
+/// screen-space rect of one window row (for hit-testing).
+pub fn render_dock_popup(
+    width: i32,
+    height: i32,
+    pill_x: i32,
+    pill_w: i32,
+    rows: &[(WindowId, char, crate::cell::Rgba, String)], // (id, badge_letter, badge_color, label)
+    focused_id: Option<WindowId>,
+) -> (Vec<Layer>, Vec<(WindowId, Rect)>) {
+    let t = crate::theme::current();
+    let n = rows.len() as i32;
+    let box_h = n + 2; // border rows
+    let max_label_w = rows.iter().map(|(_, _, _, l)| l.chars().count()).max().unwrap_or(4) as i32;
+    let box_w = (max_label_w + 5).max(12).min(width); // badge + space + label + borders + padding
+    // Anchor left edge at pill_x but clamp to screen
+    let bx = pill_x.min(width - box_w).max(0);
+    // Place above the dock row
+    let by = (height - 1 - box_h).max(0);
+    let rect = Rect::new(bx, by, box_w, box_h);
+
+    let mut buf = CellBuffer::new(rect.w, rect.h);
+    buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.window_bg, attrs: Default::default() });
+
+    // Border
+    let b = |ch: char| crate::cell::Cell { ch, fg: t.border, bg: t.window_bg, attrs: Default::default() };
+    for x in 0..rect.w {
+        buf.set(x, 0, b('─'));
+        buf.set(x, rect.h - 1, b('─'));
+    }
+    for y in 0..rect.h {
+        buf.set(0, y, b('│'));
+        buf.set(rect.w - 1, y, b('│'));
+    }
+    buf.set(0, 0, b('╭'));
+    buf.set(rect.w - 1, 0, b('╮'));
+    buf.set(0, rect.h - 1, b('╰'));
+    buf.set(rect.w - 1, rect.h - 1, b('╯'));
+
+    let mut row_rects = Vec::new();
+    for (ri, (win_id, badge_letter, badge_color, label)) in rows.iter().enumerate() {
+        let y = 1 + ri as i32;
+        let is_focused = Some(*win_id) == focused_id;
+        let row_bg = if is_focused { t.active_bg } else { t.window_bg };
+        // Fill row background inside borders
+        for x in 1..rect.w - 1 {
+            buf.set(x, y, crate::cell::Cell { ch: ' ', fg: t.text, bg: row_bg, attrs: Default::default() });
+        }
+        // Badge cell
+        buf.set(1, y, crate::cell::Cell {
+            ch: *badge_letter,
+            fg: crate::cell::Rgba::rgb(255, 255, 255),
+            bg: *badge_color,
+            attrs: Default::default(),
+        });
+        // Space + label
+        let avail = (rect.w - 4).max(0) as usize;
+        let lbl: String = label.chars().take(avail).collect();
+        buf.write_str(3, y, &lbl, t.text, row_bg);
+
+        let screen_row = Rect::new(rect.x, rect.y + y, rect.w, 1);
+        row_rects.push((*win_id, screen_row));
+    }
+
+    let _ = (pill_w, focused_id); // suppress unused warnings
+    let layer = Layer { z: 5200, origin: Point::new(rect.x, rect.y), buf, opacity: 1.0, scissor: None };
+    (vec![layer], row_rects)
 }
 
 // ── Private helpers ────────────────────────────────────────────────────────────
 
+/// Superscript digit suffix for group counts.
+fn count_suffix(n: usize) -> String {
+    const SUP: [char; 10] = ['⁰','¹','²','³','⁴','⁵','⁶','⁷','⁸','⁹'];
+    if n <= 1 { String::new() }
+    else if n <= 9 { format!(" {}", SUP[n]) }
+    else { format!(" \u{00B7}{n}") }
+}
+
 /// Compute the local (y = 0) layout for dock items.
 ///
-/// Each item is rendered as `" label "` with one space of separation.
-/// Returns `(WindowId, local_rect, formatted_label)` tuples.
-fn dock_layout(items: &[DockItem]) -> Vec<(WindowId, Rect, String)> {
+/// Each item is rendered as `"B label"` (badge cell + space + label + count suffix),
+/// padded with spaces. Returns `(pill_index, local_rect, badge_x, full_label_string)`.
+fn dock_layout(items: &[DockItem]) -> Vec<(usize, Rect, i32, String)> {
     let mut out = Vec::new();
     let mut x = 1;
-    for it in items {
-        let label = format!(" {} ", it.label);
-        let w = label.chars().count() as i32;
-        out.push((it.id, Rect::new(x, 0, w, 1), label));
+    for (i, it) in items.iter().enumerate() {
+        let suffix = count_suffix(it.count);
+        // Pill format: " B label[suffix] "
+        // We store the rendered string (badge placeholder + label), badge_x tracks
+        // where the badge cell is in the pill.
+        let label_part = format!(" {} {}{} ", it.badge_letter, it.label, suffix);
+        let w = label_part.chars().count() as i32;
+        // badge is at position x (the ' B' — second char, x+1 after leading space)
+        let badge_x = x + 1;
+        out.push((i, Rect::new(x, 0, w, 1), badge_x, label_part));
         x += w + 1;
     }
     out

@@ -11,7 +11,7 @@
 //! expose on a socket.
 
 use crate::chrome::{
-    render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_mode_region, menubar_power_region, DockItem,
+    render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_mode_region, menubar_power_region, DockItem, DockKind,
 };
 use crate::powermenu::{PowerClick, PowerMenu, PowerOutcome};
 use crate::compositor::Layer;
@@ -34,6 +34,10 @@ struct WinMeta {
     title: String,
     z: i32,
     minimized: bool,
+    /// Immutable grouping key (the launch name, set at spawn time). If absent in
+    /// older stored meta, the title is used as a fallback.
+    #[serde(default)]
+    app_key: String,
 }
 
 /// The content hosted by a window: a PTY-backed app or a native Tuiui widget.
@@ -286,6 +290,10 @@ pub struct SessionCore {
     filemanager_win: Option<WindowId>,
     /// Dock-ordered list of (id, display-name) pairs.
     titles: Vec<(WindowId, String)>,
+    /// Immutable grouping key per window (set at spawn/open; never mutated).
+    app_keys: HashMap<WindowId, String>,
+    /// The app_key of the dock group whose chooser popup is open (`None` = closed).
+    dock_popup: Option<String>,
     cfg: Config,
     w: i32,
     h: i32,
@@ -360,6 +368,8 @@ impl SessionCore {
             settings_win: None,
             filemanager_win: None,
             titles: Vec::new(),
+            app_keys: HashMap::new(),
+            dock_popup: None,
             cfg,
             w,
             h,
@@ -507,6 +517,7 @@ impl SessionCore {
         let rect = Rect::new((self.w - w) / 2, 2, w, h);
         let label = format!("image: {}", path.rsplit('/').next().unwrap_or(&path));
         let id_win = self.wm.add_window(label.clone(), rect);
+        self.app_keys.insert(id_win, label.clone());
         self.contents.insert(id_win, WinContent::ImageView(crate::imageview::ImageView::new(path, id, dims)));
         self.titles.push((id_win, label));
     }
@@ -578,7 +589,8 @@ impl SessionCore {
                     .find(|(i, _)| *i == w.id)
                     .map(|(_, t)| t.clone())
                     .unwrap_or_default();
-                let meta = WinMeta { rect: w.rect, title, z: w.z, minimized: w.minimized };
+                let app_key = self.app_keys.get(&w.id).cloned().unwrap_or_default();
+                let meta = WinMeta { rect: w.rect, title, z: w.z, minimized: w.minimized, app_key };
                 let bytes = serde_json::to_vec(&meta).unwrap_or_default();
                 if self.last_meta.get(&w.id) != Some(&bytes) {
                     updates.push((*aid, w.id, bytes));
@@ -636,6 +648,9 @@ impl SessionCore {
             if meta.minimized {
                 self.wm.minimize(id);
             }
+            // Use stored app_key, falling back to title for old meta blobs.
+            let key = if meta.app_key.is_empty() { meta.title.clone() } else { meta.app_key.clone() };
+            self.app_keys.insert(id, key);
             self.contents.insert(id, WinContent::App(aid));
             self.titles.push((id, meta.title));
             self.last_meta.insert(id, bytes);
@@ -657,6 +672,7 @@ impl SessionCore {
         }
         self.contents.clear();
         self.titles.clear();
+        self.app_keys.clear();
         self.last_meta.clear();
     }
 
@@ -818,29 +834,97 @@ impl SessionCore {
     /// Return the currently focused [`WindowId`], if any.
     pub fn focused(&self) -> Option<WindowId> { self.wm.focused() }
 
-    /// Return the screen-space hit regions for every dock item.
+    /// Return the screen-space hit regions for every dock pill.
     ///
-    /// Each tuple is `(WindowId, Rect)` where the rect is a 1-row slice on the
+    /// Each tuple is `(pill_index, Rect)` where the rect is a 1-row slice on the
     /// bottom screen row.  Used by callers that need to detect dock clicks
     /// without going through the full mouse-routing path.
-    pub fn dock_regions(&self) -> Vec<(WindowId, Rect)> {
+    pub fn dock_regions(&self) -> Vec<(usize, Rect)> {
         let items = self.dock_items();
         dock_hit_regions(self.w, self.h, &items)
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    /// Build the current list of dock items from the titles registry.
+    /// Build the current list of dock pills, grouping windows by app_key.
     fn dock_items(&self) -> Vec<DockItem> {
-        let f = self.wm.focused();
+        let focused = self.wm.focused();
+        let mut order: Vec<String> = Vec::new();
+        let mut groups: std::collections::HashMap<String, Vec<WindowId>> = std::collections::HashMap::new();
+        for (id, _) in &self.titles {
+            let key = self.app_keys.get(id).cloned().unwrap_or_else(|| {
+                self.titles.iter().find(|(i, _)| i == id).map(|(_, t)| t.clone()).unwrap_or_default()
+            });
+            if !groups.contains_key(&key) { order.push(key.clone()); }
+            groups.entry(key).or_default().push(*id);
+        }
+        order.into_iter().map(|key| {
+            let wins = groups.remove(&key).unwrap_or_default();
+            let badge = crate::badge::badge_for(&key, &self.cfg.dock_badges);
+            let is_focused = wins.iter().any(|w| Some(*w) == focused);
+            if wins.len() == 1 {
+                let id = wins[0];
+                let label = self.titles.iter().find(|(i, _)| *i == id).map(|(_, t)| t.clone()).unwrap_or_else(|| key.clone());
+                DockItem { kind: DockKind::Single(id), label, count: 1, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused }
+            } else {
+                let count = wins.len();
+                DockItem { kind: DockKind::Group(key.clone(), wins), label: key, count, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused }
+            }
+        }).collect()
+    }
+
+    /// Test helper: number of dock pills (after grouping).
+    #[doc(hidden)]
+    pub fn dock_pill_count_for_test(&self) -> usize {
+        self.dock_items().len()
+    }
+
+    /// Test helper: the full dock-item list (after grouping).
+    #[doc(hidden)]
+    pub fn dock_items_for_test(&self) -> Vec<DockItem> {
+        self.dock_items()
+    }
+
+    /// Collect the rows for the open dock-group popup (badge, label per window).
+    fn dock_popup_rows(&self) -> Vec<(WindowId, char, crate::cell::Rgba, String)> {
+        let Some(ref key) = self.dock_popup else { return Vec::new() };
+        let focused = self.wm.focused();
+        let badge = crate::badge::badge_for(key, &self.cfg.dock_badges);
         self.titles
             .iter()
-            .map(|(id, t)| DockItem {
-                id: *id,
-                label: t.clone(),
-                focused: Some(*id) == f,
+            .filter(|(id, _)| self.app_keys.get(id).map(|k| k == key).unwrap_or(false))
+            .map(|(id, label)| {
+                let _ = focused;
+                (*id, badge.letter, badge.color, label.clone())
             })
             .collect()
+    }
+
+    /// Compute the popup position and call `render_dock_popup`, returning layers
+    /// + row rects for hit-testing. Used in both `handle_mouse` and `build_frame`.
+    fn render_popup_for_hit_test(
+        &self,
+        rows: &[(WindowId, char, crate::cell::Rgba, String)],
+    ) -> (Vec<crate::compositor::Layer>, Vec<(WindowId, Rect)>) {
+        let Some(ref key) = self.dock_popup else {
+            return (Vec::new(), Vec::new());
+        };
+        // Find the pill's x position so the popup anchors to it
+        let items = self.dock_items();
+        let regions = dock_hit_regions(self.w, self.h, &items);
+        let pill_x = items
+            .iter()
+            .enumerate()
+            .find(|(_, it)| match &it.kind {
+                DockKind::Group(k, _) => k == key,
+                DockKind::Single(_) => false,
+            })
+            .and_then(|(i, it)| {
+                regions.iter().find(|(idx, _)| *idx == i).map(|(_, r)| (r.x, it.count))
+            });
+        let (px, pill_w) = pill_x.map(|(x, c)| (x, c as i32)).unwrap_or((0, 2));
+        let focused = self.wm.focused();
+        crate::chrome::render_dock_popup(self.w, self.h, px, pill_w, rows, focused)
     }
 
     // ── Public apply ─────────────────────────────────────────────────────────
@@ -1207,6 +1291,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         let h = 16.min((self.h - 4).max(10));
         let rect = Rect::new((self.w - w) / 2, 3, w, h);
         let id = self.wm.add_window("Settings".into(), rect);
+        self.app_keys.insert(id, "Settings".into());
         self.contents.insert(id, WinContent::Settings(Settings::new(self.cfg.clone())));
         self.titles.push((id, "Settings".into()));
         self.settings_win = Some(id);
@@ -1271,6 +1356,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         let h = 28.min((self.h - 4).max(12));
         let rect = Rect::new((self.w - w) / 2, 2, w, h);
         let id = self.wm.add_window("Store".into(), rect);
+        self.app_keys.insert(id, "Store".into());
         self.contents.insert(id, WinContent::Store(Store::new()));
         self.titles.push((id, "Store".into()));
         self.store_win = Some(id);
@@ -1335,6 +1421,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         let h = 30.min((self.h - 4).max(12));
         let rect = Rect::new((self.w - w) / 2, 2, w, h);
         let id = self.wm.add_window("Files".into(), rect);
+        self.app_keys.insert(id, "Files".into());
         self.contents.insert(
             id,
             WinContent::FileManager(crate::filemanager::FileManager::new(root, self.cfg.default_apps.clone())),
@@ -1549,6 +1636,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         let content = self.wm.get(id).unwrap().content_rect();
         match self.apphost.spawn(&command, &args, cwd.as_deref(), content.w.max(1), content.h.max(1)) {
             Ok(app_id) => {
+                self.app_keys.insert(id, name.clone());
                 self.contents.insert(id, WinContent::App(app_id));
                 self.titles.push((id, name));
                 self.auto_tile_if_enabled();
@@ -1670,12 +1758,45 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             if self.tray.on_menubar_click(p, &segs) {
                 return;
             }
-            for (id, r) in self.dock_regions() {
+
+            // If a dock group popup is open, hit-test it first (modal for
+            // clicks while it is showing). A click on a row focuses that
+            // window; a click anywhere else dismisses the popup.
+            if self.dock_popup.is_some() {
+                let popup_rows = self.dock_popup_rows();
+                let (_layers, row_rects) = self.render_popup_for_hit_test(&popup_rows);
+                for (win_id, row_rect) in &row_rects {
+                    if row_rect.contains(p) {
+                        let id = *win_id;
+                        self.dock_popup = None;
+                        self.wm.unminimize(id);
+                        if self.simple { self.sync_app_size(id); }
+                        return;
+                    }
+                }
+                // Click outside popup → dismiss it, then continue normal routing
+                self.dock_popup = None;
+                return;
+            }
+
+            let items = self.dock_items();
+            for (idx, r) in self.dock_regions() {
                 if r.contains(p) {
-                    // Restore (un-minimize) and raise the clicked window.
-                    self.wm.unminimize(id);
-                    if self.simple {
-                        self.sync_app_size(id);
+                    match &items[idx].kind {
+                        DockKind::Single(id) => {
+                            let id = *id;
+                            self.dock_popup = None;
+                            self.wm.unminimize(id);
+                            if self.simple { self.sync_app_size(id); }
+                        }
+                        DockKind::Group(key, _) => {
+                            let key = key.clone();
+                            self.dock_popup = if self.dock_popup.as_deref() == Some(key.as_str()) {
+                                None
+                            } else {
+                                Some(key)
+                            };
+                        }
                     }
                     return;
                 }
@@ -1953,6 +2074,14 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             self.filemanager_win = None;
         }
         self.titles.retain(|(i, _)| *i != id);
+        self.app_keys.remove(&id);
+        // Close popup if its group no longer exists after this window closes.
+        if let Some(ref key) = self.dock_popup.clone() {
+            let still_has_group = self.app_keys.values().any(|k| k == key);
+            if !still_has_group {
+                self.dock_popup = None;
+            }
+        }
         self.wm.close(id);
         if was_install {
             self.refresh_installed_apps();
@@ -2040,6 +2169,15 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         // would otherwise hide it. (Panel-sized layers give precise rects; the
         // full-screen desktop-overlay layer above is handled via overlay_rect().)
         let overlay_start = layers.len();
+
+        // Dock group chooser popup (above dock, below the floating menus).
+        if self.dock_popup.is_some() {
+            let rows = self.dock_popup_rows();
+            if !rows.is_empty() {
+                let (popup_layers, _) = self.render_popup_for_hit_test(&rows);
+                layers.extend(popup_layers);
+            }
+        }
 
         // Launcher (dropdown / Spotlight) renders above all chrome.
         layers.extend(self.launcher.render(self.w, self.h).layers);
@@ -2314,6 +2452,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             || self.power_menu.is_open()
             || self.tray.open().is_some()
             || self.desktop.overlay_rect().is_some()
+            || self.dock_popup.is_some()
         {
             return None;
         }

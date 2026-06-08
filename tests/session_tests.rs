@@ -1,3 +1,4 @@
+use tuiui::chrome::DockKind;
 use tuiui::session::{SessionCore, ClientMsg};
 use tuiui::config::Config;
 use tuiui::geometry::Point;
@@ -18,8 +19,15 @@ fn click_dock_focuses_window() {
     let mut core = SessionCore::new(80, 24, Config::default());
     core.apply(ClientMsg::Launch { name: "a".into(), command: "sh".into(), args: vec!["-c".into(),"sleep 2".into()] });
     core.apply(ClientMsg::Launch { name: "b".into(), command: "sh".into(), args: vec!["-c".into(),"sleep 2".into()] });
+    // dock_regions returns (pill_index, Rect); apps "a" and "b" each get their own pill
+    let items = core.dock_items_for_test();
     let regions = core.dock_regions();
-    let (first_id, r) = regions[0];
+    let (idx, r) = regions[0];
+    // Extract the WindowId from the first pill (must be a Single since names differ)
+    let first_id = match &items[idx].kind {
+        DockKind::Single(id) => *id,
+        DockKind::Group(_, ids) => ids[0],
+    };
     core.apply(ClientMsg::MouseDown(Point::new(r.x, r.y)));
     assert_eq!(core.focused(), Some(first_id));
     core.shutdown();

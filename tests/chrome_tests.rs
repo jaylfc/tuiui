@@ -1,6 +1,9 @@
-use tuiui::chrome::{render_menubar, render_dock, dock_hit_regions, DockItem, menubar_mode_region};
+use tuiui::chrome::{render_menubar, render_dock, dock_hit_regions, DockItem, DockKind, menubar_mode_region};
+use tuiui::cell::Rgba;
 use tuiui::geometry::Point;
 use tuiui::window::WindowId;
+
+fn badge_color() -> Rgba { Rgba::rgb(70, 130, 230) }
 
 #[test]
 fn menubar_layer_spans_top_row_and_shows_brand() {
@@ -15,23 +18,79 @@ fn menubar_layer_spans_top_row_and_shows_brand() {
 
 #[test]
 fn dock_layer_is_bottom_row() {
-    let items = vec![DockItem { id: WindowId(1), label: "btop".into(), focused: true }];
+    let items = vec![DockItem {
+        kind: DockKind::Single(WindowId(1)),
+        label: "btop".into(),
+        count: 1,
+        badge_letter: 'B',
+        badge_color: badge_color(),
+        focused: true,
+    }];
     let layer = render_dock(40, 24, &items);
     assert_eq!(layer.origin, Point::new(0, 23));
 }
 
 #[test]
-fn dock_hit_regions_map_clicks_to_windows() {
+fn dock_hit_regions_map_clicks_to_pills() {
     let items = vec![
-        DockItem { id: WindowId(1), label: "btop".into(), focused: true },
-        DockItem { id: WindowId(2), label: "lazygit".into(), focused: false },
+        DockItem {
+            kind: DockKind::Single(WindowId(1)),
+            label: "btop".into(),
+            count: 1,
+            badge_letter: 'B',
+            badge_color: badge_color(),
+            focused: true,
+        },
+        DockItem {
+            kind: DockKind::Single(WindowId(2)),
+            label: "lazygit".into(),
+            count: 1,
+            badge_letter: 'L',
+            badge_color: badge_color(),
+            focused: false,
+        },
     ];
     let regions = dock_hit_regions(40, 24, &items);
-    // a click inside the first region resolves to WindowId(1)
-    let first = regions.iter().find(|(_, r)| r.contains(Point::new(r.x, 23))).map(|(id,_)| *id);
-    assert_eq!(first, Some(WindowId(1)));
+    // first region is pill 0, second is pill 1
+    assert_eq!(regions[0].0, 0);
+    assert_eq!(regions[1].0, 1);
+    // a click inside the first region hits pill 0
+    let first_r = regions[0].1;
+    assert!(first_r.contains(Point::new(first_r.x, 23)));
     // regions are on the bottom row
     assert!(regions.iter().all(|(_, r)| r.y == 23));
+}
+
+#[test]
+fn dock_single_pill_renders_badge_letter() {
+    let items = vec![DockItem {
+        kind: DockKind::Single(WindowId(1)),
+        label: "btop".into(),
+        count: 1,
+        badge_letter: 'B',
+        badge_color: badge_color(),
+        focused: false,
+    }];
+    let layer = render_dock(40, 24, &items);
+    // The bottom row should contain 'B' (the badge letter)
+    let row: String = (0..40).map(|x| layer.buf.get(x, 0).unwrap().ch).collect();
+    assert!(row.contains('B'), "badge letter 'B' should appear in dock row: {row:?}");
+}
+
+#[test]
+fn dock_group_pill_renders_count_glyph() {
+    let items = vec![DockItem {
+        kind: DockKind::Group("Claude".into(), vec![WindowId(1), WindowId(2)]),
+        label: "Claude".into(),
+        count: 2,
+        badge_letter: 'C',
+        badge_color: badge_color(),
+        focused: false,
+    }];
+    let layer = render_dock(60, 24, &items);
+    let row: String = (0..60).map(|x| layer.buf.get(x, 0).unwrap().ch).collect();
+    // Group of 2 → superscript ² should appear
+    assert!(row.contains('\u{00B2}'), "group pill should show ² for count=2: {row:?}");
 }
 
 #[test]
