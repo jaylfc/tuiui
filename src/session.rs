@@ -2092,7 +2092,17 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
 
         // Image placements for desktop icons (photo thumbnails or generated
         // file-type icons) not covered by a window.
-        if self.cfg.desktop_enabled {
+        //
+        // Terminals draw graphics ON TOP of text, so any open menu/overlay would
+        // be hidden behind the icon images. Suppress ALL desktop icons while a
+        // floating menu is open (power menu, launcher, help, dir-picker, tray
+        // popover) — the power menu lives top-right, exactly where icons sit.
+        let menus_open = self.power_menu.is_open()
+            || self.launcher.is_open()
+            || self.help_open
+            || self.dirpicker.is_some()
+            || self.tray.open().is_some();
+        if self.cfg.desktop_enabled && !menus_open {
             let occluded = |r: crate::geometry::Rect| {
                 self.wm
                     .z_ordered()

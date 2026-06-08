@@ -76,6 +76,11 @@ fn reader_loop_buffered(mut r: BufReader<UnixStream>, cache: Arc<Mutex<Cache>>, 
 fn apply_evt(evt: HostEvt, cache: &Arc<Mutex<Cache>>, pending: &Pending) {
     match evt {
         HostEvt::Spawned { req_id, app } => {
+            // Seed the cache entry as alive immediately, BEFORE replying to the
+            // blocked spawn(). Otherwise the window is created before the first
+            // AppFrame arrives, is_alive() returns false (no entry yet), and the
+            // frontend's per-tick reap_dead instantly closes the brand-new app.
+            cache.lock().unwrap().apps.entry(AppId(app)).or_default().alive = true;
             if let Some(tx) = pending.lock().unwrap().remove(&req_id) {
                 let _ = tx.send(Ok(AppId(app)));
             }
@@ -223,6 +228,9 @@ mod tests {
         std::thread::sleep(Duration::from_millis(50));
         let mut remote = RemoteAppHost::connect(&path).unwrap();
         let id = remote.spawn("cat", &[], None, 40, 10).expect("spawn over socket");
+        // Must report alive IMMEDIATELY (before any frame), or the frontend's
+        // per-tick reap_dead would close the brand-new window. (regression guard)
+        assert!(remote.is_alive(id), "a freshly spawned app must be alive before its first frame");
 
         // Poll until a frame for the app arrives with the requested grid size.
         let mut got = false;
