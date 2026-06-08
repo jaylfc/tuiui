@@ -313,6 +313,11 @@ pub struct SessionCore {
     w: i32,
     h: i32,
     drag: Option<Hit>,
+    /// Pointer position where the current drag was pressed, and whether it has
+    /// passed the drag threshold. A plain click (or sub-threshold jitter) on a
+    /// titlebar must NOT move/untile the window — only a real drag does.
+    drag_start: Option<Point>,
+    drag_armed: bool,
     cursor: Point,
     /// Set when the user clicks the menubar quit button; polled by the loop.
     /// In daemon mode this means "detach", not "shut down".
@@ -391,6 +396,8 @@ impl SessionCore {
             w,
             h,
             drag: None,
+            drag_start: None,
+            drag_armed: false,
             cursor: Point::new(w / 2, h / 2),
             quit: false,
             shutdown: false,
@@ -884,6 +891,12 @@ impl SessionCore {
 
     /// Return the currently focused [`WindowId`], if any.
     pub fn focused(&self) -> Option<WindowId> { self.wm.focused() }
+
+    /// Test helper: the focused window's outer rect (titlebar + borders).
+    #[doc(hidden)]
+    pub fn focused_window_rect_for_test(&self) -> Option<crate::geometry::Rect> {
+        self.wm.focused().and_then(|id| self.wm.get(id)).map(|w| w.rect)
+    }
 
     /// Return the screen-space hit regions for every dock pill.
     ///
@@ -2010,12 +2023,27 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                     grab_dx: p.x - r.x,
                     grab_dy: p.y - r.y,
                 });
+                self.drag_start = Some(p);
+                self.drag_armed = false;
             }
             Action::BeginResize(id) => {
                 self.wm.raise(id);
                 self.drag = Some(Hit::Resizing { id });
+                self.drag_start = Some(p);
+                self.drag_armed = false;
             }
             Action::MoveTo { id, x, y } => {
+                // Ignore sub-threshold motion so a plain click (or jitter) on a
+                // titlebar never untiles/moves the window — only a real drag does.
+                if !self.drag_armed {
+                    let moved = self.drag_start
+                        .map(|s| (p.x - s.x).abs() + (p.y - s.y).abs() >= DRAG_THRESHOLD)
+                        .unwrap_or(true);
+                    if !moved {
+                        return;
+                    }
+                    self.drag_armed = true;
+                }
                 self.wm.move_to(id, x, y);
                 // Show a target-cell highlight when the pointer nears an edge.
                 let work = Rect::new(0, 1, self.w, self.h - 2);
@@ -2028,6 +2056,17 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 };
             }
             Action::ResizeTo { id, w, h } => {
+                // Same drag threshold: a plain click on a window edge must not
+                // resize/untile it; only a real drag does.
+                if !self.drag_armed {
+                    let moved = self.drag_start
+                        .map(|s| (p.x - s.x).abs() + (p.y - s.y).abs() >= DRAG_THRESHOLD)
+                        .unwrap_or(true);
+                    if !moved {
+                        return;
+                    }
+                    self.drag_armed = true;
+                }
                 let r = self.wm.get(id).unwrap().rect;
                 self.wm.resize_to(id, w - r.x + 1, h - r.y + 1);
                 self.sync_app_size(id);
@@ -2068,7 +2107,9 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 }
             }
             Action::EndDrag => {
-                if let Some(Hit::Moving { id, .. }) = self.drag {
+                // Only consider drop-to-snap if the drag actually moved (armed);
+                // a plain titlebar click leaves a tiled window exactly as it was.
+                if let (Some(Hit::Moving { id, .. }), true) = (self.drag, self.drag_armed) {
                     let work = Rect::new(0, 1, self.w, self.h - 2);
                     if self.cfg.snapping_enabled && near_edge(p, work, self.cfg.snap_threshold) {
                         let grid = self.grid();
@@ -2089,6 +2130,8 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                     }
                 }
                 self.drag = None;
+                self.drag_start = None;
+                self.drag_armed = false;
                 self.drag_preview = None;
             }
             Action::None => {}
@@ -2648,6 +2691,12 @@ fn expand_tilde(s: &str) -> std::path::PathBuf {
     }
     std::path::PathBuf::from(s)
 }
+
+/// Manhattan distance (in cells) the pointer must travel from the press point
+/// before a titlebar/edge drag starts moving/resizing a window. Below this, the
+/// press is treated as a plain click (so it can't untile a window, and lets
+/// double-click-to-rename work without nudging the window).
+const DRAG_THRESHOLD: i32 = 3;
 
 /// True when `p` is within `threshold` cells of any edge of `work` — the band in
 /// which a drag engages grid-cell snapping (interior drags stay floating).

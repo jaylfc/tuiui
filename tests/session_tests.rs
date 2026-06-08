@@ -350,3 +350,20 @@ fn rename_changes_label_not_grouping() {
     assert_eq!(core.dock_pill_count_for_test(), 1);
     core.shutdown();
 }
+
+#[test]
+fn clicking_titlebar_does_not_move_tiled_window() {
+    // Regression: a plain click on a tiled window's titlebar (e.g. to rename it)
+    // must NOT untile/move the window — only a real drag should.
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "a".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    core.apply(ClientMsg::SendToCell(1)); // tile into a grid cell
+    let before = core.focused_window_rect_for_test().unwrap();
+    // Click (down then up at the SAME titlebar point — no drag motion).
+    let p = Point::new(before.x + 2, before.y);
+    core.apply(ClientMsg::MouseDown(p));
+    core.apply(ClientMsg::MouseUp(p));
+    let after = core.focused_window_rect_for_test().unwrap();
+    assert_eq!(before, after, "a plain titlebar click must not move/untile a tiled window");
+    core.shutdown();
+}
