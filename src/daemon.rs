@@ -95,22 +95,48 @@ fn ensure_apphost() -> std::io::Result<crate::apphost::RemoteAppHost> {
     use crate::protocol::apphost_socket_path;
     let path = apphost_socket_path();
     if UnixStream::connect(&path).is_err() {
-        let exe = std::env::current_exe()?;
-        std::process::Command::new(exe)
-            .arg("--apphost")
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .process_group(0)
-            .spawn()?;
-        for _ in 0..100 {
-            if UnixStream::connect(&path).is_ok() {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(50));
+        // Prefer the installed per-user service so the *supervised* apphost owns
+        // the apps. On macOS that one runs in the GUI login session, which is why
+        // Keychain-backed logins (e.g. the Claude Code CLI) work inside it — a
+        // detached on-demand apphost we spawn here would not. Only spawn our own
+        // when no service is installed, or as a fallback if the service didn't
+        // bring its socket up in time.
+        let used_service = crate::service::ensure_started();
+        if !used_service {
+            spawn_detached_apphost()?;
+        }
+        if !wait_for_socket(&path) && used_service {
+            // The service was installed but didn't start in time; fall back so the
+            // daemon still gets a working apphost rather than failing to connect.
+            spawn_detached_apphost()?;
+            wait_for_socket(&path);
         }
     }
     crate::apphost::RemoteAppHost::connect(&path)
+}
+
+/// Spawn `tuiui --apphost` detached into its own process group.
+fn spawn_detached_apphost() -> std::io::Result<()> {
+    let exe = std::env::current_exe()?;
+    std::process::Command::new(exe)
+        .arg("--apphost")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .process_group(0)
+        .spawn()?;
+    Ok(())
+}
+
+/// Poll the apphost socket for up to ~5s. Returns whether it came up.
+fn wait_for_socket(path: &std::path::Path) -> bool {
+    for _ in 0..100 {
+        if UnixStream::connect(path).is_ok() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    false
 }
 
 /// Serve one attached client until it detaches (socket closes) or asks to detach.

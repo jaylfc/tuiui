@@ -241,6 +241,50 @@ pub fn uninstall() -> io::Result<()> {
     }
 }
 
+/// If the per-user apphost service is installed, ask its supervisor to start it
+/// (so the supervised — and, on macOS, GUI-session / Keychain-capable — apphost
+/// owns the socket) and return `true`. Returns `false` when no service is
+/// installed for this platform, so the caller falls back to a direct spawn.
+///
+/// This is what keeps the daemon's on-demand spawn from racing and beating the
+/// service: when a service exists, the daemon defers to it instead of starting a
+/// competing apphost that wouldn't be in the login session.
+pub fn ensure_started() -> bool {
+    match backend() {
+        Backend::Launchd => {
+            let Some(path) = launchd_plist_path() else {
+                return false;
+            };
+            if !path.exists() {
+                return false;
+            }
+            let uid = unsafe { libc::getuid() };
+            let label = format!("gui/{uid}/{LAUNCHD_LABEL}");
+            // `kickstart` starts the agent if it isn't running (and is a no-op if
+            // it already is). No `-k`, so a running apphost is left untouched.
+            matches!(
+                Command::new("launchctl").args(["kickstart", &label]).status(),
+                Ok(s) if s.success()
+            )
+        }
+        Backend::Systemd => {
+            let Some(path) = systemd_unit_path() else {
+                return false;
+            };
+            if !path.exists() {
+                return false;
+            }
+            matches!(
+                Command::new("systemctl").args(["--user", "start", SYSTEMD_UNIT]).status(),
+                Ok(s) if s.success()
+            )
+        }
+        // The profile-hook backend has no supervisor to invoke (the login shell
+        // starts it); and Unsupported has none at all. Fall back to a spawn.
+        Backend::Profile | Backend::Unsupported => false,
+    }
+}
+
 /// Print which backend is used and whether the apphost is currently running.
 pub fn status() -> io::Result<()> {
     let running =
