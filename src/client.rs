@@ -108,6 +108,7 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                             KeyCode::Char('s') | KeyCode::Char('S') => send(&mut out_stream, &ClientMsg::OpenStore)?,
                             KeyCode::Char(',') => send(&mut out_stream, &ClientMsg::OpenSettings)?,
                             KeyCode::Char('?') | KeyCode::Char('h') => send(&mut out_stream, &ClientMsg::ToggleHelp)?,
+                            KeyCode::Char('r') | KeyCode::Char('R') => send(&mut out_stream, &ClientMsg::RenameFocused)?,
                             KeyCode::Char('t') => send(&mut out_stream, &ClientMsg::TileAll)?,
                             KeyCode::Char('T') => send(&mut out_stream, &ClientMsg::ToggleAutoTile)?,
                             KeyCode::Char(c @ '1'..='9') => send(&mut out_stream, &ClientMsg::SendToCell(c as u8 - b'0'))?,
@@ -227,6 +228,15 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                             KeyCode::Enter => send(&mut out_stream, &ClientMsg::DesktopCommit)?,
                             KeyCode::Backspace => send(&mut out_stream, &ClientMsg::DesktopBackspace)?,
                             KeyCode::Char(c) if !ctrl => send(&mut out_stream, &ClientMsg::DesktopChar(c))?,
+                            _ => {}
+                        }
+                    } else if f.renaming {
+                        // Window rename overlay: forward typed chars to the rename buffer.
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::RenameCancel)?,
+                            KeyCode::Enter => send(&mut out_stream, &ClientMsg::RenameCommit)?,
+                            KeyCode::Backspace => send(&mut out_stream, &ClientMsg::RenameBackspace)?,
+                            KeyCode::Char(c) if !ctrl => send(&mut out_stream, &ClientMsg::RenameChar(c))?,
                             _ => {}
                         }
                     } else if ctrl_alt {

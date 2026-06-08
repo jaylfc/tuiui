@@ -253,6 +253,14 @@ impl WindowManager {
                 .map(|w| w.id);
         }
     }
+
+    /// Update the display title of window `id` (used by the rename command; does
+    /// not affect `app_keys` so grouping remains stable).
+    pub fn rename_window(&mut self, id: WindowId, new_title: String) {
+        if let Some(w) = self.get_mut(id) {
+            w.title = new_title;
+        }
+    }
 }
 
 // ── Window rendering ──────────────────────────────────────────────────────────

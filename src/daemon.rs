@@ -180,6 +180,7 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             filemanager_focused: core.focused_is_filemanager(),
             filemanager_editing: core.filemanager_editing(),
             desktop_editing: core.desktop_editing(),
+            renaming: core.renaming(),
             detach: core.quit_requested(),
             reload: core.reload_requested(),
             app_area: core.app_mouse_area(),

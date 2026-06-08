@@ -83,6 +83,9 @@ pub struct Flags {
     /// client routes events inside it as `ClientMsg::MouseInput` (passthrough);
     /// `None` keeps all mouse on the normal chrome/WM path.
     pub app_area: Option<Rect>,
+    /// A window rename is in progress; the client should forward typed
+    /// characters to the rename buffer rather than the focused app.
+    pub renaming: bool,
 }
 
 /// Per-user directory that holds the daemon socket. Created mode `0700` by the

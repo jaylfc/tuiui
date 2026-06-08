@@ -242,6 +242,16 @@ pub enum ClientMsg {
     DesktopCommit,
     /// Desktop overlay: cancel (Escape).
     DesktopCancel,
+    /// Begin renaming the currently focused window (keyboard shortcut / double-click).
+    RenameFocused,
+    /// Type a character into the window rename buffer.
+    RenameChar(char),
+    /// Delete the last character from the window rename buffer.
+    RenameBackspace,
+    /// Commit the window rename (sets the new title; empty buffer = cancel).
+    RenameCommit,
+    /// Cancel the window rename without changing the title.
+    RenameCancel,
     /// Shut down the daemon entirely (kills all apps). Sent by `tuiui kill`.
     Shutdown,
     /// Restart the frontend only, keeping the apphost (and apps) alive.
@@ -294,6 +304,9 @@ pub struct SessionCore {
     app_keys: HashMap<WindowId, String>,
     /// The app_key of the dock group whose chooser popup is open (`None` = closed).
     dock_popup: Option<String>,
+    /// Active window rename: `Some((id, buffer))` while the user is typing a new
+    /// name. `None` when no rename is in progress.
+    rename: Option<(WindowId, String)>,
     cfg: Config,
     w: i32,
     h: i32,
@@ -370,6 +383,7 @@ impl SessionCore {
             titles: Vec::new(),
             app_keys: HashMap::new(),
             dock_popup: None,
+            rename: None,
             cfg,
             w,
             h,
@@ -482,10 +496,35 @@ impl SessionCore {
         self.desktop.is_editing()
     }
 
+    /// Whether a window rename is in progress (so the client forwards typed
+    /// characters to the rename buffer rather than the focused app).
+    pub fn renaming(&self) -> bool {
+        self.rename.is_some()
+    }
+
     /// True when no non-minimized window's rect contains `p` (a click here falls
     /// through to the desktop).
     fn window_at_is_none(&self, p: Point) -> bool {
         !self.wm.z_ordered().iter().any(|w| !w.minimized && w.rect.contains(p))
+    }
+
+    /// Return the id of the topmost non-minimized window whose **titlebar row**
+    /// contains `p`, provided `p` is NOT on a control button (min/max/close).
+    /// Used by the double-click handler to start a rename.
+    fn topmost_window_titlebar_at(&self, p: Point) -> Option<WindowId> {
+        // z_ordered is bottom-to-top; last match is the topmost.
+        self.wm
+            .z_ordered()
+            .iter()
+            .filter(|w| {
+                !w.minimized
+                    && w.rect.y == p.y
+                    && p.x >= w.rect.x
+                    && p.x < w.rect.x + w.rect.w
+                    && w.control_at(p).is_none()
+            })
+            .map(|w| w.id)
+            .next_back()
     }
 
     /// The topmost non-minimized window whose **content area** contains `p`, with
@@ -943,6 +982,8 @@ impl SessionCore {
                 | ClientMsg::MouseInput(_)
                 | ClientMsg::Resize { .. }
                 | ClientMsg::Key(_)
+                | ClientMsg::RenameChar(_)
+                | ClientMsg::RenameBackspace
         ) {
             crate::dbg_log(&format!("apply {:?}", msg));
         }
@@ -1208,7 +1249,15 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             }
             ClientMsg::MouseDouble(p) => {
                 self.cursor = p;
-                if self.cfg.desktop_enabled && self.window_at_is_none(p) {
+                // Double-click on a window's titlebar (not on a control button)
+                // starts a rename of that window. Check this before desktop/content.
+                if let Some(id) = self.topmost_window_titlebar_at(p) {
+                    let label = self.titles.iter()
+                        .find(|(i, _)| *i == id)
+                        .map(|(_, t)| t.clone())
+                        .unwrap_or_default();
+                    self.rename = Some((id, label));
+                } else if self.cfg.desktop_enabled && self.window_at_is_none(p) {
                     self.desktop.double_click(p);
                     self.drain_desktop_action();
                 } else if let Some((id, cr)) = self.topmost_window_content_at(p) {
@@ -1228,6 +1277,42 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             ClientMsg::DesktopBackspace => self.desktop.overlay_backspace(),
             ClientMsg::DesktopCommit => self.desktop_commit(),
             ClientMsg::DesktopCancel => self.desktop.cancel_overlay(),
+            ClientMsg::RenameFocused => {
+                if let Some(id) = self.wm.focused() {
+                    let label = self.titles.iter()
+                        .find(|(i, _)| *i == id)
+                        .map(|(_, t)| t.clone())
+                        .unwrap_or_default();
+                    self.rename = Some((id, label));
+                }
+            }
+            ClientMsg::RenameChar(c) => {
+                if !c.is_control() {
+                    if let Some((_, buf)) = &mut self.rename {
+                        buf.push(c);
+                    }
+                }
+            }
+            ClientMsg::RenameBackspace => {
+                if let Some((_, buf)) = &mut self.rename {
+                    buf.pop();
+                }
+            }
+            ClientMsg::RenameCommit => {
+                if let Some((id, buf)) = self.rename.take() {
+                    if !buf.is_empty() {
+                        // Update the dock label.
+                        if let Some((_, label)) = self.titles.iter_mut().find(|(i, _)| *i == id) {
+                            *label = buf.clone();
+                        }
+                        // Update the window titlebar title.
+                        self.wm.rename_window(id, buf);
+                    }
+                }
+            }
+            ClientMsg::RenameCancel => {
+                self.rename = None;
+            }
             ClientMsg::Shutdown => self.shutdown = true,
             ClientMsg::Reload => self.reload = true,
             ClientMsg::MouseInput(m) => self.forward_mouse_to_app(m),
@@ -2099,6 +2184,31 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
 
     // ── Frame builder ─────────────────────────────────────────────────────────
 
+    /// Render the rename text-entry overlay over a window's titlebar row.
+    ///
+    /// Returns a single 1-row [`Layer`] at high z (2000) drawn over the title
+    /// area of the window, showing the current buffer and a cursor block.
+    fn render_rename_overlay(&self, win: &crate::window::Window, buf: &str) -> Vec<Layer> {
+        let t = crate::theme::current();
+        let r = win.rect;
+        // Title area: skip the 2-cell left indent; leave room for control buttons.
+        let btn_reserve = if r.w >= 9 { 9 } else { 4 };
+        let title_start = r.x + 2;
+        let title_w = (r.w - 2 - btn_reserve).max(1);
+        let mut row = crate::buffer::CellBuffer::new(title_w, 1);
+        // Fill background.
+        row.fill(crate::cell::Cell { ch: ' ', fg: t.title_fg, bg: t.title_focus, attrs: Default::default() });
+        // Draw the buffer text (truncated to fit).
+        let display: String = buf.chars().take(title_w as usize).collect();
+        for (i, ch) in display.chars().enumerate() {
+            row.set(i as i32, 0, crate::cell::Cell { ch, fg: t.title_fg, bg: t.title_focus, attrs: Default::default() });
+        }
+        // Draw cursor block after the text.
+        let cursor_x = display.chars().count().min((title_w - 1) as usize) as i32;
+        row.set(cursor_x, 0, crate::cell::Cell { ch: ' ', fg: t.title_focus, bg: t.title_fg, attrs: Default::default() });
+        vec![Layer { z: 2000, origin: Point::new(title_start, r.y), buf: row, opacity: 1.0, scissor: None }]
+    }
+
     /// Build a complete [`Frame`] from the current session state.
     ///
     /// The frame contains (bottom to top):
@@ -2140,6 +2250,14 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             tint.a = 70; // translucent so the windows below show through
             buf.fill(crate::cell::Cell { ch: ' ', fg: crate::cell::Rgba::TRANSPARENT, bg: tint, attrs: Default::default() });
             layers.push(Layer { z: 900, origin: Point::new(r.x, r.y), buf, opacity: 1.0, scissor: None });
+        }
+
+        // Window rename overlay: draw the edit buffer over the target window's
+        // titlebar row at high z (above the window chrome, below floating menus).
+        if let Some((ren_id, ren_buf)) = &self.rename {
+            if let Some(win) = self.wm.get(*ren_id) {
+                layers.extend(self.render_rename_overlay(win, ren_buf));
+            }
         }
 
         let app_name = focused
