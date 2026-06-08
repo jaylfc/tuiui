@@ -297,3 +297,12 @@ fn simple_mode_renders_focused_app_fullscreen_without_desktop() {
         "focused app should fill the work-area width at row 1");
     core.shutdown();
 }
+
+#[test]
+fn app_mouse_area_none_without_mouse_mode() {
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    // A bare shell hasn't enabled mouse reporting → no app area, passthrough off.
+    assert!(core.app_mouse_area().is_none());
+    core.shutdown();
+}

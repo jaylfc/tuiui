@@ -182,6 +182,7 @@ fn serve_client(core: &mut SessionCore, comp: &mut Compositor, stream: UnixStrea
             desktop_editing: core.desktop_editing(),
             detach: core.quit_requested(),
             reload: core.reload_requested(),
+            app_area: core.app_mouse_area(),
         };
         // Send PNG bytes once per image id (base64); later frames carry only the
         // small placement list.
