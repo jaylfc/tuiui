@@ -5474,5 +5474,51 @@
    "linux"
   ],
   "verified": true
+ },
+ "wordgrinder": {
+  "install": "brew install wordgrinder",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "himalaya": {
+  "install": "cargo install himalaya --locked",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "khard": {
+  "install": "pipx install khard",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "vdirsyncer": {
+  "install": "pipx install vdirsyncer",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "nb": {
+  "install": "brew install nb",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
  }
 }

@@ -4142,5 +4142,40 @@
   "category": "Web",
   "description": "A text-mode WWW browser",
   "homepage": "https://github.com/tats/w3m"
+ },
+ {
+  "name": "wordgrinder",
+  "bin": "wordgrinder",
+  "category": "Productivity",
+  "description": "Distraction-free Unicode word processor for the terminal.",
+  "homepage": "https://github.com/davidgiven/wordgrinder"
+ },
+ {
+  "name": "himalaya",
+  "bin": "himalaya",
+  "category": "Messaging",
+  "description": "CLI/TUI to manage emails (IMAP/SMTP, multi-account).",
+  "homepage": "https://github.com/pimalaya/himalaya"
+ },
+ {
+  "name": "khard",
+  "bin": "khard",
+  "category": "Productivity",
+  "description": "Console CardDAV address book and contact manager.",
+  "homepage": "https://github.com/lucc/khard"
+ },
+ {
+  "name": "vdirsyncer",
+  "bin": "vdirsyncer",
+  "category": "Productivity",
+  "description": "Synchronize calendars and contacts (CalDAV/CardDAV).",
+  "homepage": "https://github.com/pimutils/vdirsyncer"
+ },
+ {
+  "name": "nb",
+  "bin": "nb",
+  "category": "Productivity",
+  "description": "Plain-text note-taking, bookmarking, and knowledge base.",
+  "homepage": "https://github.com/xwmx/nb"
  }
 ]
