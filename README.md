@@ -4,7 +4,7 @@
 
 It's a multiplexer at heart (apps run as real child processes in PTYs and are composited into windows), built from scratch in Rust.
 
-> **Status: active development.** The shell, window management, persistent daemon, app launcher, store, settings, theming, a macOS-style status tray, and configurable grid tiling all work today. GUI/Wayland streaming is on the roadmap below.
+> **Status: active development.** The shell, window management, a persistent daemon that runs apps in a **separate process so they survive a UI reload/update**, mouse passthrough into apps, an app launcher + store, a file manager, desktop icons, settings, theming, a macOS-style status tray, and configurable grid tiling all work today. GUI/Wayland streaming is on the roadmap below.
 
 ## What works today
 
@@ -22,8 +22,11 @@ It's a multiplexer at heart (apps run as real child processes in PTYs and are co
 - **Custom apps** — add your own launcher entries (name + command) from **Settings → Apps**.
 - **Working-directory picker** — launching a coding agent (Claude Code, Aider, …) opens a browsable file-tree so it starts in the project you choose; remembers recent directories.
 - **Theming** — four built-in palettes (midnight, nord, gruvbox, dracula), switchable live from **Settings → Appearance**.
-- **Persistent daemon + thin client** (tmux-style): windows and processes survive detach and SSH disconnects.
-- **In-app updater** — check for and install updates from **Settings → Updates**.
+- **Dock app-grouping + window rename** — windows of the same app collapse into one dock pill with a colored **letter badge** (per-app color, configurable in `[dock.badges]`); click a grouped pill to choose between its windows. **Rename** any window (double-click its titlebar or `Ctrl+Space r`) — the label changes but it stays grouped with its app.
+- **Simple view mode** — a top-bar toggle (`⊞` desktop ⇄ `▦` simple) that flips to a tmux-style full-screen-single-app view (no window decorations), keeping the menubar + dock; the dock is your app switcher. Same running apps in both modes.
+- **Persistent daemon + thin client, with live updates** (tmux-style): apps run in a separate **apphost** process and survive client detach, SSH disconnects, **and a frontend reload** — update the binary and **reload the UI without killing your apps** (menubar **Restart**, `tuiui reload`, or **Settings → Update & Reload**). `tuiui kill` stops everything.
+- **Bare-console mouse (Linux)** — on a raw Linux VT with no GUI terminal, tuiui reads the mouse directly from the **gpm** daemon (`apt install gpm`); see [the gpm section](#mouse-on-a-bare-linux-console-gpm).
+- **In-app updater** — check for and install updates from **Settings → Updates** (then reload, apps intact).
 
 ## Controls
 
@@ -39,8 +42,11 @@ tuiui uses a **leader key** (`Ctrl+Space`) so its shortcuts never collide with m
 | `Ctrl+Space` then `T` | Toggle auto-tile mode |
 | `Ctrl+Space` then `1`–`9` | Send focused window to grid cell N |
 | `Ctrl+Space` then `s` / `,` | Open the Store / Settings |
+| `Ctrl+Space` then `r` | **Rename** the focused window (type a new name, Enter) |
 | `Ctrl+Space` then `?` | **Help** — show this shortcut cheatsheet in-app (any key dismisses) |
-| `Ctrl+Space` then `q` / `Q` | Detach (keep running) / shut down the daemon |
+| `Ctrl+Space` then `q` | Detach (apps keep running in the background) |
+
+Exit/Restart/Shutdown live in the top-right **host-name menu** (`▾`): **Exit** detaches, **Restart** reloads the UI keeping apps alive, **Shutdown** stops everything.
 
 Forget a shortcut? Press **`Ctrl+Space` then `?`** for the in-app cheatsheet.
 
@@ -52,7 +58,7 @@ In the **file manager** (launcher → **Files**): `↑`/`↓`/`←`/`→` move t
 
 On the **desktop** (the empty wallpaper): click an icon to select, **double-click to open** (folders → the file manager, files → their default app, pins → the app), **drag** an icon to rearrange it (snaps to a grid, position saved), and **right-click** an icon (open / rename / move to Trash) or the empty desktop (new folder / clean up). Icons come from your `~/Desktop` folder plus pinned shortcuts.
 
-Mouse: click **✦ tuiui** (top-left) for the app menu, the **✕ Quit** button (top-right) to exit, titlebar buttons (`– ▢ ✕`), drag titlebars/edges to move/resize, drag a window to a screen edge to snap it into a grid cell, click a tray indicator (clock/volume/WiFi/…) for its popover, and click dock pills to focus.
+Mouse: click **tuiui** (top-left) for the app launcher, the **`⊞`/`▦`** toggle (next to it) to switch desktop/simple view, your **host name `▾`** (top-right) for the Exit/Restart/Shutdown menu, titlebar buttons (`– ▢ ✕`), and **double-click a titlebar to rename** the window. Drag titlebars/edges to move/resize, drag a window to a screen edge to snap it into a grid cell, click a tray indicator (clock/volume/WiFi/…) for its popover, and click dock pills to focus (a grouped pill opens a chooser). The mouse passes through into apps that enable mouse reporting.
 
 ## Build & run
 
@@ -172,6 +178,13 @@ command = "zsh"
 name = "lazygit"
 command = "lazygit"
 category = "Git"
+
+# Dock app-badge colors: keyword (matched in the app name/command) → color
+# (a named color or #rrggbb). Unlisted apps get a stable color hashed from
+# their name. The badge is the app's initial; renamed windows keep it.
+[dock.badges]
+claude = "orange"
+kilo = "yellow"
 ```
 
 Most of these are editable live from the in-app **Settings** panel, which writes this file back.
@@ -197,7 +210,12 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 - **✅ File manager:** native mouse+keyboard browser — icon/list/**columns** views, navigation, copy/cut/paste, rename, new folder, delete-to-Trash, open-with-default, **image thumbnails**, **tabs**, **preview pane**, and **Get Info** (permissions/symlink).
 - **✅ Desktop icons:** clickable wallpaper icons from `~/Desktop` + pins; double-click to open, drag-to-grid (persisted), right-click menu (rename/Trash/new folder), thumbnails.
 - **✅ Cascading launcher:** Windows-95-style flyout menu — categories cascade into app submenus on hover/arrow; mouse + keyboard navigable.
-- **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client) — plus parked ideas: a fullscreen **browser PWA** of tuiui and a **Win95-style cascading launcher**.
+- **✅ Apphost/frontend split + live updates:** apps run in a separate long-lived process; the UI can **reload (or update) without killing apps** (menubar Restart, `tuiui reload`, Settings → Update & Reload).
+- **✅ Mouse passthrough:** full-fidelity mouse (buttons/drag/scroll/modifiers) forwarded into apps that request it, in both views.
+- **✅ Simple view mode:** `⊞`/`▦` top-bar toggle between the windowed desktop and a full-screen-single-app view.
+- **✅ Dock grouping + window rename + app badges:** same-app windows group into one pill with a colored letter badge; rename windows (double-click titlebar / `Ctrl+Space r`).
+- **✅ Bare-console mouse (Linux):** native `gpm` support for a mouse on a raw Linux VT (no GUI terminal needed).
+- **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client) — plus a parked idea: a fullscreen **browser PWA** of tuiui (multiple simultaneous frontends on one apphost).
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 
 ## Credits
