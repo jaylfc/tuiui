@@ -304,6 +304,8 @@ pub struct SessionCore {
     app_keys: HashMap<WindowId, String>,
     /// The app_key of the dock group whose chooser popup is open (`None` = closed).
     dock_popup: Option<String>,
+    /// Menubar power-button label: the host name + ▾ (computed once at startup).
+    power_label: String,
     /// Active window rename: `Some((id, buffer))` while the user is typing a new
     /// name. `None` when no rename is in progress.
     rename: Option<(WindowId, String)>,
@@ -383,6 +385,7 @@ impl SessionCore {
             titles: Vec::new(),
             app_keys: HashMap::new(),
             dock_popup: None,
+            power_label: Self::host_power_label(),
             rename: None,
             cfg,
             w,
@@ -500,6 +503,15 @@ impl SessionCore {
     /// characters to the rename buffer rather than the focused app).
     pub fn renaming(&self) -> bool {
         self.rename.is_some()
+    }
+
+    /// The menubar power-button label: the machine's host name + a ▾ chevron
+    /// (the short host name, domain stripped, capped so it can't crowd the bar).
+    fn host_power_label() -> String {
+        let host = sysinfo::System::host_name().unwrap_or_else(|| "tuiui".into());
+        let short: String = host.split('.').next().unwrap_or(&host).chars().take(20).collect();
+        let short = if short.is_empty() { "tuiui".to_string() } else { short };
+        format!(" {short} \u{25be} ")
     }
 
     /// True when no non-minimized window's rect contains `p` (a click here falls
@@ -924,6 +936,16 @@ impl SessionCore {
         self.dock_items()
     }
 
+    /// Test helper: the focused window's current dock/title label.
+    #[doc(hidden)]
+    pub fn focused_label_for_test(&self) -> String {
+        self.wm
+            .focused()
+            .and_then(|id| self.titles.iter().find(|(i, _)| *i == id))
+            .map(|(_, t)| t.clone())
+            .unwrap_or_default()
+    }
+
     /// Collect the rows for the open dock-group popup (badge, label per window).
     fn dock_popup_rows(&self) -> Vec<(WindowId, char, crate::cell::Rgba, String)> {
         let Some(ref key) = self.dock_popup else { return Vec::new() };
@@ -1252,11 +1274,9 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 // Double-click on a window's titlebar (not on a control button)
                 // starts a rename of that window. Check this before desktop/content.
                 if let Some(id) = self.topmost_window_titlebar_at(p) {
-                    let label = self.titles.iter()
-                        .find(|(i, _)| *i == id)
-                        .map(|(_, t)| t.clone())
-                        .unwrap_or_default();
-                    self.rename = Some((id, label));
+                    // Start with an empty buffer — type the new name fresh; an
+                    // empty commit (or Esc) keeps the current name.
+                    self.rename = Some((id, String::new()));
                 } else if self.cfg.desktop_enabled && self.window_at_is_none(p) {
                     self.desktop.double_click(p);
                     self.drain_desktop_action();
@@ -1279,11 +1299,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             ClientMsg::DesktopCancel => self.desktop.cancel_overlay(),
             ClientMsg::RenameFocused => {
                 if let Some(id) = self.wm.focused() {
-                    let label = self.titles.iter()
-                        .find(|(i, _)| *i == id)
-                        .map(|(_, t)| t.clone())
-                        .unwrap_or_default();
-                    self.rename = Some((id, label));
+                    self.rename = Some((id, String::new()));
                 }
             }
             ClientMsg::RenameChar(c) => {
@@ -1834,7 +1850,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 self.launcher.toggle_menu();
                 return;
             }
-            if menubar_power_region(self.w).contains(p) {
+            if menubar_power_region(self.w, &self.power_label).contains(p) {
                 self.launcher.close();
                 self.power_menu.toggle();
                 return;
@@ -2269,7 +2285,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             let st = self.tray_state.read().unwrap();
             crate::tray::tray_segments(&st, self.w)
         };
-        layers.push(render_menubar(self.w, &app_name, &segs, false));
+        layers.push(render_menubar(self.w, &app_name, &segs, false, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
 
         // The desktop context / rename menu floats above the windows (but below
@@ -2462,7 +2478,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             let st = self.tray_state.read().unwrap();
             crate::tray::tray_segments(&st, self.w)
         };
-        layers.push(render_menubar(self.w, &app_name, &segs, true));
+        layers.push(render_menubar(self.w, &app_name, &segs, true, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
 
         // Overlays that must still work in simple mode.

@@ -70,9 +70,9 @@ pub struct PowerMenu {
 fn dropdown_rect(w: i32) -> Rect {
     let box_w = 16;
     let box_h = ITEMS.len() as i32 + 2; // +2 for the top/bottom border rows
-    let anchor = crate::chrome::menubar_power_region(w);
-    // Right-align the panel's right edge with the button's right edge.
-    let x = (anchor.x + anchor.w - box_w).max(0);
+    // The power button is right-aligned, so its right edge is the screen edge;
+    // right-align the panel to it (no need to know the button's label width).
+    let x = (w - box_w).max(0);
     Rect::new(x, 1, box_w, box_h)
 }
 

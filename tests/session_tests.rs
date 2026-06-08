@@ -35,14 +35,12 @@ fn click_dock_focuses_window() {
 
 #[test]
 fn clicking_power_button_opens_menu_without_quitting() {
-    use tuiui::chrome::menubar_power_region;
     let mut core = SessionCore::new(80, 24, Config::default());
     assert!(!core.quit_requested());
     assert!(!core.power_menu_open());
-    let r = menubar_power_region(80);
-    // Clicking the "tuiui ▾" button opens the menu — it must NOT quit directly
-    // (quit now requires choosing Exit and confirming; see powermenu unit tests).
-    core.apply(ClientMsg::MouseDown(Point::new(r.x, 0)));
+    // The power button (host name + ▾) is right-aligned, so the far-right cell of
+    // the menubar is always inside it regardless of the host-name length.
+    core.apply(ClientMsg::MouseDown(Point::new(79, 0)));
     assert!(core.power_menu_open(), "power button should open the menu");
     assert!(!core.quit_requested(), "opening the menu must not quit immediately");
     // A click elsewhere dismisses the menu.
@@ -324,5 +322,31 @@ fn app_mouse_area_suppressed_while_launcher_open() {
     core.apply(ClientMsg::ToggleMenu); // open the Go launcher
     assert!(core.launcher_open());
     assert!(core.app_mouse_area().is_none(), "no app passthrough area while the launcher is open");
+    core.shutdown();
+}
+
+#[test]
+fn two_same_app_windows_group_in_dock() {
+    let mut core = SessionCore::new(120, 40, Config::default());
+    let launch = |c: &mut SessionCore| c.apply(ClientMsg::Launch { name: "Claude".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    launch(&mut core);
+    assert_eq!(core.dock_pill_count_for_test(), 1); // one window → one pill
+    launch(&mut core);
+    assert_eq!(core.dock_pill_count_for_test(), 1); // two Claude → still ONE grouped pill
+    assert_eq!(core.window_count(), 2);
+    core.shutdown();
+}
+
+#[test]
+fn rename_changes_label_not_grouping() {
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "Claude".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    core.apply(ClientMsg::RenameFocused);
+    for c in "appname".chars() { core.apply(ClientMsg::RenameChar(c)); }
+    core.apply(ClientMsg::RenameCommit);
+    assert_eq!(core.focused_label_for_test(), "appname");
+    // a second Claude still groups with the renamed one (same app_key)
+    core.apply(ClientMsg::Launch { name: "Claude".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    assert_eq!(core.dock_pill_count_for_test(), 1);
     core.shutdown();
 }

@@ -8,12 +8,13 @@ fn badge_color() -> Rgba { Rgba::rgb(70, 130, 230) }
 #[test]
 fn menubar_layer_spans_top_row_and_shows_brand() {
     // 40 cols: realistic width where the Go button + app name + power button all fit.
-    let layer = render_menubar(40, "btop", &[], false);
+    let layer = render_menubar(40, "btop", &[], false, " devbox \u{25be} ");
     assert_eq!(layer.origin, Point::new(0,0));
     assert_eq!(layer.buf.height(), 1);
     let row: String = (0..40).map(|x| layer.buf.get(x,0).unwrap().ch).collect();
-    assert!(row.contains("Go"));
+    assert!(row.contains("tuiui"));  // left brand button (opens launcher)
     assert!(row.contains("btop"));
+    assert!(row.contains("devbox"));  // right power button shows the host name
 }
 
 #[test]
@@ -95,28 +96,29 @@ fn dock_group_pill_renders_count_glyph() {
 
 #[test]
 fn menubar_shows_mode_toggle_glyph() {
-    let desktop: String = (0..40).map(|x| render_menubar(40, "x", &[], false).buf.get(x, 0).unwrap().ch).collect();
+    let desktop: String = (0..40).map(|x| render_menubar(40, "x", &[], false, " h \u{25be} ").buf.get(x, 0).unwrap().ch).collect();
     assert!(desktop.contains('\u{229E}'), "desktop mode shows ⊞, got {desktop:?}");
-    let simple: String = (0..40).map(|x| render_menubar(40, "x", &[], true).buf.get(x, 0).unwrap().ch).collect();
+    let simple: String = (0..40).map(|x| render_menubar(40, "x", &[], true, " h \u{25be} ").buf.get(x, 0).unwrap().ch).collect();
     assert!(simple.contains('\u{25A6}'), "simple mode shows ▦, got {simple:?}");
-    // region sits just right of Go
+    // region sits just right of the brand
     let r = menubar_mode_region();
     assert_eq!(r.y, 0);
-    assert!(r.x >= 4);
+    assert!(r.x >= 7);
 }
 
 #[test]
 fn menubar_has_power_button_on_right() {
     use tuiui::chrome::menubar_power_region;
     let width = 40;
-    let layer = render_menubar(width, "btop", &[], false);
+    let power = " devbox \u{25be} ";
+    let layer = render_menubar(width, "btop", &[], false, power);
     let row: String = (0..width).map(|x| layer.buf.get(x, 0).unwrap().ch).collect();
-    assert!(row.contains("tuiui"), "menubar should show the tuiui power button, got: {row:?}");
+    assert!(row.contains("devbox"), "menubar power button should show the host name, got: {row:?}");
     // region is on the top row, flush to the right edge
-    let r = menubar_power_region(width);
+    let r = menubar_power_region(width, power);
     assert_eq!(r.y, 0);
     assert_eq!(r.right(), width - 1);
-    // the region actually covers the power-button label
-    let tcol = row.rfind('t').unwrap() as i32;
-    assert!(r.contains(Point::new(tcol, 0)));
+    // the region actually covers the power-button label (the 'x' in "devbox")
+    let xcol = row.rfind('x').unwrap() as i32;
+    assert!(r.contains(Point::new(xcol, 0)));
 }
