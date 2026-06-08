@@ -42,9 +42,10 @@ fn navigation_and_selection() {
     // alphabetically inside it: btop, helix, lazygit, yazi.
     let mut l = launcher();
     l.toggle_menu();
-    // Root holds the single "Apps" category.
-    assert_eq!(l.menu_labels(), vec!["Apps"]);
-    // Descend into it and navigate by focused leaf.
+    // Root: a "Shell" quick-launch first, then the single "Apps" category.
+    assert_eq!(l.menu_labels(), vec!["Shell", "Apps"]);
+    // Select "Apps" (after the Shell quick-launch) and descend into it.
+    l.move_down();
     l.expand();
     assert_eq!(l.focused_label(), Some("btop".to_string()));
     l.move_down();
@@ -58,9 +59,10 @@ fn navigation_and_selection() {
 fn menu_render_exposes_clickable_items() {
     let mut l = launcher();
     l.toggle_menu();
+    l.move_down(); // select "Apps" so it auto-expands
     let r = l.render(120, 40);
-    // The single "Apps" category auto-expands, so its 4 leaves are clickable.
-    assert_eq!(r.items.len(), 4);
+    // The Shell quick-launch (1 leaf) + the 4 auto-expanded "Apps" leaves.
+    assert_eq!(r.items.len(), 5);
     assert!(!r.layers.is_empty());
 }
 
@@ -69,9 +71,10 @@ fn categories_group_with_headers() {
     let cat = |n: &str, c: &str| AppEntry { name: n.into(), command: n.into(), args: vec![], category: Some(c.into()), requires_cwd: None, cwd: None };
     let mut l = Launcher::new(vec![cat("btop","System"), cat("lazygit","Git"), cat("top","System")]);
     l.toggle_menu();
-    // Root groups by category, sorted: Git, System.
-    assert_eq!(l.menu_labels(), vec!["Git", "System"]);
-    // Descend into Git → its single leaf (lazygit).
+    // Root: the "Shell" quick-launch, then categories sorted: Git, System.
+    assert_eq!(l.menu_labels(), vec!["Shell", "Git", "System"]);
+    // Select Git (after Shell) and descend → its single leaf (lazygit).
+    l.move_down();
     l.expand();
     assert_eq!(l.focused_label(), Some("lazygit".to_string()));
     // Back to root, move to System and descend → leaves sort by name: btop, top.

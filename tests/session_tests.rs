@@ -405,3 +405,14 @@ fn spurious_teleport_drag_does_not_fling_window() {
     assert_eq!(before, after, "a spurious teleport drag must not move the window (before={before:?} after={after:?})");
     core.shutdown();
 }
+
+#[test]
+fn dock_plus_button_opens_a_shell_window() {
+    use tuiui::chrome::dock_new_shell_region;
+    let mut core = SessionCore::new(120, 40, Config::default());
+    let before = core.window_count();
+    let r = dock_new_shell_region(40); // bottom-left of a height-40 screen
+    core.apply(ClientMsg::MouseDown(Point::new(r.x, r.y)));
+    assert_eq!(core.window_count(), before + 1, "clicking + should open a new shell window");
+    core.shutdown();
+}

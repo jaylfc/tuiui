@@ -97,6 +97,14 @@ pub fn menubar_power_region(width: i32, power_label: &str) -> Rect {
     Rect::new(px, 0, width - px, 1)
 }
 
+/// The "new shell" quick-launch button at the dock's bottom-left corner.
+const NEW_SHELL_LABEL: &str = " + ";
+
+/// Screen-space hit region for the dock's "+" (new shell) button (bottom-left).
+pub fn dock_new_shell_region(height: i32) -> Rect {
+    Rect::new(0, height - 1, NEW_SHELL_LABEL.chars().count() as i32, 1)
+}
+
 /// Build a compositor [`Layer`] for the bottom dock row.
 ///
 /// The layer is 1 row tall, positioned at `(0, height - 1)`.
@@ -104,6 +112,8 @@ pub fn render_dock(width: i32, height: i32, items: &[DockItem]) -> Layer {
     let t = crate::theme::current();
     let mut buf = CellBuffer::new(width, 1);
     buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.dock_bg, attrs: Default::default() });
+    // The "+" new-shell button, bottom-left.
+    buf.write_str(0, 0, NEW_SHELL_LABEL, crate::cell::Rgba::rgb(255, 255, 255), t.accent);
     for (i, (_idx, r, badge_x, label_text)) in dock_layout(items).into_iter().enumerate() {
         let item = &items[i];
         let bg = if item.focused { t.active_bg } else { t.dock_bg };
@@ -217,7 +227,8 @@ fn count_suffix(n: usize) -> String {
 /// padded with spaces. Returns `(pill_index, local_rect, badge_x, full_label_string)`.
 fn dock_layout(items: &[DockItem]) -> Vec<(usize, Rect, i32, String)> {
     let mut out = Vec::new();
-    let mut x = 1;
+    // Pills start after the bottom-left "+" new-shell button.
+    let mut x = NEW_SHELL_LABEL.chars().count() as i32 + 1;
     for (i, it) in items.iter().enumerate() {
         let suffix = count_suffix(it.count);
         // Pill format: " B label[suffix] "

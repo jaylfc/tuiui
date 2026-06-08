@@ -1736,6 +1736,13 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         self.launch_in(name, command, args, None);
     }
 
+    /// Open a new shell window (the dock "+" button / quick-launch). Uses `$SHELL`
+    /// (falling back to `sh`); the window groups under the "Shell" app key.
+    fn open_shell(&mut self) {
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "sh".into());
+        self.launch("Shell".into(), shell, Vec::new());
+    }
+
     /// Spawn a new PTY-backed window, starting the child in `cwd` (or the user's
     /// home when `None`).
     fn launch_in(&mut self, name: String, command: String, args: Vec<String>, cwd: Option<std::path::PathBuf>) {
@@ -1908,6 +1915,13 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 }
                 // Click outside popup → dismiss it, then continue normal routing
                 self.dock_popup = None;
+                return;
+            }
+
+            // The bottom-left "+" button opens a new shell window.
+            if crate::chrome::dock_new_shell_region(self.h).contains(p) {
+                self.dock_popup = None;
+                self.open_shell();
                 return;
             }
 

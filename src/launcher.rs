@@ -125,16 +125,17 @@ impl Launcher {
         let rank = |c: &str| if c == "tuiui" { 0 } else { 1 };
         let mut cats: Vec<(String, Vec<AppEntry>)> = by_cat.into_iter().collect();
         cats.sort_by(|(a, _), (b, _)| rank(a).cmp(&rank(b)).then_with(|| a.cmp(b)));
-        self.menu_root = cats
-            .into_iter()
-            .map(|(label, mut apps)| {
-                apps.sort_by_key(|x| x.name.to_lowercase());
-                MenuEntry::Submenu {
-                    label,
-                    items: apps.into_iter().map(MenuEntry::Launch).collect(),
-                }
-            })
-            .collect();
+        // A bare "Shell" quick-launch is the very first top-level entry (one click,
+        // no submenu) — opens the user's $SHELL in a new window.
+        let mut root: Vec<MenuEntry> = vec![MenuEntry::Launch(shell_entry())];
+        root.extend(cats.into_iter().map(|(label, mut apps)| {
+            apps.sort_by_key(|x| x.name.to_lowercase());
+            MenuEntry::Submenu {
+                label,
+                items: apps.into_iter().map(MenuEntry::Launch).collect(),
+            }
+        }));
+        self.menu_root = root;
     }
 
     /// Open (or, if already in `Spotlight`, close) the search overlay.
@@ -516,6 +517,18 @@ fn cat_of(a: &AppEntry) -> String {
     a.category.clone().unwrap_or_else(|| "Apps".into())
 }
 
+/// A quick-launch entry for the user's shell (`$SHELL`, falling back to `sh`).
+fn shell_entry() -> AppEntry {
+    AppEntry {
+        name: "Shell".into(),
+        command: std::env::var("SHELL").unwrap_or_else(|_| "sh".into()),
+        args: Vec::new(),
+        category: None,
+        requires_cwd: None,
+        cwd: None,
+    }
+}
+
 /// Draw a dimmed, uppercase category header spanning `cw` cells from `x0`.
 fn draw_header(buf: &mut CellBuffer, x0: i32, cw: i32, row: i32, cat: &str) {
     for x in x0..x0 + cw {
@@ -584,26 +597,37 @@ mod tests {
         l.toggle_menu();
         let r = l.render(120, 40);
         assert!(!r.layers.is_empty());
-        // root panel + auto-expanded submenu of the selected category = 2 panels
-        assert_eq!(l.panel_count_for_test(120, 40), 2);
-        // hovering the "Tools" root row (second row) selects it
+        // root rows: Shell(0), Games(1), Tools(2). Hover the "Tools" row (row 2).
         let rects = l.panel_rects_for_test(120, 40);
-        let tools_row = rects.iter().find(|(lvl, row, _)| *lvl == 0 && *row == 1).map(|(_, _, r)| *r).unwrap();
+        let tools_row = rects.iter().find(|(lvl, row, _)| *lvl == 0 && *row == 2).map(|(_, _, r)| *r).unwrap();
         let _ = l.render(120, 40); // ensure last_w/last_h match the hover geometry
         l.hover(Point::new(tools_row.x + 1, tools_row.y));
         assert_eq!(l.focused_label(), Some("Tools".to_string()));
+        // hovering a category auto-expands a second panel
+        assert_eq!(l.panel_count_for_test(120, 40), 2);
     }
 
     #[test]
     fn click_launches_leaf_and_descends_submenu() {
         let mut l = Launcher::new(vec![app("Aaa", "Games")]);
         l.toggle_menu();
+        l.move_down(); // skip the Shell quick-launch (row 0); select the Games category
         let _ = l.render(120, 40);
         let rects = l.panel_rects_for_test(120, 40);
-        // level 1 row 0 is the leaf "Aaa" (auto-expanded under the only category)
+        // level 1 row 0 is the leaf "Aaa" (auto-expanded under the Games category)
         let leaf = rects.iter().find(|(lvl, row, _)| *lvl == 1 && *row == 0).map(|(_, _, r)| *r).unwrap();
         let got = l.click(Point::new(leaf.x + 1, leaf.y));
         assert_eq!(got.map(|a| a.name), Some("Aaa".to_string()));
+    }
+
+    #[test]
+    fn shell_is_the_first_quick_launch_entry() {
+        let mut l = Launcher::new(vec![app("Aaa", "Games")]);
+        l.toggle_menu();
+        assert_eq!(l.path_for_test(), vec![0]); // first root row selected
+        // The first top-level entry is a bare "Shell" leaf — activating launches it.
+        let a = l.activate();
+        assert_eq!(a.map(|e| e.name), Some("Shell".to_string()));
     }
 
     #[test]
@@ -620,12 +644,14 @@ mod tests {
             app("Aaa", "Games"), app("Bbb", "Games"), app("Ccc", "Tools"),
         ]);
         l.toggle_menu();
-        // root has 2 category submenus (Games, Tools), sorted
-        assert_eq!(l.menu_labels(), vec!["Games", "Tools"]);
-        assert_eq!(l.path_for_test(), vec![0]); // first root row selected
+        // root: a "Shell" quick-launch first, then the category submenus (sorted)
+        assert_eq!(l.menu_labels(), vec!["Shell", "Games", "Tools"]);
+        assert_eq!(l.path_for_test(), vec![0]); // Shell selected first
+        l.move_down(); // select Games (root index 1)
+        assert_eq!(l.path_for_test(), vec![1]);
         // descend into Games → its apps
         l.expand();
-        assert_eq!(l.path_for_test(), vec![0, 0]);
+        assert_eq!(l.path_for_test(), vec![1, 0]);
         assert_eq!(l.focused_label(), Some("Aaa".to_string()));
         l.move_down();
         assert_eq!(l.focused_label(), Some("Bbb".to_string()));
@@ -633,16 +659,17 @@ mod tests {
         assert_eq!(l.activate().map(|a| a.name), Some("Bbb".to_string()));
         // collapse back to root
         l.toggle_menu(); l.toggle_menu(); // reopen fresh
-        l.expand(); l.collapse();
-        assert_eq!(l.path_for_test(), vec![0]);
+        l.move_down(); l.expand(); l.collapse();
+        assert_eq!(l.path_for_test(), vec![1]);
     }
 
     #[test]
     fn activate_on_category_descends_not_launches() {
         let mut l = Launcher::new(vec![app("Aaa", "Games")]);
         l.toggle_menu();
+        l.move_down(); // skip the Shell quick-launch; select the Games category
         assert!(l.activate().is_none()); // category → descend, no launch
-        assert_eq!(l.path_for_test(), vec![0, 0]);
+        assert_eq!(l.path_for_test(), vec![1, 0]);
         assert_eq!(l.activate().map(|a| a.name), Some("Aaa".to_string())); // now the leaf
     }
 }
