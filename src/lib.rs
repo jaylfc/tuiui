@@ -35,6 +35,7 @@ pub mod desktop;
 pub mod mouse;
 pub mod gpm;
 pub mod badge;
+pub mod service;
 
 /// The crate version (from Cargo.toml).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
