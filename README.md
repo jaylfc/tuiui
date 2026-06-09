@@ -2,7 +2,7 @@
 
 **A desktop environment for the terminal.** tuiui is a windowing shell that runs *inside* a terminal: floating, overlapping windows — each hosting a real terminal application — with a mouse cursor, a top menubar + status tray, a bottom dock, configurable grid tiling, an app launcher, and an app store backed by the [awesome-tuis](https://github.com/rothgar/awesome-tuis) catalog.
 
-It's a multiplexer at heart (apps run as real child processes in PTYs and are composited into windows), built from scratch in Rust.
+It's a multiplexer at heart — like tmux, but with windows and a mouse: apps run as real child processes in PTYs, composited into windows, and **kept alive by a background daemon**. Detach and reattach from any terminal — or over SSH from another machine — and your whole desktop is exactly where you left it. Built from scratch in Rust.
 
 > **Status: active development.** The shell, window management, a persistent daemon that runs apps in a **separate process so they survive a UI reload/update**, mouse passthrough into apps, an app launcher + store, a file manager, desktop icons, settings, theming, a macOS-style status tray, and configurable grid tiling all work today. GUI/Wayland streaming is on the roadmap below.
 
@@ -175,7 +175,7 @@ This project is currently developed and tested on **macOS** using **[Ghostty](ht
   infocmp -x xterm-ghostty | ssh user@host -- tic -x -
   ```
 
-A native daemon + thin-client attach (proper persistent remote sessions, instead of plain `cargo run` over SSH) is on the roadmap.
+Persistent remote sessions work today: the daemon + apphost run on the host and keep your apps alive, so you can SSH in, `tuiui attach`, detach (or just drop the connection), and reattach later — from the same terminal, a different one, or another machine — and find everything exactly where you left it.
 
 ## Configuration
 
@@ -221,7 +221,7 @@ Most of these are editable live from the in-app **Settings** panel, which writes
 
 ## Architecture
 
-A pure-logic core (geometry, cell compositor, window manager, input routing) wrapped by I/O adapters (a `crossterm` terminal backend, a `portable-pty` + `alacritty_terminal` process host). A `SessionCore` owns the windows and apps and talks to the front-end through a `ClientMsg`/`Frame` boundary designed to later cross a socket for remote attach.
+A pure-logic core (geometry, cell compositor, window manager, input routing) wrapped by I/O adapters (a `crossterm` terminal backend, a `portable-pty` + `alacritty_terminal` process host). A `SessionCore` owns the windows and apps and talks to the front-end through a `ClientMsg`/`Frame` boundary that **crosses a Unix socket**: the daemon serves a thin client over it (the thing you attach), and the apps themselves live in a separate **apphost** process behind a second socket, so they survive a frontend reload/restart.
 
 Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/superpowers/).
 
