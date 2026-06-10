@@ -23,6 +23,13 @@ pub struct FrameMsg {
     /// PNG bytes for images not yet sent to this client (base64), sent once.
     #[serde(default)]
     pub image_data: Vec<ImageBlob>,
+    /// The screen was re-baselined (attach or resize): before applying this
+    /// frame the client must erase all cells, delete every image placement
+    /// (and its transmitted data), and forget its cached image state. A resize
+    /// invalidates everything incremental — the emulator may have reflowed
+    /// cells and kept placements the diff/delete stream no longer knows about.
+    #[serde(default)]
+    pub clear: bool,
 }
 
 /// A request to place image `id` at `rect` (screen cells). `visible=false` tells

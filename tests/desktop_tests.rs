@@ -139,3 +139,33 @@ fn drag_snaps_to_target_cell_and_reports_position() {
     assert_eq!(dt.position_of(&key), Some((2, 1)));
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test]
+fn shrinking_layout_keeps_tiles_and_placements_on_screen() {
+    // An icon saved deep into a wide grid must not land at negative x after the
+    // screen shrinks (e.g. a transient size mid fullscreen-animation) — that
+    // would draw it over the windows at the left edge, and its image placement
+    // would be unaddressable by the client.
+    let d = tmp("shrink");
+    fs::write(d.join("a"), b"").unwrap();
+    let mut pos = BTreeMap::new();
+    pos.insert(d.join("a").to_string_lossy().to_string(), (5u16, 3u16));
+    let mut dt = DesktopIcons::new(d.clone());
+    dt.layout(200, 60); // wide grid: column 5 is valid
+    dt.reload(&[], &pos);
+    assert_eq!(dt.icons()[0].cell, (5, 3));
+    assert!(dt.tile_rect((5, 3)).x >= 0);
+
+    dt.layout(40, 12); // narrow grid: column 5 would be x = 40-1-6*14 < 0 unclamped
+    let r = dt.tile_rect((5, 3));
+    assert!(r.x >= 0, "tile clamped into the grid; got x={}", r.x);
+    assert!(r.y >= 1, "tile clamped below the menubar; got y={}", r.y);
+
+    let mut role_icons = std::collections::HashMap::new();
+    role_icons.insert(dt.icons()[0].role, 42u64);
+    let placements = dt.icon_placements(&role_icons, |_| true);
+    assert_eq!(placements.len(), 1);
+    assert!(placements[0].rect.x >= 0 && placements[0].rect.y >= 0,
+        "placement stays addressable: {:?}", placements[0].rect);
+    let _ = fs::remove_dir_all(&d);
+}
