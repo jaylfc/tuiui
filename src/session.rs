@@ -1375,10 +1375,15 @@ impl SessionCore {
                         }
                     }
                     Some(crate::settings::SettingsAction::InstallUpdate) => {
+                        // On success the script EXITS right after `tuiui reload`:
+                        // the dead process is never restored by the reloaded
+                        // frontend (and reap_dead closes it if it is), so the
+                        // updater window auto-closes. Only a FAILED update drops
+                        // to a shell, keeping the error on screen.
                         let cmd = format!(
                             "clear; echo 'Updating tuiui from {repo} …'; echo; \
-cargo install --git {repo} --force && {{ echo; echo 'Reloading tuiui …'; tuiui reload; }} || \
-echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
+if cargo install --git {repo} --force; then echo; echo 'Reloading tuiui …'; tuiui reload; exit 0; \
+else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
                             repo = crate::REPO_URL,
                         );
                         self.launch("update tuiui".into(), "sh".into(), vec!["-lc".into(), cmd]);
