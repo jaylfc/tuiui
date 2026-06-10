@@ -11,7 +11,7 @@
 //! expose on a socket.
 
 use crate::chrome::{
-    render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_mode_region, menubar_power_region, DockItem, DockKind,
+    render_menubar, render_dock, dock_hit_regions, menubar_assistant_region, menubar_brand_region, menubar_mode_region, menubar_power_region, DockItem, DockKind,
 };
 use crate::powermenu::{PowerClick, PowerMenu, PowerOutcome};
 use crate::confirmclose::ConfirmClose;
@@ -1805,6 +1805,75 @@ else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
         }
     }
 
+    /// The assistant panel's window, if one exists (found by app key so it
+    /// survives frontend reloads, where the window is restored from the apphost
+    /// roster).
+    fn assistant_window(&self) -> Option<WindowId> {
+        self.app_keys.iter().find(|(_, k)| k.as_str() == "Assistant").map(|(id, _)| *id)
+    }
+
+    /// The ✦ menubar button: toggle the assistant chat panel. Focused → hide
+    /// (minimize; the agent keeps running); hidden/blurred → show + focus;
+    /// absent → spawn the configured agent CLI in a right-docked panel.
+    fn toggle_assistant(&mut self) {
+        if let Some(id) = self.assistant_window() {
+            let minimized = self.wm.get(id).map(|w| w.minimized).unwrap_or(false);
+            if self.wm.focused() == Some(id) && !minimized {
+                self.wm.minimize(id);
+            } else {
+                self.wm.unminimize(id);
+                if self.simple {
+                    self.sync_app_size(id);
+                }
+            }
+            return;
+        }
+        self.open_assistant();
+    }
+
+    /// Spawn the assistant agent in a persistent right-side panel. The agent is
+    /// a normal apphost app (survives detach/reload); its briefing is injected
+    /// via CLAUDE.md/AGENTS.md in a dedicated working directory, which the
+    /// major agent CLIs read on startup.
+    fn open_assistant(&mut self) {
+        let Some((command, args)) =
+            crate::assistant::resolve_agent(self.cfg.assistant_command.as_deref(), &self.cfg.assistant_args)
+        else {
+            crate::dbg_log(&format!(
+                "assistant: no agent CLI found (looked for {:?}; set assistant_command in config.toml)",
+                crate::assistant::AGENT_CLIS
+            ));
+            // Point the user at the AI category instead of failing silently.
+            self.open_store();
+            return;
+        };
+        let Some(dir) = crate::assistant::workdir() else { return };
+        let host = self.power_label.trim().trim_end_matches('\u{25be}').trim().to_string();
+        if let Err(e) = crate::assistant::write_briefing(&dir, &host) {
+            crate::dbg_log(&format!("assistant: briefing write failed: {e}"));
+        }
+        crate::dbg_log(&format!("assistant: starting '{command}' in {}", dir.display()));
+        // Right-docked panel: full work height, 2/5 width (clamped readable).
+        let panel_w = (self.w * 2 / 5).clamp(34.min(self.w), 70);
+        let rect = Rect::new((self.w - panel_w).max(0), 1, panel_w, (self.h - 2).max(4));
+        let id = self.wm.add_window("Assistant".into(), rect);
+        let content = self.wm.get(id).unwrap().content_rect();
+        match self.apphost.spawn(&command, &args, Some(&dir), content.w.max(1), content.h.max(1)) {
+            Ok(app_id) => {
+                self.app_keys.insert(id, "Assistant".into());
+                self.contents.insert(id, WinContent::App(app_id));
+                self.titles.push((id, "Assistant".into()));
+                if self.simple {
+                    self.sync_app_size(id);
+                }
+            }
+            Err(e) => {
+                crate::dbg_log(&format!("assistant: spawn '{command}' failed: {e}"));
+                self.wm.close(id);
+            }
+        }
+    }
+
     /// Open (or re-focus) the Logs viewer window.
     fn open_logs(&mut self) {
         if let Some(id) = self.logs_win {
@@ -2327,6 +2396,12 @@ else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
                 self.launcher.close();
                 self.power_menu.close();
                 self.toggle_simple();
+                return;
+            }
+            if menubar_assistant_region().contains(p) {
+                self.launcher.close();
+                self.power_menu.close();
+                self.toggle_assistant();
                 return;
             }
             if menubar_brand_region().contains(p) {

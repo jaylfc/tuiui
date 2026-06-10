@@ -123,7 +123,10 @@ fn menubar_has_power_button_on_right() {
     let r = menubar_power_region(width, power);
     assert_eq!(r.y, 0);
     assert_eq!(r.right(), width - 1);
-    // the region actually covers the power-button label (the 'x' in "devbox")
-    let xcol = row.rfind('x').unwrap() as i32;
+    // the region actually covers the power-button label (the 'x' in "devbox").
+    // Use a CHAR column, not `rfind`'s byte offset — the bar holds multi-byte
+    // glyphs (the ⊞ mode toggle and ✦ assistant button) left of the label.
+    let chars: Vec<char> = row.chars().collect();
+    let xcol = chars.iter().rposition(|c| *c == 'x').unwrap() as i32;
     assert!(r.contains(Point::new(xcol, 0)));
 }

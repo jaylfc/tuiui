@@ -85,6 +85,13 @@ pub struct Config {
     /// Saved grid positions: key (abs path or pin command) → (col, row).
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub desktop_positions: std::collections::BTreeMap<String, (u16, u16)>,
+    /// Agent CLI for the ✦ assistant panel (default: first of claude, opencode,
+    /// kilo, hermes, openclaw found on $PATH).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_command: Option<String>,
+    /// Extra arguments passed to the assistant CLI.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub assistant_args: Vec<String>,
     /// Per-app dock badge colors: keyword (matched case-insensitively as a
     /// substring of the app name/command) → color (named or `#rrggbb`).
     #[serde(default = "default_dock_badges", skip_serializing_if = "std::collections::BTreeMap::is_empty")]
@@ -126,6 +133,8 @@ impl Default for Config {
             desktop_enabled: true,
             desktop_pins: default_desktop_pins(),
             desktop_positions: std::collections::BTreeMap::new(),
+            assistant_command: None,
+            assistant_args: Vec::new(),
             dock_badges: default_dock_badges(),
         }
     }

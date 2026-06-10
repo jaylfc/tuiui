@@ -32,14 +32,56 @@ fn main() -> std::io::Result<()> {
                 Ok(())
             }
         },
+        Some("launch") => {
+            let mut rest = std::env::args().skip(2);
+            let Some(command) = rest.next() else {
+                eprintln!("usage: tuiui launch <command> [args…]");
+                return Ok(());
+            };
+            let args: Vec<String> = rest.collect();
+            let name = command.rsplit('/').next().unwrap_or(&command).to_string();
+            ctl(&tuiui::session::ClientMsg::Launch { name, command, args })
+        }
+        Some("tile") => ctl(&tuiui::session::ClientMsg::TileAll),
+        Some("theme") => match std::env::args().nth(2) {
+            Some(name) => ctl(&tuiui::session::ClientMsg::SetTheme(name)),
+            None => {
+                eprintln!("usage: tuiui theme <{}>", tuiui::theme::PRESETS.join("|"));
+                Ok(())
+            }
+        },
+        Some("msg") => match std::env::args().nth(2) {
+            Some(json) => match serde_json::from_str::<tuiui::session::ClientMsg>(&json) {
+                Ok(msg) => ctl(&msg),
+                Err(e) => {
+                    eprintln!("tuiui msg: not a valid ClientMsg: {e}");
+                    Ok(())
+                }
+            },
+            None => {
+                eprintln!("usage: tuiui msg '<ClientMsg JSON>'  e.g.  tuiui msg '\"MaximizeFocused\"'");
+                Ok(())
+            }
+        },
         Some(other) => {
             eprintln!(
-                "tuiui: unknown command '{other}' (try: attach, kill, reload, service, --daemon)"
+                "tuiui: unknown command '{other}' (try: attach, kill, reload, launch, tile, theme, msg, service, --daemon)"
             );
             Ok(())
         }
         None => attach(true),
     }
+}
+
+/// Send one control message to the running daemon (used by `tuiui launch/tile/
+/// theme/msg` — and by the desktop assistant to drive the UI).
+fn ctl(msg: &tuiui::session::ClientMsg) -> std::io::Result<()> {
+    if send_control(msg)? {
+        println!("tuiui: sent");
+    } else {
+        eprintln!("tuiui: no daemon running (start it with `tuiui`)");
+    }
+    Ok(())
 }
 
 /// Connect to the daemon and run a client. If `spawn_if_missing`, start a daemon

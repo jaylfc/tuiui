@@ -41,6 +41,7 @@ pub mod toolchain;
 pub mod systems;
 pub mod calendar;
 pub mod logsview;
+pub mod assistant;
 
 /// The crate version (from Cargo.toml).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
