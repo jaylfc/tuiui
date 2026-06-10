@@ -81,7 +81,13 @@ fn now_clock() -> ClockInfo {
         .unwrap_or_default()
         .trim()
         .to_string();
-    ClockInfo { time, date, uptime_secs: sysinfo::System::uptime() }
+    // Civil date for the menubar calendar (one call, parsed locally).
+    let ymd = crate::system::run_capped("date", &["+%Y-%m-%d"], 1).unwrap_or_default();
+    let mut parts = ymd.trim().splitn(3, '-');
+    let year = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    let month = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    let day = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    ClockInfo { time, date, uptime_secs: sysinfo::System::uptime(), year, month, day }
 }
 
 /// Battery is reported only on hosts that have one. Absent (the mini) → `None`,

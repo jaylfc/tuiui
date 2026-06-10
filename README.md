@@ -12,7 +12,7 @@ It's a multiplexer at heart — like tmux, but with windows and a mouse: apps ru
 - **Faithful rendering** via a full terminal emulator ([`alacritty_terminal`](https://docs.rs/alacritty_terminal)) — even demanding apps like btop render correctly.
 - **Mouse-driven**: drag titlebars to move, drag edges to resize, click the dock to focus, click titlebar buttons to minimize/maximize/close — and the mouse **passes through into apps** that request it (btop, yazi, lazygit, vim with `mouse=a`): clicks, drag, scroll, and modifiers, in both windowed and full-screen views.
 - **Configurable grid tiling** — set a rows×columns grid (e.g. 2×3 for an ultra-wide) and use drag-to-cell snapping (with a live preview), a one-key *tile-all*, an *auto-tile* mode, or send a window straight to a numbered cell.
-- **Menubar status tray** — clock, CPU/memory, volume, WiFi, Bluetooth, and battery, with click-through popovers that control the **host's** volume, switch to a known WiFi network, and connect a paired Bluetooth device.
+- **Menubar status tray** — clock + date, CPU/memory, volume, WiFi, Bluetooth, and battery, with click-through popovers that control the **host's** volume, switch to a known WiFi network, and connect a paired Bluetooth device. Clicking the clock opens a **month calendar** (today highlighted, `◂ ▸` to browse months).
 - **Native image viewing** — real raster images inside windows via the Kitty graphics protocol (Ghostty/Kitty/WezTerm), with a cell placeholder fallback elsewhere. Open one with a launcher entry `command = "@image"`, `args = ["~/pic.png"]`.
 - **File manager** — a native, mouse-and-keyboard file browser (launcher entry **Files**, or `@files`): **icon-grid, list, and Miller-columns** views, **image thumbnails** (via the Kitty graphics layer), a **preview pane** (text head / PDF text / metadata), **tabs**, **Get Info** (size, kind, Unix permissions, symlink target), folder navigation with history, single/ctrl/shift selection, new folder, rename, copy/cut/paste, and **delete-to-Trash** (never a hard delete). Double-click/Enter opens each file with its default app.
 - **Default Apps** — a configurable file-type → app map (**Settings → Default Apps**): images open in the built-in viewer, text/code in your `$EDITOR`, and you can cycle the handler for each role. The file manager uses it to open files "just like a real OS."
@@ -27,6 +27,7 @@ It's a multiplexer at heart — like tmux, but with windows and a mouse: apps ru
 - **Persistent daemon + thin client, with live updates** (tmux-style): apps run in a separate **apphost** process and survive client detach, SSH disconnects, **and a frontend reload** — update the binary and **reload the UI without killing your apps** (menubar **Restart**, `tuiui reload`, or **Settings → Update & Reload**). Closing an app window (titlebar **✕**) asks for confirmation first since it ends the process; built-in panels (Store/Settings/Files) close without asking. `tuiui kill` stops everything (daemon + apphost), and works even while a client is attached.
 - **Bare-console mouse (Linux)** — on a raw Linux VT with no GUI terminal, tuiui reads the mouse directly from the **gpm** daemon (`apt install gpm`); see [the gpm section](#mouse-on-a-bare-linux-console-gpm).
 - **In-app updater** — check for and install updates from **Settings → Updates** (then reload, apps intact).
+- **Systems switcher** — hop between tuiui sessions on different machines from the power menu (**host name ▾ → Systems**). Saved machines switch in one click over ssh; **+ Add Remote…** asks for an ssh target (+ optional password and per-system theme), then transfers your SSH key (`ssh-copy-id`, generating one if needed), installs tuiui on the remote (mac / Linux / WSL2) plus **gpm** for console mouse, and connects. Exiting the remote session drops you straight back into your local desktop — whose apps never stopped. Each system can carry its **own theme**, applied on attach via `TUIUI_THEME`. Passwords are used once for the key copy (via `sshpass` when installed) and never saved.
 
 ## Controls
 
@@ -46,7 +47,7 @@ tuiui uses a **leader key** (`Ctrl+Space`) so its shortcuts never collide with m
 | `Ctrl+Space` then `?` | **Help** — show this shortcut cheatsheet in-app (any key dismisses) |
 | `Ctrl+Space` then `q` | Detach (apps keep running in the background) |
 
-Exit/Restart/Shutdown live in the top-right **host-name menu** (`▾`): **Exit** detaches, **Restart** reloads the UI keeping apps alive, **Shutdown** stops everything.
+Exit/Restart/Shutdown live in the top-right **host-name menu** (`▾`): **Exit** detaches, **Restart** reloads the UI keeping apps alive, **Shutdown** stops everything. **Systems** cascades the machine switcher: click a saved machine to ssh into its tuiui session (its `✕` forgets it), or **+ Add Remote…** to set up a new one (Tab/↑↓ between fields, `←`/`→` picks the theme, Enter connects). Troubleshooting a switch: run with `TUIUI_DEBUG=1` to see the exact ssh/setup script and a trace in `~/tuiui-debug.log`.
 
 Forget a shortcut? Press **`Ctrl+Space` then `?`** for the in-app cheatsheet.
 

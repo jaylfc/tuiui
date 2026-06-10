@@ -255,6 +255,7 @@ fn serve_client(
             desktop_editing: core.desktop_editing(),
             renaming: core.renaming(),
             confirm_close: core.confirm_close_open(),
+            power_editing: core.power_form_editing(),
             detach: core.quit_requested(),
             reload: core.reload_requested(),
             app_area: core.app_mouse_area(),
@@ -279,6 +280,7 @@ fn serve_client(
             images: frame.images.clone(),
             image_data,
             clear: clear_pending,
+            switch_to: core.switch_spec(),
         })
             .unwrap_or_default();
         buf.push(b'\n');
@@ -289,6 +291,9 @@ fn serve_client(
         clear_pending = false;
 
         if core.quit_requested() {
+            if let Some(spec) = core.switch_spec() {
+                crate::dbg_log(&format!("daemon: switch frame delivered (→ {} {})", spec.name, spec.host));
+            }
             return; // detach (flag already delivered)
         }
         if core.reload_requested() {

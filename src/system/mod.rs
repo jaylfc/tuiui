@@ -21,6 +21,11 @@ pub struct ClockInfo {
     pub time: String,
     pub date: String,
     pub uptime_secs: u64,
+    /// Today's civil date (local time) for the menubar calendar; all zero until
+    /// the first poll succeeds.
+    pub year: i32,
+    pub month: u32,
+    pub day: u32,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MemInfo {
@@ -101,6 +106,10 @@ pub enum ControlIntent {
     WifiConnectKnown(String),
     BtSetEnabled(bool),
     BtConnect { addr: String, connect: bool },
+    /// Step the menubar calendar popover a month back/forward. Handled by the
+    /// session's tray state, not the OS backend.
+    CalendarPrev,
+    CalendarNext,
 }
 
 /// The OS-specific slice of [`SystemState`] produced by a [`SystemMonitor`].

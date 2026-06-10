@@ -101,6 +101,8 @@ impl SystemControl for LinuxBackend {
                     5,
                 );
             }
+            // Calendar navigation is handled by the session's tray state.
+            ControlIntent::CalendarPrev | ControlIntent::CalendarNext => {}
         }
     }
 }

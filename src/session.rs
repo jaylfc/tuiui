@@ -263,6 +263,23 @@ pub enum ClientMsg {
     Reload,
     /// A raw mouse event destined for the focused app's PTY (passthrough).
     MouseInput(crate::mouse::MouseInput),
+    /// Power-menu Add Remote form: type a character into the focused field.
+    PowerFormChar(char),
+    /// Power-menu form: delete the last character of the focused field.
+    PowerFormBackspace,
+    /// Power-menu form: focus the next / previous field (Tab / Shift-Tab, ↓ / ↑).
+    PowerFormNext,
+    PowerFormPrev,
+    /// Power-menu form: cycle the theme field (← / →).
+    PowerFormLeft,
+    PowerFormRight,
+    /// Power-menu form: Enter — advance, submitting from the last field.
+    PowerFormCommit,
+    /// Power-menu form: Esc — back to the Systems submenu.
+    PowerFormCancel,
+    /// Apply (and persist) a theme by name. Sent by the client on attach when
+    /// `TUIUI_THEME` is set — how a per-system theme rides over ssh.
+    SetTheme(String),
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -369,6 +386,11 @@ pub struct SessionCore {
     /// Last `WinMeta` blob pushed to the apphost per app window (change-gate so
     /// we only send `set_meta` when a window actually moved/retitled/minimized).
     last_meta: HashMap<WindowId, Vec<u8>>,
+    /// Saved remote systems shown in the power menu's Systems submenu.
+    systems: Vec<crate::systems::RemoteSystem>,
+    /// Set when the user picked a system to switch to: shipped to the client in
+    /// the next frame (alongside `quit`), which exits and ssh-es over.
+    switch_to: Option<crate::systems::SwitchSpec>,
 }
 
 impl SessionCore {
@@ -426,6 +448,8 @@ impl SessionCore {
             thumb_ids: HashMap::new(),
             role_icon_ids: HashMap::new(),
             last_meta: HashMap::new(),
+            systems: crate::systems::load(),
+            switch_to: None,
         };
         core.generate_role_icons();
         core.reload_desktop();
@@ -776,13 +800,19 @@ impl SessionCore {
     /// The current tray segments, laid out from the live snapshot.
     fn tray_segments_now(&self) -> Vec<crate::tray::Segment> {
         let st = self.tray_state.read().unwrap();
-        crate::tray::tray_segments(&st, self.w)
+        crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32)
     }
 
     /// Apply a tray control intent: optimistically update the cached snapshot so
     /// the UI responds immediately, then run the (timeout-guarded) backend call.
     fn apply_intent(&mut self, intent: crate::system::ControlIntent) {
         use crate::system::ControlIntent as I;
+        // Calendar navigation is tray-local UI state, not an OS control.
+        match intent {
+            I::CalendarPrev => return self.tray.calendar_step(-1),
+            I::CalendarNext => return self.tray.calendar_step(1),
+            _ => {}
+        }
         if let Ok(mut s) = self.tray_state.write() {
             match &intent {
                 I::VolumeUp => s.volume.level = s.volume.level.saturating_add(5).min(100),
@@ -834,7 +864,59 @@ impl SessionCore {
 
     /// Clear the detach (quit) flag — called by the daemon after a client detaches
     /// so the next client doesn't immediately detach again.
-    pub fn clear_quit(&mut self) { self.quit = false; }
+    pub fn clear_quit(&mut self) {
+        self.quit = false;
+        self.switch_to = None;
+    }
+
+    /// The pending system switch, if the user picked one in the Systems menu.
+    /// Shipped to the client in the frame that also carries the detach flag.
+    pub fn switch_spec(&self) -> Option<crate::systems::SwitchSpec> {
+        self.switch_to.clone()
+    }
+
+    /// Whether the power menu's Add Remote form is open (the client forwards
+    /// typed characters / field navigation to it).
+    pub fn power_form_editing(&self) -> bool {
+        self.power_menu.form_open()
+    }
+
+    /// Carry out a confirmed power-menu outcome (button click or form submit).
+    fn apply_power_outcome(&mut self, outcome: PowerOutcome) {
+        match outcome {
+            PowerOutcome::Detach => self.quit = true,
+            PowerOutcome::Reload => self.reload = true,
+            PowerOutcome::Shutdown => self.shutdown = true,
+            PowerOutcome::Switch(spec) => {
+                crate::dbg_log(&format!("systems: switch to '{}' ({})", spec.name, spec.host));
+                self.switch_to = Some(spec);
+                self.quit = true; // detach locally; apps keep running
+            }
+            PowerOutcome::AddAndConnect { system, password } => {
+                let mut spec = crate::systems::SwitchSpec::connect(&system);
+                spec.setup = true;
+                spec.password = password; // setup-only; never persisted
+                crate::dbg_log(&format!(
+                    "systems: add '{}' ({}) theme={:?} → saving + first-time setup",
+                    system.name, system.host, system.theme
+                ));
+                self.systems.retain(|s| s.name != system.name);
+                self.systems.push(system);
+                if let Err(e) = crate::systems::save(&self.systems) {
+                    crate::dbg_log(&format!("systems: save failed: {e}"));
+                }
+                self.switch_to = Some(spec);
+                self.quit = true;
+            }
+            PowerOutcome::Forget(name) => {
+                crate::dbg_log(&format!("systems: forget '{name}'"));
+                self.systems.retain(|s| s.name != name);
+                if let Err(e) = crate::systems::save(&self.systems) {
+                    crate::dbg_log(&format!("systems: save failed: {e}"));
+                }
+            }
+        }
+    }
 
     /// Build the launcher's app list: the configured apps (with categories filled
     /// in from the catalog where missing), plus any known TUIs detected on `$PATH`
@@ -1395,6 +1477,26 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             ClientMsg::Shutdown => self.shutdown = true,
             ClientMsg::Reload => self.reload = true,
             ClientMsg::MouseInput(m) => self.forward_mouse_to_app(m),
+            ClientMsg::PowerFormChar(c) => self.power_menu.form_char(c),
+            ClientMsg::PowerFormBackspace => self.power_menu.form_backspace(),
+            ClientMsg::PowerFormNext => self.power_menu.form_next(),
+            ClientMsg::PowerFormPrev => self.power_menu.form_prev(),
+            ClientMsg::PowerFormLeft => self.power_menu.form_left(),
+            ClientMsg::PowerFormRight => self.power_menu.form_right(),
+            ClientMsg::PowerFormCommit => {
+                if let PowerClick::Act(outcome) = self.power_menu.form_commit() {
+                    self.apply_power_outcome(outcome);
+                }
+            }
+            ClientMsg::PowerFormCancel => self.power_menu.form_cancel(),
+            ClientMsg::SetTheme(name) => {
+                crate::dbg_log(&format!("theme: set '{name}' (client attach / TUIUI_THEME)"));
+                crate::theme::set(&name);
+                self.cfg.theme = name;
+                if let Err(e) = self.cfg.save() {
+                    crate::dbg_log(&format!("theme: config save failed: {e}"));
+                }
+            }
         }
         // Refresh thumbnails after any message that may have changed the focused
         // file manager's listing (cheap: ImageStore loads are content-hash cached).
@@ -1842,10 +1944,8 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         // The power menu (dropdown / confirm dialog) is modal while open: route
         // the click to it and act on a confirmed choice.
         if kind == MouseKind::Down && self.power_menu.is_open() {
-            match self.power_menu.on_click(p, self.w, self.h) {
-                PowerClick::Act(PowerOutcome::Detach) => self.quit = true,
-                PowerClick::Act(PowerOutcome::Reload) => self.reload = true,
-                PowerClick::Act(PowerOutcome::Shutdown) => self.shutdown = true,
+            match self.power_menu.on_click(p, self.w, self.h, &self.systems) {
+                PowerClick::Act(outcome) => self.apply_power_outcome(outcome),
                 PowerClick::Consumed => {}
             }
             return;
@@ -2426,7 +2526,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
 
         let segs = {
             let st = self.tray_state.read().unwrap();
-            crate::tray::tray_segments(&st, self.w)
+            crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32)
         };
         layers.push(render_menubar(self.w, &app_name, &segs, false, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
@@ -2476,7 +2576,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         }
 
         // The power menu (dropdown + confirm dialog) renders above all chrome.
-        layers.extend(self.power_menu.render(self.w, self.h));
+        layers.extend(self.power_menu.render(self.w, self.h, &self.systems));
 
         // The confirm-close dialog is the topmost modal of all.
         layers.extend(self.confirm_close.render(self.w, self.h));
@@ -2623,7 +2723,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             .unwrap_or_default();
         let segs = {
             let st = self.tray_state.read().unwrap();
-            crate::tray::tray_segments(&st, self.w)
+            crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32)
         };
         layers.push(render_menubar(self.w, &app_name, &segs, true, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
@@ -2638,7 +2738,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         if self.help_open {
             layers.extend(crate::help::render_help(self.w, self.h));
         }
-        layers.extend(self.power_menu.render(self.w, self.h));
+        layers.extend(self.power_menu.render(self.w, self.h, &self.systems));
         layers.extend(self.confirm_close.render(self.w, self.h));
 
         // Images for the focused window only, mapped into the work area.

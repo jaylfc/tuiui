@@ -30,6 +30,11 @@ pub struct FrameMsg {
     /// cells and kept placements the diff/delete stream no longer knows about.
     #[serde(default)]
     pub clear: bool,
+    /// Set when the user picked a system in the power menu: the client should
+    /// exit and hand this to `main`, which runs `ssh -t` in the real terminal
+    /// (and the optional first-time setup). `None` on every normal frame.
+    #[serde(default)]
+    pub switch_to: Option<crate::systems::SwitchSpec>,
 }
 
 /// A request to place image `id` at `rect` (screen cells). `visible=false` tells
@@ -96,6 +101,9 @@ pub struct Flags {
     /// The confirm-close dialog is open; the client routes Enter/Esc and y/n to
     /// it (confirm / cancel) instead of the focused app.
     pub confirm_close: bool,
+    /// The power menu's "Add Remote" form is open; the client forwards typed
+    /// characters and field navigation to it.
+    pub power_editing: bool,
 }
 
 /// Per-user directory that holds the daemon socket. Created mode `0700` by the

@@ -23,15 +23,15 @@ pub struct Segment {
     pub rect: Rect,
 }
 
-/// Reserve this many columns on the right for the Quit button (matches chrome).
-const QUIT_RESERVE: i32 = 9;
 /// Columns of space between adjacent segments.
 const GAP: i32 = 2;
 
 /// Build the right-aligned, ordered list of tray segments for a `width`-wide
-/// menubar. Lowest-priority segments (CPU, then Memory, then Battery) drop out
-/// first when space is tight; the clock is always kept.
-pub fn tray_segments(state: &SystemState, width: i32) -> Vec<Segment> {
+/// menubar, leaving `reserve` columns free on the right for the power button
+/// (whose label is the host name, so its width varies per machine). Lowest-
+/// priority segments (CPU, then Memory, then Battery) drop out first when
+/// space is tight; the clock is always kept.
+pub fn tray_segments(state: &SystemState, width: i32, reserve: i32) -> Vec<Segment> {
     // Display order, left→right.
     let mut texts: Vec<(SegmentKind, String)> = Vec::new();
     texts.push((SegmentKind::Cpu, format!("⊙{}%", state.cpu_pct.round() as u32)));
@@ -53,13 +53,25 @@ pub fn tray_segments(state: &SystemState, width: i32) -> Vec<Segment> {
         let name = if w.ssid.is_empty() { "wifi".to_string() } else { w.ssid.clone() };
         texts.push((SegmentKind::Wifi, format!("{} {}", bars_glyph(w.signal), name)));
     }
-    texts.push((SegmentKind::Clock, state.clock.time.clone()));
+    // Clock shows date + time ("Wed 04 Jun 09:41"); narrows to time-only first.
+    let clock_full = if state.clock.date.is_empty() {
+        state.clock.time.clone()
+    } else {
+        format!("{} {}", state.clock.date, state.clock.time)
+    };
+    texts.push((SegmentKind::Clock, clock_full));
 
-    // Drop order when out of space: Cpu, Mem, Battery (Clock always kept).
-    let avail = width - QUIT_RESERVE - 1;
+    // When out of space: first shrink the clock to time-only, then drop Cpu,
+    // Mem, Battery (the clock itself is always kept).
+    let avail = width - reserve - 1;
     let total = |v: &[(SegmentKind, String)]| -> i32 {
         v.iter().map(|(_, t)| t.chars().count() as i32 + GAP).sum()
     };
+    if total(&texts) > avail {
+        if let Some(c) = texts.iter_mut().find(|(k, _)| *k == SegmentKind::Clock) {
+            c.1 = state.clock.time.clone();
+        }
+    }
     for k in [SegmentKind::Cpu, SegmentKind::Mem, SegmentKind::Battery] {
         if total(&texts) <= avail {
             break;
@@ -68,7 +80,7 @@ pub fn tray_segments(state: &SystemState, width: i32) -> Vec<Segment> {
     }
 
     // Right-align: lay out from the right edge leftward, then return left→right.
-    let mut x = width - QUIT_RESERVE - 1;
+    let mut x = width - reserve - 1;
     let mut out: Vec<Segment> = Vec::new();
     for (kind, text) in texts.iter().rev() {
         let w = text.chars().count() as i32;
@@ -110,11 +122,13 @@ pub struct Rendered {
 #[derive(Default)]
 pub struct Tray {
     open: Option<(SegmentKind, i32)>,
+    /// Months the calendar popover is offset from the current month (◂ ▸ nav).
+    cal_offset: i32,
 }
 
 impl Tray {
     pub fn new() -> Self {
-        Self { open: None }
+        Self::default()
     }
 
     /// The kind whose popover is currently open, if any.
@@ -125,11 +139,17 @@ impl Tray {
     /// Open `kind`'s popover at a default anchor (used by tests).
     pub fn force_open(&mut self, kind: SegmentKind) {
         self.open = Some((kind, 20));
+        self.cal_offset = 0;
     }
 
     /// Close any open popover.
     pub fn close(&mut self) {
         self.open = None;
+    }
+
+    /// Step the calendar popover by `delta` months (◂ ▸ clicks).
+    pub fn calendar_step(&mut self, delta: i32) {
+        self.cal_offset += delta;
     }
 
     /// Handle a click on the menubar row: toggle the popover of the clicked
@@ -141,7 +161,10 @@ impl Tray {
         if let Some(seg) = segments.iter().find(|s| s.rect.contains(p)) {
             self.open = match self.open {
                 Some((k, _)) if k == seg.kind => None,
-                _ => Some((seg.kind, seg.rect.x)),
+                _ => {
+                    self.cal_offset = 0; // calendar always opens on the current month
+                    Some((seg.kind, seg.rect.x))
+                }
             };
             return true;
         }
@@ -161,10 +184,7 @@ impl Tray {
             SegmentKind::Volume => self.render_volume(w, h, anchor_x, state),
             SegmentKind::Wifi => self.render_wifi(w, h, anchor_x, state),
             SegmentKind::Bluetooth => self.render_bluetooth(w, h, anchor_x, state),
-            SegmentKind::Clock => self.render_lines(w, h, anchor_x, "Clock", &[
-                state.clock.date.clone(),
-                format!("up {}h", state.clock.uptime_secs / 3600),
-            ]),
+            SegmentKind::Clock => self.render_calendar(w, h, anchor_x, state),
             SegmentKind::Cpu => self.render_lines(w, h, anchor_x, "CPU", &[
                 format!("{:.0}% load", state.cpu_pct),
             ]),
@@ -266,6 +286,58 @@ impl Tray {
                 intent: ControlIntent::BtConnect { addr: d.addr.clone(), connect: !d.connected },
             });
         }
+        Rendered { layers: vec![layer(origin, buf)], hits, bounds: Some(Rect::new(origin.x, origin.y, box_w, box_h)) }
+    }
+
+    /// The clock popover: a month calendar with ◂ ▸ navigation, today highlighted,
+    /// and a time/uptime footer. Falls back to plain text until the first poll
+    /// has produced a civil date.
+    fn render_calendar(&self, w: i32, h: i32, anchor_x: i32, st: &St) -> Rendered {
+        let c = &st.clock;
+        if c.year == 0 {
+            return self.render_lines(w, h, anchor_x, "Clock", &[
+                c.date.clone(),
+                format!("up {}h", c.uptime_secs / 3600),
+            ]);
+        }
+        let t = crate::theme::current();
+        let (year, month) = crate::calendar::add_months(c.year, c.month, self.cal_offset);
+        let weeks = crate::calendar::month_grid(year, month);
+        let box_w = 24;
+        let box_h = weeks.len() as i32 + 5;
+        let origin = self.box_origin(w, anchor_x, box_w);
+        let mut buf = CellBuffer::new(box_w, box_h);
+        fill_box(&mut buf, box_w, box_h);
+        // Month header with prev/next arrows.
+        let title = format!("{} {}", crate::calendar::month_name(month), year);
+        let tx = (box_w - title.chars().count() as i32) / 2;
+        buf.write_str(2, 1, "◂", t.accent, t.window_bg);
+        buf.write_str(tx, 1, &title, t.accent, t.window_bg);
+        buf.write_str(box_w - 3, 1, "▸", t.accent, t.window_bg);
+        buf.write_str(2, 2, "Mo Tu We Th Fr Sa Su", t.dim, t.window_bg);
+        for (wi, week) in weeks.iter().enumerate() {
+            let y = 3 + wi as i32;
+            for (di, day) in week.iter().enumerate() {
+                if let Some(d) = day {
+                    let x = 2 + di as i32 * 3;
+                    let today = self.cal_offset == 0 && *d == c.day;
+                    let (fg, bg) = if today { (t.close_fg, t.accent) } else { (t.text, t.window_bg) };
+                    buf.write_str(x, y, &format!("{d:>2}"), fg, bg);
+                }
+            }
+        }
+        let footer = format!("{}  up {}h", c.time, c.uptime_secs / 3600);
+        buf.write_str(2, box_h - 2, &footer, t.dim, t.window_bg);
+        let hits = vec![
+            PopoverHit {
+                rect: Rect::new(origin.x + 1, origin.y + 1, 3, 1),
+                intent: ControlIntent::CalendarPrev,
+            },
+            PopoverHit {
+                rect: Rect::new(origin.x + box_w - 4, origin.y + 1, 3, 1),
+                intent: ControlIntent::CalendarNext,
+            },
+        ];
         Rendered { layers: vec![layer(origin, buf)], hits, bounds: Some(Rect::new(origin.x, origin.y, box_w, box_h)) }
     }
 

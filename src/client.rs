@@ -3,12 +3,16 @@
 //! using the [`Flags`] the daemon sends each frame.
 
 /// How a client session ended.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ClientExit {
     /// The user detached / shut down — stop.
     Detached,
     /// The daemon asked the client to reconnect (frontend reload).
     Reload,
+    /// The user picked a system in the power menu: `main` should run the ssh
+    /// switch (and optional first-time setup) in the real terminal, then
+    /// re-attach locally when the remote session ends.
+    Switch(crate::systems::SwitchSpec),
 }
 
 use crate::geometry::{Point, SnapZone};
@@ -31,15 +35,25 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
     let mut out_stream = stream.try_clone()?;
     send(&mut out_stream, &ClientMsg::Resize { w, h })?;
 
+    // A per-system theme rides over ssh as TUIUI_THEME: apply it to this
+    // daemon's config as soon as we attach.
+    if let Ok(theme) = std::env::var("TUIUI_THEME") {
+        if !theme.is_empty() {
+            send(&mut out_stream, &ClientMsg::SetTheme(theme))?;
+        }
+    }
+
     let flags = Arc::new(Mutex::new(Flags::default()));
     let detached = Arc::new(AtomicBool::new(false));
     let reload = Arc::new(AtomicBool::new(false));
+    let switch: Arc<Mutex<Option<crate::systems::SwitchSpec>>> = Arc::new(Mutex::new(None));
 
     // Reader thread: socket frames → ANSI → stdout.
     {
         let flags = flags.clone();
         let detached = detached.clone();
         let reload = reload.clone();
+        let switch = switch.clone();
         let reader_stream = stream.try_clone()?;
         std::thread::spawn(move || {
             let mut r = BufReader::new(reader_stream);
@@ -54,8 +68,12 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                 match r.read_line(&mut line) {
                     Ok(0) | Err(_) => break,
                     Ok(_) => {
-                        if let Ok(msg) = serde_json::from_str::<FrameMsg>(line.trim()) {
+                        if let Ok(mut msg) = serde_json::from_str::<FrameMsg>(line.trim()) {
                             *flags.lock().unwrap() = msg.flags;
+                            if let Some(spec) = msg.switch_to.take() {
+                                crate::dbg_log(&format!("client: switch requested → {} ({})", spec.name, spec.host));
+                                *switch.lock().unwrap() = Some(spec);
+                            }
                             if msg.clear {
                                 // Re-baseline (attach / resize): erase every cell and
                                 // delete all image placements *and* their data. A cell
@@ -117,6 +135,20 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                             KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
                                 send(&mut out_stream, &ClientMsg::ConfirmCloseNo)?
                             }
+                            _ => {}
+                        }
+                    } else if f.power_editing {
+                        // The Add Remote form is modal: forward typing + field nav.
+                        leader = false;
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::PowerFormCancel)?,
+                            KeyCode::Enter => send(&mut out_stream, &ClientMsg::PowerFormCommit)?,
+                            KeyCode::Tab | KeyCode::Down => send(&mut out_stream, &ClientMsg::PowerFormNext)?,
+                            KeyCode::BackTab | KeyCode::Up => send(&mut out_stream, &ClientMsg::PowerFormPrev)?,
+                            KeyCode::Left => send(&mut out_stream, &ClientMsg::PowerFormLeft)?,
+                            KeyCode::Right => send(&mut out_stream, &ClientMsg::PowerFormRight)?,
+                            KeyCode::Backspace => send(&mut out_stream, &ClientMsg::PowerFormBackspace)?,
+                            KeyCode::Char(c) if !ctrl => send(&mut out_stream, &ClientMsg::PowerFormChar(c))?,
                             _ => {}
                         }
                     } else if leader {
@@ -295,6 +327,9 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
     // Detach: dropping `term` restores the screen; dropping the socket signals
     // the daemon, which keeps the session alive.
     drop(term);
+    if let Some(spec) = switch.lock().unwrap().take() {
+        return Ok(ClientExit::Switch(spec));
+    }
     if reload.load(Ordering::SeqCst) {
         Ok(ClientExit::Reload)
     } else {
@@ -449,6 +484,7 @@ mod tests {
             images,
             image_data: Vec::new(),
             clear: false,
+            switch_to: None,
         }
     }
 
