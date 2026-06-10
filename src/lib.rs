@@ -44,6 +44,25 @@ pub mod calendar;
 pub mod logsview;
 pub mod assistant;
 
+#[cfg(feature = "wayland-compositor")]
+pub mod wayland;
+
+#[cfg(not(feature = "wayland-compositor"))]
+mod wayland_private {
+    pub fn run_compositor() -> std::io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "tuiui: compositor mode requires the 'wayland-compositor' feature (build with --features wayland-compositor)",
+        ))
+    }
+}
+
+#[cfg(feature = "wayland-compositor")]
+pub use wayland::run_compositor;
+
+#[cfg(not(feature = "wayland-compositor"))]
+pub use wayland_private::run_compositor;
+
 /// The crate version (from Cargo.toml).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The git commit this binary was built from (stamped by `build.rs`).
