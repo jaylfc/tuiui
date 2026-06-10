@@ -71,6 +71,14 @@ impl AppHost for LocalAppHost {
         self.apps.get_mut(&id).map(|a| a.is_alive()).unwrap_or(false)
     }
 
+    fn take_bells(&mut self, id: AppId) -> u32 {
+        self.apps.get(&id).map(|a| a.take_bells()).unwrap_or(0)
+    }
+
+    fn take_clipboard(&mut self, id: AppId) -> Option<String> {
+        self.apps.get(&id).and_then(|a| a.take_clipboard())
+    }
+
     fn snapshot(&self, id: AppId) -> Option<CellBuffer> {
         self.apps.get(&id).map(|a| a.snapshot())
     }

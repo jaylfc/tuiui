@@ -42,6 +42,8 @@ pub struct DockItem {
     pub badge_color: crate::cell::Rgba,
     /// Whether any window in this pill is focused.
     pub focused: bool,
+    /// Whether any window in this pill has an unseen bell notification.
+    pub attention: bool,
 }
 
 // ── Public render functions ────────────────────────────────────────────────────
@@ -119,6 +121,15 @@ pub fn render_dock(width: i32, height: i32, items: &[DockItem]) -> Layer {
         let bg = if item.focused { t.active_bg } else { t.dock_bg };
         // Write the full pill background first
         buf.write_str(r.x, 0, &label_text, t.text, bg);
+        // Bell-notification dot at the pill's right edge.
+        if item.attention {
+            buf.set(r.x + r.w - 1, 0, crate::cell::Cell {
+                ch: '•',
+                fg: t.accent,
+                bg,
+                attrs: Default::default(),
+            });
+        }
         // Overwrite the badge cell (first char of label_text) with badge color
         buf.set(badge_x, 0, crate::cell::Cell {
             ch: item.badge_letter,

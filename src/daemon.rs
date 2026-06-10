@@ -235,6 +235,7 @@ fn serve_client(
         }
 
         core.reap_dead();
+        core.pump_app_events();
         core.refresh_app_graphics();
         core.sync_app_meta();
         core.pump_thumbnails();
@@ -256,6 +257,7 @@ fn serve_client(
             renaming: core.renaming(),
             confirm_close: core.confirm_close_open(),
             power_editing: core.power_form_editing(),
+            logs_focused: core.focused_is_logs(),
             detach: core.quit_requested(),
             reload: core.reload_requested(),
             app_area: core.app_mouse_area(),
@@ -281,6 +283,7 @@ fn serve_client(
             image_data,
             clear: clear_pending,
             switch_to: core.switch_spec(),
+            clipboard: core.take_clipboard(),
         })
             .unwrap_or_default();
         buf.push(b'\n');

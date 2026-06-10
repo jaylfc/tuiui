@@ -97,6 +97,24 @@ impl FileManager<StdFs> {
     }
 }
 
+/// The boxed backend the session uses, so one window type can browse either the
+/// local disk or a saved remote system (see [`crate::fileops::SshFs`]).
+pub type DynFs = Box<dyn FsOps + Send>;
+pub type DynFileManager = FileManager<DynFs>;
+
+impl FileManager<DynFs> {
+    /// A boxed-backend file manager over the local disk.
+    pub fn new_local(cwd: PathBuf, handlers: BTreeMap<String, String>) -> Self {
+        Self::with_fs(Box::new(StdFs), cwd, handlers)
+    }
+
+    /// A boxed-backend file manager browsing `target` over ssh, rooted at `cwd`
+    /// (normally the remote home from [`crate::fileops::SshFs::remote_home`]).
+    pub fn new_remote(target: String, port: Option<u16>, cwd: PathBuf, handlers: BTreeMap<String, String>) -> Self {
+        Self::with_fs(Box::new(crate::fileops::SshFs::new(target, port)), cwd, handlers)
+    }
+}
+
 impl<F: FsOps> FileManager<F> {
     pub fn with_fs(fs: F, cwd: PathBuf, handlers: BTreeMap<String, String>) -> Self {
         let mut me = Self {
@@ -122,6 +140,7 @@ impl<F: FsOps> FileManager<F> {
     pub fn cursor(&self) -> usize { self.tab().cursor }
     pub fn view(&self) -> ViewMode { self.tab().view }
     pub fn status(&self) -> &str { &self.status }
+    pub fn set_status(&mut self, s: String) { self.status = s; }
     pub fn overlay(&self) -> Option<&Overlay> { self.overlay.as_ref() }
     pub fn is_editing(&self) -> bool {
         matches!(self.overlay, Some(Overlay::NewFolder { .. }) | Some(Overlay::Rename { .. }))
@@ -441,7 +460,7 @@ impl<F: FsOps> FileManager<F> {
 
     // ---- clipboard ---------------------------------------------------------
 
-    fn selected_paths(&self) -> Vec<PathBuf> {
+    pub fn selected_paths(&self) -> Vec<PathBuf> {
         let t = self.tab();
         if t.selection.is_empty() {
             t.entries.get(t.cursor).map(|e| vec![e.path.clone()]).unwrap_or_default()

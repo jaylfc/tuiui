@@ -26,6 +26,7 @@ fn dock_layer_is_bottom_row() {
         badge_letter: 'B',
         badge_color: badge_color(),
         focused: true,
+        attention: false,
     }];
     let layer = render_dock(40, 24, &items);
     assert_eq!(layer.origin, Point::new(0, 23));
@@ -41,6 +42,7 @@ fn dock_hit_regions_map_clicks_to_pills() {
             badge_letter: 'B',
             badge_color: badge_color(),
             focused: true,
+        attention: false,
         },
         DockItem {
             kind: DockKind::Single(WindowId(2)),
@@ -49,6 +51,7 @@ fn dock_hit_regions_map_clicks_to_pills() {
             badge_letter: 'L',
             badge_color: badge_color(),
             focused: false,
+        attention: false,
         },
     ];
     let regions = dock_hit_regions(40, 24, &items);
@@ -71,6 +74,7 @@ fn dock_single_pill_renders_badge_letter() {
         badge_letter: 'B',
         badge_color: badge_color(),
         focused: false,
+        attention: false,
     }];
     let layer = render_dock(40, 24, &items);
     // The bottom row should contain 'B' (the badge letter)
@@ -87,6 +91,7 @@ fn dock_group_pill_renders_count_glyph() {
         badge_letter: 'C',
         badge_color: badge_color(),
         focused: false,
+        attention: false,
     }];
     let layer = render_dock(60, 24, &items);
     let row: String = (0..60).map(|x| layer.buf.get(x, 0).unwrap().ch).collect();

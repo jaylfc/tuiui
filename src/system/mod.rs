@@ -14,6 +14,22 @@ pub struct SystemState {
     pub volume: VolumeInfo,
     pub known_networks: Vec<String>,
     pub caps: BackendCaps,
+    /// Reachability of the saved remote systems (name → ssh port answered),
+    /// refreshed by the poller so the Systems menu can show ●/○ dots.
+    pub remotes_online: Vec<(String, bool)>,
+    /// Upcoming calendar events (from `khal` when installed), soonest first.
+    pub events: Vec<CalEvent>,
+}
+
+/// One upcoming calendar event for the menubar calendar popover.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CalEvent {
+    /// Civil date of the event (local), for marking calendar days.
+    pub year: i32,
+    pub month: u32,
+    pub day: u32,
+    /// Display line, e.g. "09:30 Standup".
+    pub text: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -110,6 +126,10 @@ pub enum ControlIntent {
     /// session's tray state, not the OS backend.
     CalendarPrev,
     CalendarNext,
+    /// Focus the window a notification came from / clear all notifications.
+    /// Handled by the session, not the OS backend.
+    NotifFocus(u64),
+    NotifClear,
 }
 
 /// The OS-specific slice of [`SystemState`] produced by a [`SystemMonitor`].

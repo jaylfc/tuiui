@@ -12,6 +12,7 @@ pub enum SegmentKind {
     Volume,
     Bluetooth,
     Wifi,
+    Bell,
     Clock,
 }
 
@@ -31,7 +32,7 @@ const GAP: i32 = 2;
 /// (whose label is the host name, so its width varies per machine). Lowest-
 /// priority segments (CPU, then Memory, then Battery) drop out first when
 /// space is tight; the clock is always kept.
-pub fn tray_segments(state: &SystemState, width: i32, reserve: i32) -> Vec<Segment> {
+pub fn tray_segments(state: &SystemState, width: i32, reserve: i32, bells: usize) -> Vec<Segment> {
     // Display order, left→right.
     let mut texts: Vec<(SegmentKind, String)> = Vec::new();
     texts.push((SegmentKind::Cpu, format!("⊙{}%", state.cpu_pct.round() as u32)));
@@ -52,6 +53,9 @@ pub fn tray_segments(state: &SystemState, width: i32, reserve: i32) -> Vec<Segme
     if let Some(w) = &state.wifi {
         let name = if w.ssid.is_empty() { "wifi".to_string() } else { w.ssid.clone() };
         texts.push((SegmentKind::Wifi, format!("{} {}", bars_glyph(w.signal), name)));
+    }
+    if bells > 0 {
+        texts.push((SegmentKind::Bell, format!("🔔{bells}")));
     }
     // Clock shows date + time ("Wed 04 Jun 09:41"); narrows to time-only first.
     let clock_full = if state.clock.date.is_empty() {
@@ -117,6 +121,18 @@ pub struct Rendered {
     pub bounds: Option<Rect>,
 }
 
+/// One pending notification: a background app rang the bell.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Notif {
+    /// Raw window id (`WindowId.0`) — clicking the row focuses this window.
+    pub win: u64,
+    pub text: String,
+    pub time: String,
+}
+
+/// Keep at most this many notifications (oldest dropped).
+const MAX_NOTIFS: usize = 50;
+
 /// The interactive menubar tray: tracks which segment's popover is open (and the
 /// x it is anchored under), renders the popover, and maps clicks to intents.
 #[derive(Default)]
@@ -124,6 +140,8 @@ pub struct Tray {
     open: Option<(SegmentKind, i32)>,
     /// Months the calendar popover is offset from the current month (◂ ▸ nav).
     cal_offset: i32,
+    /// Pending bell notifications, newest first.
+    notifs: Vec<Notif>,
 }
 
 impl Tray {
@@ -150,6 +168,29 @@ impl Tray {
     /// Step the calendar popover by `delta` months (◂ ▸ clicks).
     pub fn calendar_step(&mut self, delta: i32) {
         self.cal_offset += delta;
+    }
+
+    /// Record a bell notification (newest first, capped).
+    pub fn notify(&mut self, win: u64, text: String, time: String) {
+        self.notifs.insert(0, Notif { win, text, time });
+        self.notifs.truncate(MAX_NOTIFS);
+    }
+
+    pub fn notif_count(&self) -> usize {
+        self.notifs.len()
+    }
+
+    pub fn has_notif_for(&self, win: u64) -> bool {
+        self.notifs.iter().any(|n| n.win == win)
+    }
+
+    pub fn clear_notifs(&mut self) {
+        self.notifs.clear();
+    }
+
+    /// Drop the notifications for one window (clicked / focused).
+    pub fn clear_notifs_for(&mut self, win: u64) {
+        self.notifs.retain(|n| n.win != win);
     }
 
     /// Handle a click on the menubar row: toggle the popover of the clicked
@@ -185,6 +226,7 @@ impl Tray {
             SegmentKind::Wifi => self.render_wifi(w, h, anchor_x, state),
             SegmentKind::Bluetooth => self.render_bluetooth(w, h, anchor_x, state),
             SegmentKind::Clock => self.render_calendar(w, h, anchor_x, state),
+            SegmentKind::Bell => self.render_bell(w, anchor_x),
             SegmentKind::Cpu => self.render_lines(w, h, anchor_x, "CPU", &[
                 format!("{:.0}% load", state.cpu_pct),
             ]),
@@ -289,6 +331,42 @@ impl Tray {
         Rendered { layers: vec![layer(origin, buf)], hits, bounds: Some(Rect::new(origin.x, origin.y, box_w, box_h)) }
     }
 
+    /// The bell popover: pending notifications (click → focus that window) plus
+    /// a clear-all row.
+    fn render_bell(&self, w: i32, anchor_x: i32) -> Rendered {
+        let t = crate::theme::current();
+        let box_w = 36;
+        let n = self.notifs.len().min(8);
+        let box_h = n.max(1) as i32 + 3; // title + rows + clear + borders
+        let origin = self.box_origin(w, anchor_x, box_w);
+        let mut buf = CellBuffer::new(box_w, box_h);
+        fill_box(&mut buf, box_w, box_h);
+        buf.write_str(2, 1, "Notifications", t.accent, t.window_bg);
+        let mut hits = Vec::new();
+        if self.notifs.is_empty() {
+            buf.write_str(2, 2, "(none)", t.dim, t.window_bg);
+        }
+        for (i, nf) in self.notifs.iter().take(8).enumerate() {
+            let y = 2 + i as i32;
+            let line: String = format!("{} {}", nf.time, nf.text)
+                .chars()
+                .take((box_w - 4) as usize)
+                .collect();
+            buf.write_str(2, y, &line, t.text, t.window_bg);
+            hits.push(PopoverHit {
+                rect: Rect::new(origin.x + 1, origin.y + y, box_w - 2, 1),
+                intent: ControlIntent::NotifFocus(nf.win),
+            });
+        }
+        let clear_y = box_h - 2;
+        buf.write_str(2, clear_y, "clear all", t.accent, t.window_bg);
+        hits.push(PopoverHit {
+            rect: Rect::new(origin.x + 1, origin.y + clear_y, 11, 1),
+            intent: ControlIntent::NotifClear,
+        });
+        Rendered { layers: vec![layer(origin, buf)], hits, bounds: Some(Rect::new(origin.x, origin.y, box_w, box_h)) }
+    }
+
     /// The clock popover: a month calendar with ◂ ▸ navigation, today highlighted,
     /// and a time/uptime footer. Falls back to plain text until the first poll
     /// has produced a civil date.
@@ -303,8 +381,10 @@ impl Tray {
         let t = crate::theme::current();
         let (year, month) = crate::calendar::add_months(c.year, c.month, self.cal_offset);
         let weeks = crate::calendar::month_grid(year, month);
+        // Upcoming events (khal): mark their days in the grid and list a few.
+        let listed: Vec<&crate::system::CalEvent> = st.events.iter().take(3).collect();
         let box_w = 24;
-        let box_h = weeks.len() as i32 + 5;
+        let box_h = weeks.len() as i32 + 5 + listed.len() as i32;
         let origin = self.box_origin(w, anchor_x, box_w);
         let mut buf = CellBuffer::new(box_w, box_h);
         fill_box(&mut buf, box_w, box_h);
@@ -321,10 +401,39 @@ impl Tray {
                 if let Some(d) = day {
                     let x = 2 + di as i32 * 3;
                     let today = self.cal_offset == 0 && *d == c.day;
-                    let (fg, bg) = if today { (t.close_fg, t.accent) } else { (t.text, t.window_bg) };
+                    let has_event = st
+                        .events
+                        .iter()
+                        .any(|e| e.year == year && e.month == month && e.day == *d);
+                    let (fg, bg) = if today {
+                        (t.close_fg, t.accent)
+                    } else if has_event {
+                        (t.accent, t.window_bg)
+                    } else {
+                        (t.text, t.window_bg)
+                    };
                     buf.write_str(x, y, &format!("{d:>2}"), fg, bg);
+                    if has_event && !today {
+                        // Underline event days so they read as "something here".
+                        for ex in x..x + 2 {
+                            if let Some(cell) = buf.get(ex, y) {
+                                let mut cell = *cell;
+                                cell.attrs.underline = true;
+                                buf.set(ex, y, cell);
+                            }
+                        }
+                    }
                 }
             }
+        }
+        // Next events (soonest first) under the grid.
+        for (i, ev) in listed.iter().enumerate() {
+            let y = 3 + weeks.len() as i32 + i as i32;
+            let line: String = format!("{:>2}/{} {}", ev.day, ev.month, ev.text)
+                .chars()
+                .take((box_w - 4) as usize)
+                .collect();
+            buf.write_str(2, y, &line, t.text, t.window_bg);
         }
         let footer = format!("{}  up {}h", c.time, c.uptime_secs / 3600);
         buf.write_str(2, box_h - 2, &footer, t.dim, t.window_bg);

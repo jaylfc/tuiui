@@ -21,7 +21,7 @@ fn sample() -> SystemState {
 
 #[test]
 fn segments_are_right_aligned_and_on_row_zero() {
-    let segs = tray_segments(&sample(), 100, 9);
+    let segs = tray_segments(&sample(), 100, 9, 0);
     let clock = segs.iter().find(|s| s.kind == SegmentKind::Clock).unwrap();
     let max_x = segs.iter().map(|s| s.rect.x + s.rect.w).max().unwrap();
     assert_eq!(clock.rect.x + clock.rect.w, max_x);
@@ -30,8 +30,8 @@ fn segments_are_right_aligned_and_on_row_zero() {
 
 #[test]
 fn narrow_width_drops_cpu_but_keeps_clock() {
-    let wide = tray_segments(&sample(), 100, 9);
-    let narrow = tray_segments(&sample(), 24, 9);
+    let wide = tray_segments(&sample(), 100, 9, 0);
+    let narrow = tray_segments(&sample(), 24, 9, 0);
     assert!(narrow.iter().any(|s| s.kind == SegmentKind::Clock));
     assert!(!narrow.iter().any(|s| s.kind == SegmentKind::Cpu));
     assert!(wide.iter().any(|s| s.kind == SegmentKind::Cpu));
@@ -39,7 +39,7 @@ fn narrow_width_drops_cpu_but_keeps_clock() {
 
 #[test]
 fn segments_do_not_overlap() {
-    let segs = tray_segments(&sample(), 100, 9);
+    let segs = tray_segments(&sample(), 100, 9, 0);
     for pair in segs.windows(2) {
         assert!(pair[0].rect.x + pair[0].rect.w <= pair[1].rect.x);
     }
@@ -52,7 +52,7 @@ use tuiui::tray::Tray;
 #[test]
 fn clicking_a_segment_opens_then_closes_its_popover() {
     let mut tray = Tray::new();
-    let segs = tray_segments(&sample(), 100, 9);
+    let segs = tray_segments(&sample(), 100, 9, 0);
     let vol = segs.iter().find(|s| s.kind == SegmentKind::Volume).unwrap();
     assert!(tray.on_menubar_click(Point::new(vol.rect.x, 0), &segs));
     assert_eq!(tray.open(), Some(SegmentKind::Volume));
@@ -82,11 +82,11 @@ fn closed_tray_renders_nothing() {
 
 #[test]
 fn clock_segment_shows_date_and_time_when_wide() {
-    let segs = tray_segments(&sample(), 100, 9);
+    let segs = tray_segments(&sample(), 100, 9, 0);
     let clock = segs.iter().find(|s| s.kind == SegmentKind::Clock).unwrap();
     assert_eq!(clock.text, "Wed 04 Jun 09:41");
     // When space is tight the clock narrows to time-only instead of vanishing.
-    let narrow = tray_segments(&sample(), 24, 9);
+    let narrow = tray_segments(&sample(), 24, 9, 0);
     let clock = narrow.iter().find(|s| s.kind == SegmentKind::Clock).unwrap();
     assert_eq!(clock.text, "09:41");
 }
@@ -111,4 +111,52 @@ fn calendar_grid_marks_today() {
     // June 2026: the 4th is a Thursday — the calendar must place it in column 3.
     let weeks = tuiui::calendar::month_grid(2026, 6);
     assert_eq!(weeks[0][3], Some(4));
+}
+
+#[test]
+fn bell_segment_appears_with_notifications() {
+    let none = tray_segments(&sample(), 100, 9, 0);
+    assert!(!none.iter().any(|s| s.kind == SegmentKind::Bell));
+    let some = tray_segments(&sample(), 100, 9, 3);
+    let bell = some.iter().find(|s| s.kind == SegmentKind::Bell).unwrap();
+    assert!(bell.text.contains('3'));
+}
+
+#[test]
+fn bell_popover_rows_focus_and_clear() {
+    let mut tray = Tray::new();
+    tray.notify(7, "claude".into(), "09:41".into());
+    tray.notify(9, "btop".into(), "09:42".into());
+    assert_eq!(tray.notif_count(), 2);
+    tray.force_open(SegmentKind::Bell);
+    let r = tray.render(100, 30, &sample());
+    let focus = r.hits.iter().find(|h| h.intent == ControlIntent::NotifFocus(9));
+    assert!(focus.is_some(), "newest notification row focuses its window");
+    let clear = r.hits.iter().find(|h| h.intent == ControlIntent::NotifClear);
+    assert!(clear.is_some(), "clear-all row present");
+    tray.clear_notifs_for(9);
+    assert!(!tray.has_notif_for(9));
+    assert!(tray.has_notif_for(7));
+    tray.clear_notifs();
+    assert_eq!(tray.notif_count(), 0);
+}
+
+#[test]
+fn calendar_lists_upcoming_events() {
+    let mut st = sample();
+    st.events = vec![
+        tuiui::system::CalEvent { year: 2026, month: 6, day: 10, text: "09:30 Standup".into() },
+    ];
+    let mut tray = Tray::new();
+    tray.force_open(SegmentKind::Clock);
+    let r = tray.render(100, 30, &st);
+    let buf = &r.layers[0].buf;
+    let mut found = false;
+    for y in 0..buf.height() {
+        let row: String = (0..buf.width()).filter_map(|x| buf.get(x, y).map(|c| c.ch)).collect();
+        if row.contains("Standup") {
+            found = true;
+        }
+    }
+    assert!(found, "event line rendered in the calendar popover");
 }

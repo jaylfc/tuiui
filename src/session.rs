@@ -41,6 +41,10 @@ struct WinMeta {
     app_key: String,
 }
 
+/// A file-manager window's backend identity: `None` browses the local disk,
+/// `Some((ssh_target, port))` a saved remote system.
+type FmBackend = Option<(String, Option<u16>)>;
+
 /// The content hosted by a window: a PTY-backed app or a native Tuiui widget.
 ///
 /// This is the [`WindowContent`](../../docs) seam — the window manager, chrome,
@@ -54,8 +58,10 @@ enum WinContent {
     Settings(Settings),
     /// A native image viewer (placeholder cells + a Kitty graphics placement).
     ImageView(crate::imageview::ImageView),
-    /// The native file manager.
-    FileManager(crate::filemanager::FileManager),
+    /// The native file manager (local disk or a remote system over ssh).
+    FileManager(crate::filemanager::DynFileManager),
+    /// The native log viewer (tail of ~/tuiui-debug.log + clipboard copy).
+    Logs(crate::logsview::LogsView),
 }
 
 impl WinContent {
@@ -66,6 +72,7 @@ impl WinContent {
             WinContent::Settings(s) => s.render(w, h),
             WinContent::ImageView(v) => v.render(w, h),
             WinContent::FileManager(f) => f.render(w, h),
+            WinContent::Logs(l) => l.render(w, h),
         }
     }
 }
@@ -280,6 +287,17 @@ pub enum ClientMsg {
     /// Apply (and persist) a theme by name. Sent by the client on attach when
     /// `TUIUI_THEME` is set — how a per-system theme rides over ssh.
     SetTheme(String),
+    /// Logs viewer: scroll one line / one page.
+    LogsUp,
+    LogsDown,
+    LogsPageUp,
+    LogsPageDown,
+    /// Logs viewer: copy the log tail to the host clipboard (OSC 52).
+    LogsCopy,
+    /// Logs viewer: re-read the log file.
+    LogsRefresh,
+    /// Logs viewer: close the window.
+    LogsClose,
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -320,6 +338,16 @@ pub struct SessionCore {
     settings_win: Option<WindowId>,
     /// The file-manager window's id, if open.
     filemanager_win: Option<WindowId>,
+    /// Remote file-manager windows: window → (system name, ssh target, port).
+    remote_fms: HashMap<WindowId, (String, String, Option<u16>)>,
+    /// Cross-window file clipboard for system↔system transfers: the source
+    /// window's ssh backend (`None` = local disk) and the copied paths.
+    transfer: Option<(FmBackend, Vec<std::path::PathBuf>)>,
+    /// The logs-viewer window's id, if open.
+    logs_win: Option<WindowId>,
+    /// Text to put on the HOST terminal's clipboard (OSC 52), shipped to the
+    /// client in the next frame: log copies and app OSC-52 stores.
+    pending_clipboard: Option<String>,
     /// Dock-ordered list of (id, display-name) pairs.
     titles: Vec<(WindowId, String)>,
     /// Immutable grouping key per window (set at spawn/open; never mutated).
@@ -407,7 +435,8 @@ impl SessionCore {
     /// default `LocalAppHost` via [`new`](Self::new).
     pub fn with_apphost(w: i32, h: i32, cfg: Config, apphost: Box<dyn AppHost>) -> Self {
         let work = Rect::new(0, 1, w, h - 2);
-        let launcher = Launcher::new(Self::build_launcher_apps(&cfg));
+        let systems = crate::systems::load();
+        let launcher = Launcher::new(Self::build_launcher_apps(&cfg, &systems));
         let desktop_dir = dirs::home_dir().map(|h| h.join("Desktop")).unwrap_or_default();
         let mut core = Self {
             wm: WindowManager::new(work),
@@ -416,6 +445,10 @@ impl SessionCore {
             store_win: None,
             settings_win: None,
             filemanager_win: None,
+            remote_fms: HashMap::new(),
+            transfer: None,
+            logs_win: None,
+            pending_clipboard: None,
             titles: Vec::new(),
             app_keys: HashMap::new(),
             dock_popup: None,
@@ -448,7 +481,7 @@ impl SessionCore {
             thumb_ids: HashMap::new(),
             role_icon_ids: HashMap::new(),
             last_meta: HashMap::new(),
-            systems: crate::systems::load(),
+            systems,
             switch_to: None,
         };
         core.generate_role_icons();
@@ -505,6 +538,36 @@ impl SessionCore {
         }
         self.refresh_desktop_thumbnails();
         self.refresh_fm_thumbnails();
+    }
+
+    /// Drain app events captured by the PTY emulators: bell rings become dock/
+    /// tray notifications (for unfocused or minimized windows), and OSC-52
+    /// clipboard stores are forwarded to the host terminal. Called once per
+    /// daemon tick; cheap (drains in-memory counters).
+    pub fn pump_app_events(&mut self) {
+        let focused = self.wm.focused();
+        let minimized: std::collections::HashSet<WindowId> =
+            self.wm.z_ordered().iter().filter(|w| w.minimized).map(|w| w.id).collect();
+        let now = self.tray_state.read().map(|st| st.clock.time.clone()).unwrap_or_default();
+        let wins: Vec<(WindowId, AppId, String)> = self
+            .titles
+            .iter()
+            .filter_map(|(id, title)| match self.contents.get(id) {
+                Some(WinContent::App(aid)) => Some((*id, *aid, title.clone())),
+                _ => None,
+            })
+            .collect();
+        for (id, aid, title) in wins {
+            let bells = self.apphost.take_bells(aid);
+            if bells > 0 && (focused != Some(id) || minimized.contains(&id)) {
+                crate::dbg_log(&format!("notify: '{title}' rang the bell x{bells}"));
+                self.tray.notify(id.0, title.clone(), now.clone());
+            }
+            if let Some(text) = self.apphost.take_clipboard(aid) {
+                crate::dbg_log(&format!("clipboard: forwarding {} bytes from '{title}' (OSC 52)", text.len()));
+                self.pending_clipboard = Some(text);
+            }
+        }
     }
 
     /// Point the desktop at a specific directory and reload (integration tests).
@@ -800,17 +863,33 @@ impl SessionCore {
     /// The current tray segments, laid out from the live snapshot.
     fn tray_segments_now(&self) -> Vec<crate::tray::Segment> {
         let st = self.tray_state.read().unwrap();
-        crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32)
+        crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32, self.tray.notif_count())
     }
 
     /// Apply a tray control intent: optimistically update the cached snapshot so
     /// the UI responds immediately, then run the (timeout-guarded) backend call.
     fn apply_intent(&mut self, intent: crate::system::ControlIntent) {
         use crate::system::ControlIntent as I;
-        // Calendar navigation is tray-local UI state, not an OS control.
+        // Calendar navigation and notifications are session/tray UI state, not
+        // OS controls.
         match intent {
             I::CalendarPrev => return self.tray.calendar_step(-1),
             I::CalendarNext => return self.tray.calendar_step(1),
+            I::NotifFocus(raw) => {
+                let id = WindowId(raw);
+                self.tray.clear_notifs_for(raw);
+                self.tray.close();
+                if self.contents.contains_key(&id) {
+                    self.wm.unminimize(id);
+                    if self.simple { self.sync_app_size(id); }
+                }
+                return;
+            }
+            I::NotifClear => {
+                self.tray.clear_notifs();
+                self.tray.close();
+                return;
+            }
             _ => {}
         }
         if let Ok(mut s) = self.tray_state.write() {
@@ -921,13 +1000,25 @@ impl SessionCore {
     /// Build the launcher's app list: the configured apps (with categories filled
     /// in from the catalog where missing), plus any known TUIs detected on `$PATH`
     /// that aren't already listed.
-    fn build_launcher_apps(cfg: &Config) -> Vec<AppEntry> {
+    fn build_launcher_apps(cfg: &Config, systems: &[crate::systems::RemoteSystem]) -> Vec<AppEntry> {
         // Pinned tuiui actions first (open the store / settings windows).
         let mut apps = vec![
             AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
             AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
             AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
+            AppEntry { name: "Logs".into(), command: "@logs".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
         ];
+        // One remote file browser per saved system (Systems category).
+        for sys in systems {
+            apps.push(AppEntry {
+                name: format!("Files on {}", sys.name),
+                command: "@rfiles".into(),
+                args: vec![sys.name.clone()],
+                category: Some("Systems".into()),
+                requires_cwd: None,
+                cwd: None,
+            });
+        }
         apps.extend(cfg.launcher_apps());
         for a in &mut apps {
             if a.category.is_none() {
@@ -955,7 +1046,7 @@ impl SessionCore {
     fn refresh_launcher_if_closed(&mut self) {
         if !self.launcher.is_open() {
             crate::catalog::refresh_installed();
-            self.launcher.set_items(Self::build_launcher_apps(&self.cfg));
+            self.launcher.set_items(Self::build_launcher_apps(&self.cfg, &self.systems));
         }
     }
 
@@ -1027,13 +1118,14 @@ impl SessionCore {
             let wins = groups.remove(&key).unwrap_or_default();
             let badge = crate::badge::badge_for(&key, &self.cfg.dock_badges);
             let is_focused = wins.iter().any(|w| Some(*w) == focused);
+            let attention = wins.iter().any(|w| self.tray.has_notif_for(w.0));
             if wins.len() == 1 {
                 let id = wins[0];
                 let label = self.titles.iter().find(|(i, _)| *i == id).map(|(_, t)| t.clone()).unwrap_or_else(|| key.clone());
-                DockItem { kind: DockKind::Single(id), label, count: 1, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused }
+                DockItem { kind: DockKind::Single(id), label, count: 1, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused, attention }
             } else {
                 let count = wins.len();
-                DockItem { kind: DockKind::Group(key.clone(), wins), label: key, count, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused }
+                DockItem { kind: DockKind::Group(key.clone(), wins), label: key, count, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused, attention }
             }
         }).collect()
     }
@@ -1341,9 +1433,20 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             ClientMsg::FileManagerNewFolder => { if let Some(f) = self.focused_filemanager_mut() { f.begin_new_folder(); } }
             ClientMsg::FileManagerRename => { if let Some(f) = self.focused_filemanager_mut() { f.begin_rename(); } }
             ClientMsg::FileManagerDelete => { if let Some(f) = self.focused_filemanager_mut() { f.begin_delete(); } }
-            ClientMsg::FileManagerCopy => { if let Some(f) = self.focused_filemanager_mut() { f.copy_selection(); } }
+            ClientMsg::FileManagerCopy => {
+                // Record the copy in the session-level transfer clipboard too, so
+                // pasting into a window on a DIFFERENT system scp's the files.
+                let backend = self.focused_fm_backend();
+                if let Some(f) = self.focused_filemanager_mut() {
+                    f.copy_selection();
+                    let paths = f.selected_paths();
+                    if !paths.is_empty() {
+                        self.transfer = Some((backend, paths));
+                    }
+                }
+            }
             ClientMsg::FileManagerCut => { if let Some(f) = self.focused_filemanager_mut() { f.cut_selection(); } }
-            ClientMsg::FileManagerPaste => { if let Some(f) = self.focused_filemanager_mut() { f.paste(); } }
+            ClientMsg::FileManagerPaste => self.fm_paste(),
             ClientMsg::FileManagerChar(c) => { if let Some(f) = self.focused_filemanager_mut() { f.overlay_char(c); } }
             ClientMsg::FileManagerBackspace => { if let Some(f) = self.focused_filemanager_mut() { f.overlay_backspace(); } }
             ClientMsg::FileManagerCommit => {
@@ -1489,6 +1592,34 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 }
             }
             ClientMsg::PowerFormCancel => self.power_menu.form_cancel(),
+            ClientMsg::LogsUp => { if let Some(l) = self.focused_logs_mut() { l.scroll_by(-1); } }
+            ClientMsg::LogsDown => { if let Some(l) = self.focused_logs_mut() { l.scroll_by(1); } }
+            ClientMsg::LogsPageUp => {
+                if let Some(l) = self.focused_logs_mut() {
+                    let n = l.page_size() as i32;
+                    l.scroll_by(-n);
+                }
+            }
+            ClientMsg::LogsPageDown => {
+                if let Some(l) = self.focused_logs_mut() {
+                    let n = l.page_size() as i32;
+                    l.scroll_by(n);
+                }
+            }
+            ClientMsg::LogsCopy => {
+                if let Some(l) = self.focused_logs_mut() {
+                    let payload = l.copy_payload();
+                    self.pending_clipboard = Some(payload);
+                }
+            }
+            ClientMsg::LogsRefresh => { if let Some(l) = self.focused_logs_mut() { l.reload(); } }
+            ClientMsg::LogsClose => {
+                if let Some(id) = self.wm.focused() {
+                    if matches!(self.contents.get(&id), Some(WinContent::Logs(_))) {
+                        self.close(id);
+                    }
+                }
+            }
             ClientMsg::SetTheme(name) => {
                 crate::dbg_log(&format!("theme: set '{name}' (client attach / TUIUI_THEME)"));
                 crate::theme::set(&name);
@@ -1605,7 +1736,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             crate::theme::set(&self.cfg.theme);
             let _ = self.cfg.save();
             if launcher_changed {
-                self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg));
+                self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg, &self.systems));
             }
         }
     }
@@ -1669,6 +1800,49 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         }
     }
 
+    /// Open (or re-focus) the Logs viewer window.
+    fn open_logs(&mut self) {
+        if let Some(id) = self.logs_win {
+            if self.contents.contains_key(&id) {
+                self.wm.unminimize(id);
+                if let Some(WinContent::Logs(l)) = self.contents.get_mut(&id) {
+                    l.reload();
+                }
+                return;
+            }
+        }
+        let w = 100.min((self.w - 4).max(40));
+        let h = 28.min((self.h - 4).max(10));
+        let rect = Rect::new((self.w - w) / 2, 1, w, h);
+        let id = self.wm.add_window("Logs".into(), rect);
+        self.app_keys.insert(id, "Logs".into());
+        self.contents.insert(id, WinContent::Logs(crate::logsview::LogsView::new()));
+        self.titles.push((id, "Logs".into()));
+        self.logs_win = Some(id);
+    }
+
+    /// `true` when the focused window hosts the logs viewer (keyboard routing).
+    pub fn focused_is_logs(&self) -> bool {
+        matches!(
+            self.wm.focused().and_then(|id| self.contents.get(&id)),
+            Some(WinContent::Logs(_))
+        )
+    }
+
+    fn focused_logs_mut(&mut self) -> Option<&mut crate::logsview::LogsView> {
+        let id = self.wm.focused()?;
+        match self.contents.get_mut(&id)? {
+            WinContent::Logs(l) => Some(l),
+            _ => None,
+        }
+    }
+
+    /// Text the client should put on the HOST terminal clipboard via OSC 52
+    /// (one-shot; cleared on take).
+    pub fn take_clipboard(&mut self) -> Option<String> {
+        self.pending_clipboard.take()
+    }
+
     fn open_filemanager(&mut self) {
         let root = self.picker_root();
         self.open_filemanager_root(root);
@@ -1690,7 +1864,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         self.app_keys.insert(id, "Files".into());
         self.contents.insert(
             id,
-            WinContent::FileManager(crate::filemanager::FileManager::new(root, self.cfg.default_apps.clone())),
+            WinContent::FileManager(crate::filemanager::DynFileManager::new_local(root, self.cfg.default_apps.clone())),
         );
         self.titles.push((id, "Files".into()));
         self.filemanager_win = Some(id);
@@ -1707,6 +1881,55 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             self.wm.close(id);
         }
         self.open_filemanager_root(dir);
+    }
+
+    /// Open (or re-focus) a remote file browser for the saved system `name`.
+    /// Resolving the remote home blocks briefly (one capped ssh call); failures
+    /// open nothing and log the reason.
+    fn open_remote_files(&mut self, name: &str) {
+        // Re-focus an existing browser for this system.
+        if let Some((&id, _)) = self.remote_fms.iter().find(|(_, (n, _, _))| n == name) {
+            if self.contents.contains_key(&id) {
+                self.wm.unminimize(id);
+                return;
+            }
+        }
+        let Some(sys) = self.systems.iter().find(|s| s.name == name).cloned() else {
+            crate::dbg_log(&format!("rfiles: unknown system '{name}'"));
+            return;
+        };
+        crate::dbg_log(&format!("rfiles: opening {} ({})", sys.name, sys.host));
+        let fs = crate::fileops::SshFs::new(sys.host.clone(), sys.port);
+        let Some(home) = fs.remote_home() else {
+            crate::dbg_log(&format!(
+                "rfiles: {} unreachable (no key auth / offline) — set it up via Systems → Add Remote",
+                sys.host
+            ));
+            return;
+        };
+        let w = 90.min((self.w - 4).max(40));
+        let h = 30.min((self.h - 4).max(12));
+        let rect = Rect::new((self.w - w) / 2, 2, w, h);
+        let title = format!("Files on {}", sys.name);
+        let id = self.wm.add_window(title.clone(), rect);
+        self.app_keys.insert(id, title.clone());
+        self.contents.insert(
+            id,
+            WinContent::FileManager(crate::filemanager::DynFileManager::new_remote(
+                sys.host.clone(),
+                sys.port,
+                home,
+                self.cfg.default_apps.clone(),
+            )),
+        );
+        self.titles.push((id, title));
+        self.remote_fms.insert(id, (sys.name.clone(), sys.host, sys.port));
+    }
+
+    /// The ssh backend of the focused file-manager window (`None` = local).
+    fn focused_fm_backend(&self) -> FmBackend {
+        let id = self.wm.focused()?;
+        self.remote_fms.get(&id).map(|(_, target, port)| (target.clone(), *port))
     }
 
     /// `true` when the focused window hosts the file manager.
@@ -1726,12 +1949,73 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         )
     }
 
-    fn focused_filemanager_mut(&mut self) -> Option<&mut crate::filemanager::FileManager> {
+    fn focused_filemanager_mut(&mut self) -> Option<&mut crate::filemanager::DynFileManager> {
         let id = self.wm.focused()?;
         match self.contents.get_mut(&id)? {
             WinContent::FileManager(f) => Some(f),
             _ => None,
         }
+    }
+
+    /// Paste into the focused file manager. Same backend → the manager's own
+    /// clipboard; different backend (local↔remote) → background `scp -r`.
+    fn fm_paste(&mut self) {
+        let dest_backend = self.focused_fm_backend();
+        let cross = match (&self.transfer, &dest_backend) {
+            (Some((src, _)), dst) => src != dst,
+            (None, _) => false,
+        };
+        if !cross {
+            if let Some(f) = self.focused_filemanager_mut() {
+                f.paste();
+            }
+            return;
+        }
+        let Some((source, paths)) = self.transfer.clone() else { return };
+        let Some(f) = self.focused_filemanager_mut() else { return };
+        let cwd = f.cwd().to_path_buf();
+        // Build one scp invocation per path; remote↔remote uses scp -3 (via us).
+        let mut cmds: Vec<Vec<String>> = Vec::new();
+        for p in &paths {
+            let mut args: Vec<String> = vec!["-r".into()];
+            match (&source, &dest_backend) {
+                (Some((st, sp)), None) => {
+                    if let Some(port) = sp { args.extend(["-P".into(), port.to_string()]); }
+                    args.push(format!("{}:{}", st, p.display()));
+                    args.push(format!("{}/", cwd.display()));
+                }
+                (None, Some((dt, dp))) => {
+                    if let Some(port) = dp { args.extend(["-P".into(), port.to_string()]); }
+                    args.push(p.display().to_string());
+                    args.push(format!("{}:{}/", dt, cwd.display()));
+                }
+                (Some((st, _)), Some((dt, _))) => {
+                    args.insert(0, "-3".into());
+                    args.push(format!("{}:{}", st, p.display()));
+                    args.push(format!("{}:{}/", dt, cwd.display()));
+                }
+                (None, None) => continue, // handled by the non-cross path
+            }
+            cmds.push(args);
+        }
+        f.set_status(format!("transferring {} item(s) in the background (scp)…", cmds.len()));
+        crate::dbg_log(&format!("scp transfer: {} item(s) → {}", cmds.len(), cwd.display()));
+        std::thread::spawn(move || {
+            for args in cmds {
+                crate::dbg_log(&format!("scp {}", args.join(" ")));
+                match std::process::Command::new("scp")
+                    .args(&args)
+                    .stdin(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status()
+                {
+                    Ok(st) if st.success() => crate::dbg_log("scp: ok"),
+                    Ok(st) => crate::dbg_log(&format!("scp: FAILED ({st}) — args: {}", args.join(" "))),
+                    Err(e) => crate::dbg_log(&format!("scp: could not run: {e}")),
+                }
+            }
+        });
     }
 
     /// The cwd of the focused file manager (for launching an app in-place).
@@ -1863,6 +2147,12 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             "@store" => self.open_store(),
             "@settings" => self.open_settings(),
             "@files" => self.open_filemanager(),
+            "@logs" => self.open_logs(),
+            "@rfiles" => {
+                if let Some(name) = e.args.first().cloned() {
+                    self.open_remote_files(&name);
+                }
+            }
             "@image" => { if let Some(p) = e.args.first().cloned() { self.open_image(p); } }
             _ => self.launch_maybe_cwd(e.name, e.command, e.args, e.requires_cwd.unwrap_or(false), e.cwd),
         }
@@ -2417,6 +2707,10 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         if self.filemanager_win == Some(id) {
             self.filemanager_win = None;
         }
+        if self.logs_win == Some(id) {
+            self.logs_win = None;
+        }
+        self.remote_fms.remove(&id);
         self.titles.retain(|(i, _)| *i != id);
         self.app_keys.remove(&id);
         // Close popup if its group no longer exists after this window closes.
@@ -2438,7 +2732,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
     /// (install window dismissed) and `reap_dead` (install process exited).
     fn refresh_installed_apps(&mut self) {
         crate::catalog::refresh_installed();
-        self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg));
+        self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg, &self.systems));
     }
 
     // ── Frame builder ─────────────────────────────────────────────────────────
@@ -2526,7 +2820,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
 
         let segs = {
             let st = self.tray_state.read().unwrap();
-            crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32)
+            crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32, self.tray.notif_count())
         };
         layers.push(render_menubar(self.w, &app_name, &segs, false, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
@@ -2576,7 +2870,10 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         }
 
         // The power menu (dropdown + confirm dialog) renders above all chrome.
-        layers.extend(self.power_menu.render(self.w, self.h, &self.systems));
+        {
+            let online = self.tray_state.read().map(|st| st.remotes_online.clone()).unwrap_or_default();
+            layers.extend(self.power_menu.render(self.w, self.h, &self.systems, &online));
+        }
 
         // The confirm-close dialog is the topmost modal of all.
         layers.extend(self.confirm_close.render(self.w, self.h));
@@ -2723,7 +3020,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             .unwrap_or_default();
         let segs = {
             let st = self.tray_state.read().unwrap();
-            crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32)
+            crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32, self.tray.notif_count())
         };
         layers.push(render_menubar(self.w, &app_name, &segs, true, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
@@ -2738,7 +3035,10 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         if self.help_open {
             layers.extend(crate::help::render_help(self.w, self.h));
         }
-        layers.extend(self.power_menu.render(self.w, self.h, &self.systems));
+        {
+            let online = self.tray_state.read().map(|st| st.remotes_online.clone()).unwrap_or_default();
+            layers.extend(self.power_menu.render(self.w, self.h, &self.systems, &online));
+        }
         layers.extend(self.confirm_close.render(self.w, self.h));
 
         // Images for the focused window only, mapped into the work area.

@@ -21,6 +21,10 @@ struct Cached {
     images: HashMap<u32, Vec<u8>>,
     alive: bool,
     mouse: crate::mouse::AppMouse,
+    /// Bell rings accumulated since the frontend last drained them.
+    bells: u32,
+    /// The app's latest OSC-52 clipboard store, not yet forwarded.
+    clip: Option<String>,
 }
 
 #[derive(Default)]
@@ -90,13 +94,17 @@ fn apply_evt(evt: HostEvt, cache: &Arc<Mutex<Cache>>, pending: &Pending) {
                 let _ = tx.send(Err(error));
             }
         }
-        HostEvt::Frame { app, grid, placements, images, alive, mouse } => {
+        HostEvt::Frame { app, grid, placements, images, alive, mouse, bells, clip } => {
             let mut c = cache.lock().unwrap();
             let entry = c.apps.entry(AppId(app)).or_default();
             entry.grid = Some(grid);
             entry.placements = placements;
             entry.alive = alive;
             entry.mouse = mouse;
+            entry.bells = entry.bells.saturating_add(bells);
+            if clip.is_some() {
+                entry.clip = clip;
+            }
             for b in images {
                 use base64::Engine;
                 if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&b.png_b64) {
@@ -158,6 +166,14 @@ impl AppHost for RemoteAppHost {
 
     fn is_alive(&mut self, id: AppId) -> bool {
         self.cache.lock().unwrap().apps.get(&id).map(|c| c.alive).unwrap_or(false)
+    }
+
+    fn take_bells(&mut self, id: AppId) -> u32 {
+        self.cache.lock().unwrap().apps.get_mut(&id).map(|c| std::mem::take(&mut c.bells)).unwrap_or(0)
+    }
+
+    fn take_clipboard(&mut self, id: AppId) -> Option<String> {
+        self.cache.lock().unwrap().apps.get_mut(&id).and_then(|c| c.clip.take())
     }
 
     fn snapshot(&self, id: AppId) -> Option<CellBuffer> {

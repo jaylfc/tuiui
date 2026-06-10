@@ -27,6 +27,7 @@ fn frame_msg_roundtrips_json() {
         images: Vec::new(),
         image_data: Vec::new(),
         clear: true,
+        clipboard: Some("copied text".into()),
         switch_to: Some(tuiui::systems::SwitchSpec {
             name: "pi".into(),
             host: "pi@10.0.0.2".into(),

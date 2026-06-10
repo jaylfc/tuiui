@@ -53,6 +53,12 @@ pub trait AppHost: Send {
     /// Drop the host's tracking of the app (does not kill).
     fn remove(&mut self, id: AppId);
 
+    /// Bell rings since the last call (drained; default none for test fakes).
+    fn take_bells(&mut self, _id: AppId) -> u32 { 0 }
+
+    /// The app's latest OSC-52 clipboard store, if any (drained; default none).
+    fn take_clipboard(&mut self, _id: AppId) -> Option<String> { None }
+
     /// The app's current terminal mouse mode (default = no mouse).
     fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse { let _ = id; crate::mouse::AppMouse::default() }
 

@@ -29,14 +29,29 @@ const DEFAULT_BG: Rgba = Rgba { r: 17, g: 20, b: 29, a: 255 };
 #[derive(Clone)]
 struct PtyResponder {
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    /// Bell rings since last drain (surfaced as dock/tray notifications).
+    bells: Arc<std::sync::atomic::AtomicU32>,
+    /// Last OSC-52 clipboard store from the app (forwarded to the host terminal).
+    clip: Arc<Mutex<Option<String>>>,
 }
 impl EventListener for PtyResponder {
     fn send_event(&self, event: Event) {
-        if let Event::PtyWrite(text) = event {
-            if let Ok(mut w) = self.writer.lock() {
-                let _ = w.write_all(text.as_bytes());
-                let _ = w.flush();
+        match event {
+            Event::PtyWrite(text) => {
+                if let Ok(mut w) = self.writer.lock() {
+                    let _ = w.write_all(text.as_bytes());
+                    let _ = w.flush();
+                }
             }
+            Event::Bell => {
+                self.bells.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+            Event::ClipboardStore(_, text) => {
+                if let Ok(mut c) = self.clip.lock() {
+                    *c = Some(text);
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -54,6 +69,9 @@ pub struct AppInstance {
     child: Box<dyn portable_pty::Child + Send + Sync>,
     /// Kitty-graphics state captured from the child's output by the reader thread.
     graphics: Arc<Mutex<crate::kittygfx::GraphicsState>>,
+    /// Bell rings + OSC-52 clipboard stores captured by the emulator's events.
+    bells: Arc<std::sync::atomic::AtomicU32>,
+    clip: Arc<Mutex<Option<String>>>,
     cols: u16,
     rows: u16,
 }
@@ -125,10 +143,12 @@ impl AppInstance {
 
         // The emulator's reply events (DSR/DA responses) are written back to the
         // child over the same PTY writer.
+        let bells = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let clip: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
         let term = Arc::new(Mutex::new(Term::new(
             Config::default(),
             &TermSize::new(cols as usize, rows as usize),
-            PtyResponder { writer: writer.clone() },
+            PtyResponder { writer: writer.clone(), bells: bells.clone(), clip: clip.clone() },
         )));
 
         // Captured Kitty-graphics state, shared with the reader thread.
@@ -176,7 +196,17 @@ impl AppInstance {
             }
         });
 
-        Ok(AppInstance { term, master: pair.master, writer, child, graphics, cols, rows })
+        Ok(AppInstance { term, master: pair.master, writer, child, graphics, bells, clip, cols, rows })
+    }
+
+    /// Bell rings since the last call (drained).
+    pub fn take_bells(&self) -> u32 {
+        self.bells.swap(0, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// The app's latest OSC-52 clipboard store, if any (drained).
+    pub fn take_clipboard(&self) -> Option<String> {
+        self.clip.lock().ok().and_then(|mut c| c.take())
     }
 
     /// Convert the current emulator grid into a Tuiui [`CellBuffer`].

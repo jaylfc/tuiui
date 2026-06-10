@@ -70,6 +70,12 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                     Ok(_) => {
                         if let Ok(mut msg) = serde_json::from_str::<FrameMsg>(line.trim()) {
                             *flags.lock().unwrap() = msg.flags;
+                            if let Some(text) = msg.clipboard.take() {
+                                // OSC 52: set the host terminal's clipboard
+                                // (Ghostty/Kitty/WezTerm; forwarded over ssh).
+                                let b64 = crate::kitty::b64(text.as_bytes());
+                                let _ = out.write_all(format!("\x1b]52;c;{b64}\x07").as_bytes());
+                            }
                             if let Some(spec) = msg.switch_to.take() {
                                 crate::dbg_log(&format!("client: switch requested → {} ({})", spec.name, spec.host));
                                 *switch.lock().unwrap() = Some(spec);
@@ -169,6 +175,17 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                             KeyCode::Char(c @ '1'..='9') => send(&mut out_stream, &ClientMsg::SendToCell(c as u8 - b'0'))?,
                             KeyCode::Char('q') => break,                       // detach (apps persist)
                             KeyCode::Char('Q') => { send(&mut out_stream, &ClientMsg::Shutdown)?; break; }
+                            _ => {}
+                        }
+                    } else if f.logs_focused {
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::LogsClose)?,
+                            KeyCode::Up => send(&mut out_stream, &ClientMsg::LogsUp)?,
+                            KeyCode::Down => send(&mut out_stream, &ClientMsg::LogsDown)?,
+                            KeyCode::PageUp => send(&mut out_stream, &ClientMsg::LogsPageUp)?,
+                            KeyCode::PageDown => send(&mut out_stream, &ClientMsg::LogsPageDown)?,
+                            KeyCode::Char('c') | KeyCode::Char('C') => send(&mut out_stream, &ClientMsg::LogsCopy)?,
+                            KeyCode::Char('r') | KeyCode::Char('R') => send(&mut out_stream, &ClientMsg::LogsRefresh)?,
                             _ => {}
                         }
                     } else if f.help_open {
@@ -429,6 +446,8 @@ pub(crate) fn route_mouse(
         (_, A::ScrollDown) if f.store_focused => send(out, &ClientMsg::StoreDown)?,
         (_, A::ScrollUp) if f.filemanager_focused => send(out, &ClientMsg::FileManagerUp)?,
         (_, A::ScrollDown) if f.filemanager_focused => send(out, &ClientMsg::FileManagerDown)?,
+        (_, A::ScrollUp) if f.logs_focused => send(out, &ClientMsg::LogsUp)?,
+        (_, A::ScrollDown) if f.logs_focused => send(out, &ClientMsg::LogsDown)?,
         _ => {}
     }
     Ok(())
@@ -485,6 +504,7 @@ mod tests {
             image_data: Vec::new(),
             clear: false,
             switch_to: None,
+            clipboard: None,
         }
     }
 

@@ -35,6 +35,10 @@ pub struct FrameMsg {
     /// (and the optional first-time setup). `None` on every normal frame.
     #[serde(default)]
     pub switch_to: Option<crate::systems::SwitchSpec>,
+    /// Text the client should place on the HOST terminal's clipboard via
+    /// OSC 52 (Logs-viewer copy; apps' own OSC 52 stores). One frame only.
+    #[serde(default)]
+    pub clipboard: Option<String>,
 }
 
 /// A request to place image `id` at `rect` (screen cells). `visible=false` tells
@@ -104,6 +108,8 @@ pub struct Flags {
     /// The power menu's "Add Remote" form is open; the client forwards typed
     /// characters and field navigation to it.
     pub power_editing: bool,
+    /// The logs-viewer window is focused; the client routes scroll/copy keys to it.
+    pub logs_focused: bool,
 }
 
 /// Per-user directory that holds the daemon socket. Created mode `0700` by the

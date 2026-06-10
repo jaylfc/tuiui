@@ -46,6 +46,12 @@ pub enum HostEvt {
         images: Vec<ImgBlob>,
         alive: bool,
         mouse: crate::mouse::AppMouse,
+        /// Bell rings since the previous frame (default 0 across version skew).
+        #[serde(default)]
+        bells: u32,
+        /// The app's latest OSC-52 clipboard store, forwarded to the host.
+        #[serde(default)]
+        clip: Option<String>,
     },
     /// The app's child exited.
     Gone { app: u64 },
@@ -105,19 +111,23 @@ mod tests {
             images: vec![ImgBlob { image_id: 1, png_b64: "QUJD".into() }],
             alive: true,
             mouse: Default::default(),
+            bells: 2,
+            clip: Some("copied".into()),
         };
         let mut buf: Vec<u8> = Vec::new();
         send(&mut buf, &evt).unwrap();
         let mut r = std::io::BufReader::new(&buf[..]);
         let back: HostEvt = recv(&mut r).unwrap().unwrap();
         match back {
-            HostEvt::Frame { app, grid: g, placements, images, alive, mouse } => {
+            HostEvt::Frame { app, grid: g, placements, images, alive, mouse, bells, clip } => {
                 assert_eq!(app, 5);
                 assert_eq!(g, grid);
                 assert_eq!(placements.len(), 1);
                 assert_eq!(images[0].png_b64, "QUJD");
                 assert!(alive);
                 assert_eq!(mouse, Default::default());
+                assert_eq!(bells, 2);
+                assert_eq!(clip.as_deref(), Some("copied"));
             }
             _ => panic!("wrong variant"),
         }

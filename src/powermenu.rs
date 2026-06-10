@@ -439,8 +439,9 @@ impl PowerMenu {
     }
 
     /// Compositor layers for whatever is open (empty when closed). The form and
-    /// dialog sit above the dropdown and all other chrome.
-    pub fn render(&self, w: i32, h: i32, systems: &[RemoteSystem]) -> Vec<Layer> {
+    /// dialog sit above the dropdown and all other chrome. `online` carries the
+    /// poller's reachability probe per system name (absent = not probed yet).
+    pub fn render(&self, w: i32, h: i32, systems: &[RemoteSystem], online: &[(String, bool)]) -> Vec<Layer> {
         let t = crate::theme::current();
         let mut layers = Vec::new();
 
@@ -466,12 +467,20 @@ impl PowerMenu {
             buf.write_str(1, 1, " ● Local (this machine)", t.text, t.window_bg);
             for (i, sys) in systems.iter().enumerate() {
                 let y = 2 + i as i32;
+                // Reachability dot from the poller's ssh-port probe.
+                let status = online.iter().find(|(n, _)| *n == sys.name).map(|(_, up)| *up);
+                let (dot, dot_fg) = match status {
+                    Some(true) => ("●", t.accent),
+                    Some(false) => ("○", t.dim),
+                    None => ("·", t.dim),
+                };
+                buf.write_str(1, y, &format!(" {dot}"), dot_fg, t.window_bg);
                 let theme_tag = sys.theme.as_deref().map(|th| format!("  {th}")).unwrap_or_default();
-                let label: String = format!(" ⌁ {}{}", sys.name, theme_tag)
+                let label: String = format!("{}{}", sys.name, theme_tag)
                     .chars()
-                    .take((s.w - 4) as usize)
+                    .take((s.w - 7) as usize)
                     .collect();
-                buf.write_str(1, y, &label, t.text, t.window_bg);
+                buf.write_str(4, y, &label, t.text, t.window_bg);
                 buf.write_str(s.w - 3, y, "✕", t.close_fg, t.window_bg);
             }
             buf.write_str(1, 2 + n as i32, " + Add Remote…", t.accent, t.window_bg);

@@ -101,8 +101,9 @@ impl SystemControl for LinuxBackend {
                     5,
                 );
             }
-            // Calendar navigation is handled by the session's tray state.
-            ControlIntent::CalendarPrev | ControlIntent::CalendarNext => {}
+            // UI-only intents (calendar nav, notifications) are handled by the
+            // session's tray state, never the OS backend.
+            _ => {}
         }
     }
 }
