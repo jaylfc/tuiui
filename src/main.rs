@@ -3,6 +3,7 @@
 //! - `tuiui`            ensure the daemon is running, then attach a client.
 //! - `tuiui attach`     attach to an already-running daemon.
 //! - `tuiui --daemon`   run the daemon (normally spawned automatically).
+//! - `tuiui --compositor` run the Wayland compositor backend (requires --features wayland-compositor).
 //! - `tuiui kill`       shut the daemon down (closing all windows).
 //! - `tuiui reload`     restart the frontend only; apps keep running.
 //! - `tuiui service …`  install|uninstall|status the per-user apphost service.
@@ -18,6 +19,7 @@ use tuiui::protocol::socket_path;
 
 fn main() -> std::io::Result<()> {
     match std::env::args().nth(1).as_deref() {
+        Some("--compositor") => tuiui::run_compositor(),
         Some("--daemon") => tuiui::daemon::run(),
         Some("--apphost") => tuiui::apphost::server::run(),
         Some("kill") => kill(),
@@ -34,7 +36,7 @@ fn main() -> std::io::Result<()> {
         },
         Some(other) => {
             eprintln!(
-                "tuiui: unknown command '{other}' (try: attach, kill, reload, service, --daemon)"
+                "tuiui: unknown command '{other}' (try: attach, kill, reload, service, --daemon, --compositor)"
             );
             Ok(())
         }
