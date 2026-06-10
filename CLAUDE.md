@@ -10,11 +10,22 @@ daemon/client socket, like a graphical tmux.
 ```sh
 cargo build
 cargo test            # 300+ tests; keep them green
-cargo clippy --all-targets   # two pre-existing warnings are tolerated:
-                             # gpm.rs unnecessary_cast, client.rs items-after-test-module
+cargo clippy --all-targets   # warning-clean; keep it that way
 ```
 
 There is no rustfmt enforcement; match the style of the file you're editing.
+Clippy is currently warning-clean — keep it that way.
+
+## Versioning & release channels
+
+`Cargo.toml` carries the semver version (currently 0.2.0); update `CHANGELOG.md`
+in the same commit as user-visible changes. The in-app updater (`update_command`
+in `session.rs`) has two channels, chosen by `config.update_branch`:
+- **main** — downloads the latest prebuilt release via `install.sh` (fast),
+  falling back to `cargo install --git`.
+- **dev** — `cargo install --git --branch dev` (source build, for testing).
+When the feature set is verified, cut a `dev` branch so testers can track it
+from Settings → Updates without touching `main`.
 
 ## Architecture (the three processes)
 
@@ -36,7 +47,10 @@ real terminal              composites frames, routes input    survives UI reload
   `ClientMsg`-in / frame-out boundary. All UI widgets live here as fields.
 - **apphost** (`src/apphost/`, `src/ptyhost.rs`): PTY children behind the
   `AppHost` trait; `LocalAppHost` in-process, `RemoteAppHost` over a socket.
-  Apps survive frontend reloads because this process never restarts.
+  Apps survive frontend reloads because this process never restarts. The
+  emulator keeps 10k lines of scrollback; `AppInstance::scroll` moves the
+  display offset and `snapshot()` reflects it automatically (the wheel routes
+  here via `ClientMsg::ScrollAt`).
 
 ## Key seams and conventions
 

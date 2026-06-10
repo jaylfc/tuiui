@@ -160,6 +160,10 @@ impl AppHost for RemoteAppHost {
         let _ = send(&mut self.writer, &HostReq::Resize { app: id.0, cols, rows });
     }
 
+    fn scroll(&mut self, id: AppId, lines: i32) {
+        let _ = send(&mut self.writer, &HostReq::Scroll { app: id.0, lines });
+    }
+
     fn kill(&mut self, id: AppId) {
         let _ = send(&mut self.writer, &HostReq::Kill { app: id.0 });
     }

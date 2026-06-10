@@ -80,6 +80,14 @@ impl Settings {
         self.update_status = s;
     }
 
+    /// Jump to the Updates section (used to reopen there after an update reload).
+    pub fn show_updates_section(&mut self) {
+        if let Some(i) = SECTIONS.iter().position(|s| *s == "Updates") {
+            self.section = i;
+            self.sel = 0;
+        }
+    }
+
     /// The live (edited) config.
     pub fn config(&self) -> &Config {
         &self.cfg
@@ -96,7 +104,7 @@ impl Settings {
         match self.section {
             0 => 7,                            // snapping, threshold, grid rows/cols, gap, auto-tile, launch-maximized
             1 => 2,                            // shadows, theme
-            2 => 2,                            // check, install
+            2 => 3,                            // check, install, branch
             3 => self.cfg.launcher.len() + 1,  // custom apps + "＋ Add app…"
             4 => DEFAULT_APP_ROLES.len(),
             5 => 2,                            // assistant framework, mode
@@ -214,6 +222,12 @@ impl Settings {
             // Updates section: Enter/Space (dir 0) requests an action from the session.
             (2, 0) if dir == 0 => self.action = Some(SettingsAction::CheckUpdates),
             (2, 1) if dir == 0 => self.action = Some(SettingsAction::InstallUpdate),
+            (2, 2) => {
+                let b = crate::config::UPDATE_BRANCHES;
+                let cur = b.iter().position(|x| *x == self.cfg.update_branch).unwrap_or(0);
+                let next = match dir { -1 => (cur + b.len() - 1) % b.len(), _ => (cur + 1) % b.len() };
+                self.cfg.update_branch = b[next].to_string();
+            }
             // Apps section.
             (3, _) => self.adjust_apps(dir),
             (5, 0) => {
@@ -365,11 +379,15 @@ impl Settings {
             2 => {
                 self.row(&mut buf, cx, 3, 0, "Check for updates", String::new());
                 self.row(&mut buf, cx, 4, 1, "Update & Reload", String::new());
+                self.row(&mut buf, cx, 5, 2, "Channel", format!("\u{25C2} {} \u{25B8}", self.cfg.update_branch));
                 let sha = &crate::GIT_SHA[..crate::GIT_SHA.len().min(7)];
-                buf.write_str(cx, 6, &format!("installed: v{} ({})", crate::VERSION, sha), DIM, BG);
+                buf.write_str(cx, 7, &format!("installed: v{} ({})", crate::VERSION, sha), DIM, BG);
                 if !self.update_status.is_empty() {
-                    let col = if self.update_status.contains("Update available") { GREEN } else { DIM };
-                    buf.write_str(cx, 7, &self.update_status, col, BG);
+                    let col = if self.update_status.contains("available") { GREEN } else { DIM };
+                    buf.write_str(cx, 8, &self.update_status, col, BG);
+                }
+                if self.cfg.update_branch != "main" {
+                    buf.write_str(cx, 9, "dev channel: builds from source (slower).", DIM, BG);
                 }
             }
             3 => self.render_apps(&mut buf, cx, w),

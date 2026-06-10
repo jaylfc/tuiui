@@ -105,6 +105,7 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
                 }
                 Ok(HostReq::Input { app, bytes }) => local.input(AppId(app), &bytes),
                 Ok(HostReq::Resize { app, cols, rows }) => local.resize(AppId(app), cols, rows),
+                Ok(HostReq::Scroll { app, lines }) => local.scroll(AppId(app), lines),
                 Ok(HostReq::SetMeta { app, meta }) => local.set_meta(AppId(app), meta),
                 Ok(HostReq::Kill { app }) => local.kill(AppId(app)),
                 Ok(HostReq::Shutdown) => {

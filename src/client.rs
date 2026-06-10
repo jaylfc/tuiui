@@ -448,6 +448,10 @@ pub(crate) fn route_mouse(
         (_, A::ScrollDown) if f.filemanager_focused => send(out, &ClientMsg::FileManagerDown)?,
         (_, A::ScrollUp) if f.logs_focused => send(out, &ClientMsg::LogsUp)?,
         (_, A::ScrollDown) if f.logs_focused => send(out, &ClientMsg::LogsDown)?,
+        // Anywhere else, the wheel scrolls the scrollback of the PTY window
+        // under the pointer (a no-op if that's not a non-mouse app window).
+        (_, A::ScrollUp) => send(out, &ClientMsg::ScrollAt { p, lines: 3 })?,
+        (_, A::ScrollDown) => send(out, &ClientMsg::ScrollAt { p, lines: -3 })?,
         _ => {}
     }
     Ok(())
@@ -487,6 +491,28 @@ fn send(stream: &mut UnixStream, msg: &ClientMsg) -> std::io::Result<()> {
     let mut buf = serde_json::to_vec(msg).map_err(std::io::Error::other)?;
     buf.push(b'\n');
     stream.write_all(&buf)
+}
+
+/// Encode a key into the bytes forwarded to the focused PTY app.
+fn encode_key(code: KeyCode, mods: KeyModifiers) -> Vec<u8> {
+    match code {
+        KeyCode::Char(c) => {
+            if mods.contains(KeyModifiers::CONTROL) {
+                vec![(c.to_ascii_uppercase() as u8).wrapping_sub(0x40)]
+            } else {
+                c.to_string().into_bytes()
+            }
+        }
+        KeyCode::Enter => vec![b'\r'],
+        KeyCode::Backspace => vec![0x7f],
+        KeyCode::Tab => vec![b'\t'],
+        KeyCode::Esc => vec![0x1b],
+        KeyCode::Up => b"\x1b[A".to_vec(),
+        KeyCode::Down => b"\x1b[B".to_vec(),
+        KeyCode::Right => b"\x1b[C".to_vec(),
+        KeyCode::Left => b"\x1b[D".to_vec(),
+        _ => vec![],
+    }
 }
 
 #[cfg(test)]
@@ -554,24 +580,3 @@ mod tests {
     }
 }
 
-/// Encode a key into the bytes forwarded to the focused PTY app.
-fn encode_key(code: KeyCode, mods: KeyModifiers) -> Vec<u8> {
-    match code {
-        KeyCode::Char(c) => {
-            if mods.contains(KeyModifiers::CONTROL) {
-                vec![(c.to_ascii_uppercase() as u8).wrapping_sub(0x40)]
-            } else {
-                c.to_string().into_bytes()
-            }
-        }
-        KeyCode::Enter => vec![b'\r'],
-        KeyCode::Backspace => vec![0x7f],
-        KeyCode::Tab => vec![b'\t'],
-        KeyCode::Esc => vec![0x1b],
-        KeyCode::Up => b"\x1b[A".to_vec(),
-        KeyCode::Down => b"\x1b[B".to_vec(),
-        KeyCode::Right => b"\x1b[C".to_vec(),
-        KeyCode::Left => b"\x1b[D".to_vec(),
-        _ => vec![],
-    }
-}

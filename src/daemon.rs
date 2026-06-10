@@ -93,6 +93,9 @@ pub fn run() -> std::io::Result<()> {
             std::thread::sleep(Duration::from_millis(16));
         }
     }
+    // Honour a one-shot UI reopen hint (e.g. reopen Settings → Updates after an
+    // in-app update reloaded the frontend).
+    core.reopen_ui_from_hint();
     let mut comp = Compositor::new(w, h);
 
     // While unattached, the loop blocks in `accept()`; a control message can't be

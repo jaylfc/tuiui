@@ -26,6 +26,10 @@ pub trait AppHost: Send {
     /// Resize the app's PTY/terminal (no-op if unknown).
     fn resize(&mut self, id: AppId, cols: i32, rows: i32);
 
+    /// Scroll the app's scrollback view by `lines` (+ = back into history).
+    /// Default no-op for hosts/fakes without scrollback.
+    fn scroll(&mut self, id: AppId, lines: i32) { let _ = (id, lines); }
+
     /// Terminate the child (no-op if unknown).
     fn kill(&mut self, id: AppId);
 

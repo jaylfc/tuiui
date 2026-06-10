@@ -254,11 +254,46 @@ impl AppInstance {
         }
     }
 
-    /// Forward raw input bytes to the child.
+    /// Forward raw input bytes to the child. Any keystroke snaps the view back
+    /// to the live bottom of the buffer (like a real terminal), so typing while
+    /// scrolled back doesn't leave you reading stale output.
     pub fn write_input(&mut self, bytes: &[u8]) {
+        if !bytes.is_empty() {
+            if let Ok(mut t) = self.term.lock() {
+                t.scroll_display(alacritty_terminal::grid::Scroll::Bottom);
+            }
+        }
         if let Ok(mut w) = self.writer.lock() {
             let _ = w.write_all(bytes);
             let _ = w.flush();
+        }
+    }
+
+    /// Scroll the scrollback view by `lines` (positive = back into history).
+    /// The next [`snapshot`](Self::snapshot) reflects it automatically, since
+    /// the grid index honours the display offset. Returns the resulting offset
+    /// (0 = pinned to the live bottom) so callers can show a scrollbar.
+    pub fn scroll(&mut self, lines: i32) -> usize {
+        if let Ok(mut t) = self.term.lock() {
+            t.scroll_display(alacritty_terminal::grid::Scroll::Delta(lines));
+            t.grid().display_offset()
+        } else {
+            0
+        }
+    }
+
+    /// Current scrollback position and total history depth, for the scrollbar:
+    /// `(display_offset, history_size)`. Offset 0 means pinned to the bottom.
+    pub fn scroll_state(&self) -> (usize, usize) {
+        use alacritty_terminal::grid::Dimensions;
+        match self.term.lock() {
+            Ok(t) => {
+                let g = t.grid();
+                // history = total buffered lines − the visible screen.
+                let history = g.total_lines().saturating_sub(g.screen_lines());
+                (g.display_offset(), history)
+            }
+            Err(_) => (0, 0),
         }
     }
 

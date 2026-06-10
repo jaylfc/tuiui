@@ -271,6 +271,9 @@ pub enum ClientMsg {
     Reload,
     /// A raw mouse event destined for the focused app's PTY (passthrough).
     MouseInput(crate::mouse::MouseInput),
+    /// Scroll the scrollback of the PTY window under `p` by `lines`
+    /// (+ = back into history). Sent by the wheel when no overlay claims it.
+    ScrollAt { p: Point, lines: i32 },
     /// Power-menu Add Remote form: type a character into the focused field.
     PowerFormChar(char),
     /// Power-menu form: delete the last character of the focused field.
@@ -651,6 +654,50 @@ impl SessionCore {
             .filter(|w| !w.minimized && w.content_rect().contains(p))
             .map(|w| (w.id, w.content_rect()))
             .next_back()
+    }
+
+    /// Fire any pending Updates-section action (Check / Install), from either
+    /// the keyboard or the mouse path.
+    fn drain_settings_action(&mut self) {
+        match self.focused_settings_mut().and_then(|s| s.take_action()) {
+            Some(crate::settings::SettingsAction::CheckUpdates) => {
+                let branch = self.cfg.update_branch.clone();
+                let msg = check_for_updates(&branch);
+                if let Some(s) = self.focused_settings_mut() {
+                    s.set_update_status(msg);
+                }
+            }
+            Some(crate::settings::SettingsAction::InstallUpdate) => {
+                // Remember to reopen Settings on the Updates screen after the
+                // reload, so the user isn't dumped back on the bare desktop.
+                write_reopen_hint(Ui_SETTINGS_UPDATES);
+                let cmd = update_command(&self.cfg.update_branch);
+                self.launch("update tuiui".into(), "sh".into(), vec!["-lc".into(), cmd]);
+            }
+            None => {}
+        }
+    }
+
+    /// On startup (fresh or post-reload), honour a one-shot reopen hint left by
+    /// the in-app updater so Settings comes back on the Updates screen.
+    pub fn reopen_ui_from_hint(&mut self) {
+        if take_reopen_hint() == Some(Ui_SETTINGS_UPDATES) {
+            self.open_settings();
+            if let Some(s) = self.focused_settings_mut() {
+                s.show_updates_section();
+            }
+            self.sync_settings();
+        }
+    }
+
+    /// Scroll the scrollback of the PTY app window under `p`. No-op when the
+    /// pointer isn't over an app window (native widgets handle their own scroll).
+    fn scroll_app_at(&mut self, p: Point, lines: i32) {
+        if let Some((id, _)) = self.topmost_window_content_at(p) {
+            if let Some(WinContent::App(aid)) = self.contents.get(&id) {
+                self.apphost.scroll(*aid, lines);
+            }
+        }
     }
 
     /// Persist the desktop's current icon positions to the config.
@@ -1377,29 +1424,7 @@ impl SessionCore {
                 if let Some(s) = self.focused_settings_mut() {
                     s.toggle();
                 }
-                match self.focused_settings_mut().and_then(|s| s.take_action()) {
-                    Some(crate::settings::SettingsAction::CheckUpdates) => {
-                        let msg = check_for_updates();
-                        if let Some(s) = self.focused_settings_mut() {
-                            s.set_update_status(msg);
-                        }
-                    }
-                    Some(crate::settings::SettingsAction::InstallUpdate) => {
-                        // On success the script EXITS right after `tuiui reload`:
-                        // the dead process is never restored by the reloaded
-                        // frontend (and reap_dead closes it if it is), so the
-                        // updater window auto-closes. Only a FAILED update drops
-                        // to a shell, keeping the error on screen.
-                        let cmd = format!(
-                            "clear; echo 'Updating tuiui from {repo} …'; echo; \
-if cargo install --git {repo} --force; then echo; echo 'Reloading tuiui …'; tuiui reload; exit 0; \
-else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
-                            repo = crate::REPO_URL,
-                        );
-                        self.launch("update tuiui".into(), "sh".into(), vec!["-lc".into(), cmd]);
-                    }
-                    None => {}
-                }
+                self.drain_settings_action();
                 self.sync_settings();
             }
             ClientMsg::SettingsChar(c) => { if let Some(s) = self.focused_settings_mut() { s.type_char(c); } }
@@ -1595,6 +1620,7 @@ else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
             ClientMsg::Shutdown => self.shutdown = true,
             ClientMsg::Reload => self.reload = true,
             ClientMsg::MouseInput(m) => self.forward_mouse_to_app(m),
+            ClientMsg::ScrollAt { p, lines } => self.scroll_app_at(p, lines),
             ClientMsg::PowerFormChar(c) => self.power_menu.form_char(c),
             ClientMsg::PowerFormBackspace => self.power_menu.form_backspace(),
             ClientMsg::PowerFormNext => self.power_menu.form_next(),
@@ -2690,6 +2716,9 @@ else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
                     self.store_activate();
                 }
                 if settings_changed {
+                    // A click can have armed an Updates action (Check / Install);
+                    // fire it on the mouse path too, not just the keyboard one.
+                    self.drain_settings_action();
                     self.sync_settings();
                 }
                 if fm_clicked {
@@ -3355,10 +3384,67 @@ fn sanitize_images(images: &mut Vec<crate::protocol::ImagePlacement>, w: i32, h:
 ///
 /// Uses `curl` against the GitHub API with a hard timeout so the call can never
 /// hang the desktop. Returns a short human-readable status string.
-fn check_for_updates() -> String {
+/// One-shot UI reopen hint codes, persisted across a frontend reload.
+#[allow(non_upper_case_globals)]
+const Ui_SETTINGS_UPDATES: u8 = 1;
+
+/// Path of the reopen-hint file (per-user socket dir, so it's reload-scoped).
+fn reopen_hint_path() -> std::path::PathBuf {
+    crate::protocol::socket_dir().join("reopen-hint")
+}
+
+/// Persist a one-shot UI reopen hint for the next frontend start.
+fn write_reopen_hint(code: u8) {
+    let _ = std::fs::create_dir_all(crate::protocol::socket_dir());
+    let _ = std::fs::write(reopen_hint_path(), [code]);
+}
+
+/// Read and consume the reopen hint (deleted after reading).
+fn take_reopen_hint() -> Option<u8> {
+    let p = reopen_hint_path();
+    let code = std::fs::read(&p).ok().and_then(|b| b.first().copied());
+    let _ = std::fs::remove_file(&p);
+    code
+}
+
+/// The shell command that updates tuiui and reloads. On `main` it prefers the
+/// prebuilt release binary (a fast download via `install.sh`, jumping straight
+/// to the latest release), falling back to a source build; on any other branch
+/// (the dev channel) it builds that branch from git. On success it reloads and
+/// EXITS so the updater window auto-closes; only a failure drops to a shell.
+fn update_command(branch: &str) -> String {
+    let repo = crate::REPO_URL;
+    let raw = "https://raw.githubusercontent.com/jaylfc/tuiui";
+    // Keep the new binary where the running one lives (cargo bin vs ~/.local/bin).
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .map(|d| d.display().to_string())
+        .unwrap_or_else(|| "$HOME/.local/bin".into());
+    if branch == "main" {
+        format!(
+            "clear; echo 'Updating tuiui (latest release)…'; echo; \
+if TUIUI_BIN_DIR={dir} sh -c 'curl -fsSL {raw}/main/install.sh | sh'; then \
+echo; echo 'Reloading…'; tuiui reload; exit 0; \
+elif cargo install --git {repo} --force; then echo; echo 'Reloading…'; tuiui reload; exit 0; \
+else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
+            dir = crate::systems::sh_quote(&exe_dir),
+        )
+    } else {
+        format!(
+            "clear; echo 'Updating tuiui (branch {branch})…'; echo; \
+if cargo install --git {repo} --branch {branch} --force; then \
+echo; echo 'Reloading…'; tuiui reload; exit 0; \
+else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
+        )
+    }
+}
+
+/// Compare the installed commit against the tip of `branch` on GitHub.
+fn check_for_updates(branch: &str) -> String {
     let short = |s: &str| s.chars().take(7).collect::<String>();
     let api = format!(
-        "https://api.github.com/repos/{}/commits/main",
+        "https://api.github.com/repos/{}/commits/{branch}",
         crate::REPO_URL.trim_start_matches("https://github.com/")
     );
     let out = std::process::Command::new("curl")
@@ -3369,15 +3455,16 @@ fn check_for_updates() -> String {
         .filter(|o| o.status.success())
         .and_then(|o| serde_json::from_slice::<serde_json::Value>(&o.stdout).ok())
         .and_then(|v| v.get("sha").and_then(|s| s.as_str()).map(str::to_string));
+    let on = if branch == "main" { String::new() } else { format!(" on {branch}") };
     match latest {
         Some(sha) => {
             let cur = crate::GIT_SHA;
             if cur == "unknown" {
-                format!("Latest is {} — reinstall to update", short(&sha))
+                format!("Latest is {}{on} — reinstall to update", short(&sha))
             } else if sha.starts_with(cur) || cur.starts_with(&short(&sha)) {
-                format!("Up to date ({})", short(cur))
+                format!("Up to date ({}){on}", short(cur))
             } else {
-                format!("Update available: {} → {}", short(cur), short(&sha))
+                format!("Update available{on}: {} → {}", short(cur), short(&sha))
             }
         }
         None => "Couldn't check (offline?)".to_string(),
@@ -3387,6 +3474,24 @@ fn check_for_updates() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn main_update_prefers_prebuilt_release() {
+        let cmd = update_command("main");
+        assert!(cmd.contains("install.sh"), "fast path is the prebuilt release: {cmd}");
+        assert!(cmd.contains("cargo install --git"), "with a source fallback");
+        assert!(cmd.contains("tuiui reload"), "reloads on success");
+        assert!(cmd.contains("exit 0"), "exits so the updater window auto-closes");
+        assert!(!cmd.contains("--branch"), "main needs no branch flag");
+    }
+
+    #[test]
+    fn dev_channel_builds_from_branch() {
+        let cmd = update_command("dev");
+        assert!(cmd.contains("cargo install --git"), "dev builds from source");
+        assert!(cmd.contains("--branch dev"), "on the dev branch: {cmd}");
+        assert!(!cmd.contains("install.sh"), "no prebuilt release off main");
+    }
 
     fn placement(x: i32, y: i32) -> crate::protocol::ImagePlacement {
         crate::protocol::ImagePlacement {

@@ -61,6 +61,12 @@ impl AppHost for LocalAppHost {
         }
     }
 
+    fn scroll(&mut self, id: AppId, lines: i32) {
+        if let Some(app) = self.apps.get_mut(&id) {
+            app.scroll(lines);
+        }
+    }
+
     fn kill(&mut self, id: AppId) {
         if let Some(app) = self.apps.get_mut(&id) {
             app.kill();

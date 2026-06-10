@@ -13,6 +13,8 @@ pub enum HostReq {
     Spawn { req_id: u64, cmd: String, args: Vec<String>, cwd: Option<String>, cols: i32, rows: i32 },
     Input { app: u64, bytes: Vec<u8> },
     Resize { app: u64, cols: i32, rows: i32 },
+    /// Scroll the app's scrollback view by `lines` (+ = back into history).
+    Scroll { app: u64, lines: i32 },
     SetMeta { app: u64, meta: Vec<u8> },
     Kill { app: u64 },
     /// Stop the apphost process entirely (full shutdown / `tuiui kill`).

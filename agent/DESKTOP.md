@@ -26,3 +26,10 @@ tuiui tile                 # arrange everything into the grid
 
 Apps are installed via the in-app Store (600+ curated TUIs), or you can
 install them yourself with the user's package manager and then `tuiui launch`.
+
+Other things worth knowing when helping the user:
+- Scroll the mouse wheel over any app window to read its scrollback; typing
+  jumps back to the live bottom.
+- Updating tuiui is **Settings → Updates** (default channel downloads the
+  latest prebuilt release; a "dev" channel builds the dev branch from source).
+- The version is in `Cargo.toml`; release notes are in `CHANGELOG.md`.
