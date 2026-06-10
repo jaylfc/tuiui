@@ -121,20 +121,31 @@ pub fn sh_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
-/// The command run on the remote end of `ssh -t`: extend PATH to the places the
-/// installer puts the binary, carry the per-system theme, and start tuiui.
+/// The command run on the remote end of `ssh -t`: guard against a missing
+/// terminfo entry for the local terminal (e.g. `xterm-ghostty` on a stock
+/// Ubuntu — ncurses apps would die with "cannot find terminfo entry"), extend
+/// PATH to the places the installer puts the binary, carry the per-system
+/// theme, and start tuiui. The setup flow also installs the real terminfo
+/// (see [`switch_script`]); this guard covers systems set up before that, or
+/// by hand.
 fn remote_run_command(theme: Option<&str>) -> String {
     let theme_env = theme
         .map(|t| format!("TUIUI_THEME={} ", sh_quote(t)))
         .unwrap_or_default();
     format!(
-        "PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\" {theme_env}tuiui"
+        "if ! infocmp \"$TERM\" >/dev/null 2>&1; then export TERM=xterm-256color; fi; \
+PATH=\"$HOME/.local/bin:$HOME/.cargo/bin:$PATH\" {theme_env}tuiui"
     )
 }
 
 /// `-p <port>` args for ssh/ssh-copy-id, or empty for the default port.
 fn port_flag(port: Option<u16>) -> String {
     port.map(|p| format!("-p {p} ")).unwrap_or_default()
+}
+
+/// `-P <port>` args for scp (scp's port flag is capitalized).
+fn scp_port_flag(port: Option<u16>) -> String {
+    port.map(|p| format!("-P {p} ")).unwrap_or_default()
 }
 
 /// The local shell script the client runs to switch to `spec`. For a plain
@@ -171,11 +182,12 @@ if [ ! -f \"$HOME/.ssh/id_ed25519\" ] && [ ! -f \"$HOME/.ssh/id_rsa\" ]; then\n\
   ssh-keygen -t ed25519 -N '' -f \"$HOME/.ssh/id_ed25519\"\n\
 fi\n",
         );
+        let spf = scp_port_flag(spec.port);
         // 2. Transfer it (sshpass automates the prompt when a password was given).
         //    A failed transfer aborts loudly — every later step would just hang
         //    on the same auth problem.
         s.push_str(&format!(
-            "echo \"tuiui: [1/4] copying SSH key to\" {target} \"…\"\n\
+            "echo \"tuiui: [1/5] copying SSH key to\" {target} \"…\"\n\
 if [ -n \"${{SSHPASS:-}}\" ] && command -v sshpass >/dev/null 2>&1; then\n\
   sshpass -e ssh-copy-id {pf}{target} || {{ echo 'tuiui: ERROR — key transfer failed (wrong host/password?)'; exit 1; }}\n\
 else\n\
@@ -184,13 +196,36 @@ else\n\
 fi\n\
 echo 'tuiui: key transfer OK'\n",
         ));
-        // 3. Install tuiui + gpm on the remote.
+        // 3. Teach the remote this terminal's terminfo. Modern terminals
+        //    (Ghostty: xterm-ghostty; Kitty: xterm-kitty) aren't in older
+        //    distros' ncurses databases, so without this every curses app on
+        //    the remote dies with "cannot find terminfo entry for '$TERM'".
         s.push_str(&format!(
-            "echo 'tuiui: [2/4] installing tuiui on the remote (mac/linux/wsl2)…'\n\
+            "echo \"tuiui: [2/5] teaching the remote your terminal type ($TERM)…\"\n\
+if command -v infocmp >/dev/null 2>&1 && infocmp -x \"$TERM\" >/dev/null 2>&1; then\n\
+  infocmp -x \"$TERM\" | ssh {pf}{target} 'mkdir -p ~/.terminfo && tic -x -' \\\n\
+    && echo 'tuiui: terminfo installed' \\\n\
+    || echo 'tuiui: terminfo copy failed — remote will fall back to xterm-256color'\n\
+else\n\
+  echo 'tuiui: no local terminfo for '\"$TERM\"' — remote will fall back to xterm-256color'\n\
+fi\n",
+        ));
+        // 4. Install tuiui + gpm on the remote.
+        s.push_str(&format!(
+            "echo 'tuiui: [3/5] installing tuiui on the remote (mac/linux/wsl2)…'\n\
 ssh -t {pf}{target} {install} || {{ echo 'tuiui: ERROR — remote install failed (output above)'; exit 1; }}\n\
-echo 'tuiui: [3/4] checking gpm (Linux console mouse)…'\n\
-ssh -t {pf}{target} {gpm}\n\
-echo 'tuiui: [4/4] setup done — connecting…'\n",
+echo 'tuiui: [4/5] checking gpm (Linux console mouse)…'\n\
+ssh -t {pf}{target} {gpm}\n",
+        ));
+        // 5. Sync the saved-systems list so the assistant (and the Systems
+        //    menu) on the remote knows the same machines as here.
+        s.push_str(&format!(
+            "echo 'tuiui: [5/5] syncing your saved systems — connecting…'\n\
+if [ -f \"$HOME/.config/tuiui/systems.toml\" ]; then\n\
+  ssh {pf}{target} 'mkdir -p ~/.config/tuiui' \\\n\
+    && scp {spf}\"$HOME/.config/tuiui/systems.toml\" {target}:.config/tuiui/ >/dev/null \\\n\
+    || echo 'tuiui: systems sync failed (non-fatal)'\n\
+fi\n",
         ));
     }
     s.push_str(&format!("exec ssh -t {pf}{target} {run}\n"));
@@ -227,6 +262,8 @@ mod tests {
         let s = switch_script(&spec);
         assert!(s.starts_with("exec ssh -t -p 2222 'pi@10.0.0.2'"), "{s}");
         assert!(s.contains("TUIUI_THEME=") && s.contains("nord"), "theme rides over ssh: {s}");
+        assert!(s.contains("infocmp"), "guards against missing remote terminfo: {s}");
+        assert!(s.contains("TERM=xterm-256color"), "falls back to a universal TERM: {s}");
         assert!(!s.contains("ssh-copy-id"), "no setup steps on a plain switch");
     }
 
@@ -243,10 +280,13 @@ mod tests {
         let s = switch_script(&spec);
         let key = s.find("ssh-keygen").expect("generates a key when missing");
         let copy = s.find("ssh-copy-id").expect("transfers the key");
+        let terminfo = s.find("tic -x -").expect("copies the local terminfo (xterm-ghostty etc.)");
         let install = s.find("install.sh").expect("installs tuiui remotely");
         let gpm = s.find("gpm").expect("installs gpm for the console mouse");
+        let sync = s.find("systems.toml").expect("syncs the saved-systems list");
         let attach = s.find("exec ssh -t").expect("ends by attaching");
-        assert!(key < copy && copy < install && install < gpm && gpm < attach);
+        assert!(key < copy && copy < terminfo && terminfo < install && install < gpm && gpm < sync && sync < attach);
+        assert!(s.contains("infocmp -x"), "terminfo export uses the extended format");
         assert!(!s.contains("hunter2"), "the password must never be embedded in the script");
         assert!(s.contains("sshpass -e"), "password flows via the SSHPASS env var");
         assert!(!s.contains("TUIUI_THEME"), "no theme env when the system has none");

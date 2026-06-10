@@ -92,6 +92,9 @@ pub struct Config {
     /// Extra arguments passed to the assistant CLI.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub assistant_args: Vec<String>,
+    /// How the ✦ assistant opens: "panel" (right-docked) or "window" (floating).
+    #[serde(default = "default_assistant_mode")]
+    pub assistant_mode: String,
     /// Per-app dock badge colors: keyword (matched case-insensitively as a
     /// substring of the app name/command) → color (named or `#rrggbb`).
     #[serde(default = "default_dock_badges", skip_serializing_if = "std::collections::BTreeMap::is_empty")]
@@ -135,6 +138,7 @@ impl Default for Config {
             desktop_positions: std::collections::BTreeMap::new(),
             assistant_command: None,
             assistant_args: Vec::new(),
+            assistant_mode: default_assistant_mode(),
             dock_badges: default_dock_badges(),
         }
     }
@@ -158,6 +162,7 @@ fn default_dock_badges() -> std::collections::BTreeMap<String, String> {
 }
 
 fn default_theme() -> String { "midnight".into() }
+fn default_assistant_mode() -> String { "panel".into() }
 
 fn default_grid_rows() -> u8 { 2 }
 fn default_grid_cols() -> u8 { 2 }

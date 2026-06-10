@@ -54,8 +54,9 @@ enum WinContent {
     App(AppId),
     /// The native app store browser.
     Store(Store),
-    /// The native settings panel.
-    Settings(Settings),
+    /// The native settings panel (boxed: by far the largest variant, and there
+    /// is at most one settings window).
+    Settings(Box<Settings>),
     /// A native image viewer (placeholder cells + a Kitty graphics placement).
     ImageView(crate::imageview::ImageView),
     /// The native file manager (local disk or a remote system over ssh).
@@ -1008,6 +1009,15 @@ impl SessionCore {
             AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
             AppEntry { name: "Logs".into(), command: "@logs".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
         ];
+        // Chat shortcuts for the gateway-style assistants when installed
+        // (their chat UI is behind a flag/subcommand, so the bare-binary
+        // entries the catalog auto-detects wouldn't open the right thing).
+        if crate::catalog::is_installed("hermes") {
+            apps.push(AppEntry { name: "Hermes Chat".into(), command: "hermes".into(), args: vec!["--tui".into()], category: Some("AI".into()), requires_cwd: None, cwd: None });
+        }
+        if crate::catalog::is_installed("openclaw") {
+            apps.push(AppEntry { name: "OpenClaw Chat".into(), command: "openclaw".into(), args: vec!["tui".into()], category: Some("AI".into()), requires_cwd: None, cwd: None });
+        }
         // One remote file browser per saved system (Systems category).
         for sys in systems {
             apps.push(AppEntry {
@@ -1694,7 +1704,7 @@ else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
         let rect = Rect::new((self.w - w) / 2, 3, w, h);
         let id = self.wm.add_window("Settings".into(), rect);
         self.app_keys.insert(id, "Settings".into());
-        self.contents.insert(id, WinContent::Settings(Settings::new(self.cfg.clone())));
+        self.contents.insert(id, WinContent::Settings(Box::new(Settings::new(self.cfg.clone()))));
         self.titles.push((id, "Settings".into()));
         self.settings_win = Some(id);
     }
@@ -1849,13 +1859,40 @@ else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
         };
         let Some(dir) = crate::assistant::workdir() else { return };
         let host = self.power_label.trim().trim_end_matches('\u{25be}').trim().to_string();
-        if let Err(e) = crate::assistant::write_briefing(&dir, &host) {
+        if let Err(e) = crate::assistant::write_briefing(&dir, &host, &self.systems) {
             crate::dbg_log(&format!("assistant: briefing write failed: {e}"));
         }
-        crate::dbg_log(&format!("assistant: starting '{command}' in {}", dir.display()));
-        // Right-docked panel: full work height, 2/5 width (clamped readable).
-        let panel_w = (self.w * 2 / 5).clamp(34.min(self.w), 70);
-        let rect = Rect::new((self.w - panel_w).max(0), 1, panel_w, (self.h - 2).max(4));
+        // OpenClaw assembles its prompt from its own workspace, not our cwd:
+        // leave a marked pointer there so it finds the pack too.
+        match command.rsplit('/').next() {
+            Some("openclaw") => {
+                if let Err(e) = crate::assistant::inject_openclaw_pointer(&dir) {
+                    crate::dbg_log(&format!("assistant: openclaw pointer failed: {e}"));
+                }
+            }
+            Some("smallcode") | Some("smolv2") => {
+                if let Err(e) = crate::assistant::seed_smallcode_env(&dir) {
+                    crate::dbg_log(&format!("assistant: smallcode .env seed failed: {e}"));
+                }
+            }
+            _ => {}
+        }
+        crate::dbg_log(&format!(
+            "assistant: starting '{command}' ({}) in {}",
+            self.cfg.assistant_mode,
+            dir.display()
+        ));
+        // "panel": right-docked, full work height, 2/5 width (clamped readable).
+        // "window": a regular floating window — the popped-out mode. Either way
+        // it's a normal WM window, so the user can drag/resize/maximize it.
+        let rect = if self.cfg.assistant_mode == "window" {
+            let w = 84.min((self.w - 4).max(30));
+            let h = 30.min((self.h - 4).max(8));
+            Rect::new((self.w - w) / 2, ((self.h - h) / 2).max(1), w, h)
+        } else {
+            let panel_w = (self.w * 2 / 5).clamp(34.min(self.w), 70);
+            Rect::new((self.w - panel_w).max(0), 1, panel_w, (self.h - 2).max(4))
+        };
         let id = self.wm.add_window("Assistant".into(), rect);
         let content = self.wm.get(id).unwrap().content_rect();
         match self.apphost.spawn(&command, &args, Some(&dir), content.w.max(1), content.h.max(1)) {
