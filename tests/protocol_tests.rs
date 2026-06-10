@@ -26,12 +26,23 @@ fn frame_msg_roundtrips_json() {
         flags: Flags { launcher_open: true, ..Default::default() },
         images: Vec::new(),
         image_data: Vec::new(),
+        clear: true,
     };
     let s = serde_json::to_string(&f).unwrap();
     let back: FrameMsg = serde_json::from_str(&s).unwrap();
     assert_eq!(back.changes.len(), 1);
     assert_eq!(back.changes[0].cell.ch, 'A');
     assert!(back.flags.launcher_open);
+    assert!(back.clear);
+}
+
+#[test]
+fn frame_msg_clear_defaults_off_for_older_daemons() {
+    // A frame from a daemon that predates `clear` must still parse, with the
+    // wipe defaulted off (no spurious screen clears on version skew).
+    let s = r#"{"changes":[],"cursor":null,"flags":{}}"#;
+    let f: FrameMsg = serde_json::from_str(s).unwrap();
+    assert!(!f.clear);
 }
 
 #[test]

@@ -205,6 +205,11 @@ fn serve_client(
     // Image ids whose bytes this client has already received (reset per attach,
     // mirroring the full cell-repaint above).
     let mut sent_image_ids: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    // Ask the client to wipe the terminal (cells + images) before the next
+    // frame. Set on attach and on every resize: the emulator may have reflowed
+    // cells and kept image placements the incremental diff/delete stream no
+    // longer knows about, so only a full re-baseline is trustworthy.
+    let mut clear_pending = true;
 
     loop {
         // Apply all pending input.
@@ -213,6 +218,9 @@ fn serve_client(
                 Ok(ClientMsg::Resize { w, h }) => {
                     comp.resize(w, h);
                     core.apply(ClientMsg::Resize { w, h });
+                    clear_pending = true;
+                    // The client's wipe frees transmitted image data; re-send it.
+                    sent_image_ids.clear();
                 }
                 Ok(msg) => core.apply(msg),
                 Err(mpsc::TryRecvError::Empty) => break,
@@ -270,6 +278,7 @@ fn serve_client(
             flags,
             images: frame.images.clone(),
             image_data,
+            clear: clear_pending,
         })
             .unwrap_or_default();
         buf.push(b'\n');
@@ -277,6 +286,7 @@ fn serve_client(
             return; // client gone
         }
         comp.commit();
+        clear_pending = false;
 
         if core.quit_requested() {
             return; // detach (flag already delivered)

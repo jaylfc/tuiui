@@ -2585,6 +2585,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         if !menu_rects.is_empty() {
             images.retain(|p| menu_rects.iter().all(|o| o.intersect(p.rect).is_none()));
         }
+        sanitize_images(&mut images, self.w, self.h);
 
         Frame { layers, cursor: Some(self.cursor), images }
     }
@@ -2691,6 +2692,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             .map(|l| crate::geometry::Rect::new(l.origin.x, l.origin.y, l.buf.width(), l.buf.height()))
             .collect();
         images.retain(|p| overlay_rects.iter().all(|o| o.intersect(p.rect).is_none()));
+        sanitize_images(&mut images, self.w, self.h);
 
         Frame { layers, cursor: Some(self.cursor), images }
     }
@@ -2822,6 +2824,16 @@ fn near_edge(p: Point, work: Rect, threshold: i32) -> bool {
         || work.bottom() - p.y < threshold
 }
 
+/// Drop image placements the client can't address on a `w`×`h` screen: a rect
+/// with a negative origin would emit a CUP with a 0/negative parameter, which
+/// terminals reject — the image would then be placed at whatever cell the
+/// cursor happens to be on (an icon painted over an arbitrary spot, typically
+/// seen right after a resize). Origins past the right/bottom edge are dropped
+/// too; they would be entirely invisible anyway.
+fn sanitize_images(images: &mut Vec<crate::protocol::ImagePlacement>, w: i32, h: i32) {
+    images.retain(|p| p.rect.x >= 0 && p.rect.y >= 0 && p.rect.x < w && p.rect.y < h);
+}
+
 /// Check the upstream repository for a newer commit than this build.
 ///
 /// Uses `curl` against the GitHub API with a hard timeout so the call can never
@@ -2852,5 +2864,35 @@ fn check_for_updates() -> String {
             }
         }
         None => "Couldn't check (offline?)".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn placement(x: i32, y: i32) -> crate::protocol::ImagePlacement {
+        crate::protocol::ImagePlacement {
+            id: 1,
+            rect: Rect::new(x, y, 4, 3),
+            cols: 4,
+            rows: 3,
+            visible: true,
+        }
+    }
+
+    #[test]
+    fn sanitize_drops_unaddressable_and_offscreen_placements() {
+        let mut images = vec![
+            placement(0, 0),     // kept: top-left corner
+            placement(-2, 5),    // dropped: negative x (CUP param would be ≤ 0)
+            placement(5, -1),    // dropped: negative y
+            placement(100, 5),   // dropped: origin past the right edge
+            placement(5, 30),    // dropped: origin past the bottom edge
+            placement(99, 29),   // kept: last addressable cell
+        ];
+        sanitize_images(&mut images, 100, 30);
+        let origins: Vec<(i32, i32)> = images.iter().map(|p| (p.rect.x, p.rect.y)).collect();
+        assert_eq!(origins, vec![(0, 0), (99, 29)]);
     }
 }

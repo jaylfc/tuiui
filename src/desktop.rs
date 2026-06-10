@@ -209,10 +209,17 @@ impl<F: FsOps> DesktopIcons<F> {
     /// The screen rect of an icon's tile. Columns fill from the **top-right**
     /// (like macOS): logical column 0 is the rightmost, flush to the right edge
     /// (minus a one-cell margin).
+    ///
+    /// The cell is clamped into the current grid: saved (or previously assigned)
+    /// cells can lie outside it after the screen shrinks — including transient
+    /// mid-animation sizes during a fullscreen toggle — and an unclamped column
+    /// would put the tile at negative x, over the windows at the left edge.
     pub fn tile_rect(&self, cell: (u16, u16)) -> crate::geometry::Rect {
         const MARGIN: i32 = 1;
-        let x = self.width - MARGIN - (cell.0 as i32 + 1) * ICON_W;
-        crate::geometry::Rect::new(x, GRID_TOP + cell.1 as i32 * ICON_H, ICON_W, ICON_H)
+        let col = (cell.0 as i32).min(self.cols.max(1) as i32 - 1);
+        let row = (cell.1 as i32).min(self.rows.max(1) as i32 - 1);
+        let x = self.width - MARGIN - (col + 1) * ICON_W;
+        crate::geometry::Rect::new(x, GRID_TOP + row * ICON_H, ICON_W, ICON_H)
     }
 
     /// The screen rect of the icon *image* within a tile — centered horizontally,

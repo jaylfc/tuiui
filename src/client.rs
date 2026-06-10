@@ -56,6 +56,17 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                     Ok(_) => {
                         if let Ok(msg) = serde_json::from_str::<FrameMsg>(line.trim()) {
                             *flags.lock().unwrap() = msg.flags;
+                            if msg.clear {
+                                // Re-baseline (attach / resize): erase every cell and
+                                // delete all image placements *and* their data. A cell
+                                // repaint alone can never remove an image — terminals
+                                // composite graphics over text — and after a resize the
+                                // emulator's screen/image state can diverge from our
+                                // incremental model, leaving orphaned icons on screen.
+                                let _ = out.write_all(b"\x1b[0m\x1b[2J\x1b_Ga=d,d=A\x1b\\");
+                                transmitted.clear();
+                                active.clear();
+                            }
                             let ansi = frame_to_ansi(&msg.changes, &caps);
                             let _ = out.write_all(ansi.as_bytes());
                             if caps.kitty_graphics {
@@ -311,7 +322,10 @@ fn reconcile_images(
     // (image_id, x, y, cols, rows).
     let mut now: std::collections::HashMap<u32, (u64, i32, i32, u16, u16)> = std::collections::HashMap::new();
     for p in &msg.images {
-        if p.visible {
+        // A negative origin can't be addressed: CUP parameters are 1-based, and
+        // a 0/negative parameter aborts the escape, dropping the image at the
+        // current cursor position — i.e. painted at an arbitrary screen spot.
+        if p.visible && p.rect.x >= 0 && p.rect.y >= 0 {
             now.insert(place_key(p.rect.x, p.rect.y), (p.id, p.rect.x, p.rect.y, p.cols, p.rows));
         }
     }
@@ -419,6 +433,69 @@ fn send(stream: &mut UnixStream, msg: &ClientMsg) -> std::io::Result<()> {
     let mut buf = serde_json::to_vec(msg).map_err(std::io::Error::other)?;
     buf.push(b'\n');
     stream.write_all(&buf)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geometry::Rect;
+    use crate::protocol::ImagePlacement;
+
+    fn frame_with(images: Vec<ImagePlacement>) -> FrameMsg {
+        FrameMsg {
+            changes: Vec::new(),
+            cursor: None,
+            flags: Flags::default(),
+            images,
+            image_data: Vec::new(),
+            clear: false,
+        }
+    }
+
+    #[test]
+    fn places_visible_placement_with_cup_and_place_ops() {
+        let msg = frame_with(vec![ImagePlacement {
+            id: 7,
+            rect: Rect::new(2, 3, 4, 2),
+            cols: 4,
+            rows: 2,
+            visible: true,
+        }]);
+        let mut transmitted = std::collections::HashSet::new();
+        let mut active = std::collections::HashMap::new();
+        let g = reconcile_images(&msg, &mut transmitted, &mut active);
+        assert!(g.contains("\x1b[4;3H"), "CUP to 1-based (row 4, col 3): {g:?}");
+        assert!(g.contains("a=p"), "place op emitted: {g:?}");
+        assert_eq!(active.len(), 1);
+    }
+
+    #[test]
+    fn skips_placement_with_negative_origin() {
+        // A CUP with a 0/negative parameter aborts the escape and the image
+        // would land at the current cursor position — never emit one.
+        let msg = frame_with(vec![ImagePlacement {
+            id: 7,
+            rect: Rect::new(-3, 5, 4, 2),
+            cols: 4,
+            rows: 2,
+            visible: true,
+        }]);
+        let mut transmitted = std::collections::HashSet::new();
+        let mut active = std::collections::HashMap::new();
+        let g = reconcile_images(&msg, &mut transmitted, &mut active);
+        assert!(!g.contains("a=p"), "no place op for an unaddressable rect: {g:?}");
+        assert!(active.is_empty());
+    }
+
+    #[test]
+    fn deletes_placement_that_disappeared() {
+        let mut transmitted = std::collections::HashSet::new();
+        let mut active = std::collections::HashMap::new();
+        active.insert(place_key(2, 3), (7u64, 2, 3, 4u16, 2u16));
+        let g = reconcile_images(&frame_with(Vec::new()), &mut transmitted, &mut active);
+        assert!(g.contains("a=d,d=i,i=7"), "stale placement deleted: {g:?}");
+        assert!(active.is_empty());
+    }
 }
 
 /// Encode a key into the bytes forwarded to the focused PTY app.
