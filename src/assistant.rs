@@ -9,7 +9,9 @@
 //! saved systems, version). The directory is forced as the agent's cwd no
 //! matter which framework runs, and the pack is written in every context-file
 //! convention the supported CLIs read: `CLAUDE.md` (Claude Code), `AGENTS.md`
-//! (opencode/kilo/codex-style), and `knowledge/*.md` (smallcode).
+//! (opencode/kilo/codex-style), `HERMES.md` (hermes' highest-priority file),
+//! and `knowledge/*.md` (smallcode). OpenClaw reads its own workspace instead,
+//! so it gets a marked pointer there; smallcode gets a one-time `.env` template.
 
 use std::path::PathBuf;
 

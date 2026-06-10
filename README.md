@@ -110,7 +110,14 @@ and it's all still there.
 ```bash
 tuiui            # ensure the daemon is running, then attach
 tuiui attach     # attach to an already-running daemon
+tuiui reload     # restart the UI only; apps keep running
 tuiui kill       # shut the daemon down (closes all windows)
+
+# Control a running desktop from any shell (also how the AI assistant drives it):
+tuiui launch btop          # open a new window running btop
+tuiui tile                 # tile all windows into the grid
+tuiui theme nord           # switch theme
+tuiui msg '"MaximizeFocused"'   # raw control message (ClientMsg JSON)
 ```
 
 Detach with **`Ctrl+Space` then `q`** (apps keep running); to fully stop, **shut
@@ -190,6 +197,12 @@ snap_threshold = 3        # edge band (cells) that engages snapping
 window_shadows = true
 theme = "midnight"        # midnight | nord | gruvbox | dracula
 
+# AI assistant (the ✦ menubar button; also editable in Settings → Assistant)
+# assistant_command = "opencode"   # pin a framework (default: auto-detect
+#                                  # claude/opencode/smallcode/kilo/hermes/openclaw)
+# assistant_args = ["--model", "anthropic/claude-sonnet-4-6"]  # extra CLI args
+assistant_mode = "panel"  # "panel" (right-docked) | "window" (floating)
+
 # Tiling grid (also editable in Settings → Windows)
 grid_rows = 2
 grid_cols = 3
@@ -253,6 +266,12 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 - **✅ Apphost as a service:** `tuiui service install` runs the apphost as a per-user service (launchd / systemd `--user` / `~/.profile` fallback) that auto-starts on login and restarts on crash; the macOS LaunchAgent also restores Keychain access (e.g. Claude Code login) inside tuiui.
 - **✅ Smart installs:** the store detects a missing toolchain (Go/Rust/Node/Python) before an install and offers to set it up first; a confirm dialog guards closing an app window (which ends its process).
 - **✅ Terminal office suite:** word processor (`wordgrinder`), spreadsheets (`sheets`/`sc-im`/`visidata`), presentations (`slides`/`presenterm`), email (`himalaya`/`aerc`), calendar (`khal`/`calcure`), contacts (`khard`/`abook`), and notes (`nb`/`nap`) — all in the store.
+- **✅ Systems switcher:** power menu → Systems — saved machines with live ●/○ dots; Add Remote transfers SSH keys, installs tuiui + gpm + your terminal's terminfo on the remote, syncs the systems list, and connects; per-system themes; drop back to the local desktop when the remote session ends.
+- **✅ Clock + calendar:** date+time in the menubar; click for a month calendar with `◂ ▸` navigation and `khal` events.
+- **✅ Notifications:** background bell → dock attention dot + 🔔 tray popover (click to focus); apps' OSC-52 copies forwarded to the host clipboard.
+- **✅ Remote files:** browse saved systems over ssh in the file manager; copy between machines with Ctrl+C/Ctrl+V (background scp, `-3` for remote↔remote).
+- **✅ Logs viewer:** launcher → tuiui → Logs; `c` copies the log to the host clipboard via OSC 52.
+- **✅ AI assistant:** the ✦ chat panel/window — six agent frameworks, the repo `agent/` briefing pack, desktop control via the `tuiui` CLI, cross-machine awareness.
 - **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client) — plus a parked idea: a fullscreen **browser PWA** of tuiui (multiple simultaneous frontends on one apphost).
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 

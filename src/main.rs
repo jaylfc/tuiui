@@ -6,6 +6,10 @@
 //! - `tuiui kill`       shut the daemon down (closing all windows).
 //! - `tuiui reload`     restart the frontend only; apps keep running.
 //! - `tuiui service …`  install|uninstall|status the per-user apphost service.
+//! - `tuiui launch …`   open a new app window in the running desktop.
+//! - `tuiui tile`       tile all windows into the configured grid.
+//! - `tuiui theme <t>`  switch the theme.
+//! - `tuiui msg '<j>'`  send a raw ClientMsg (the assistant's escape hatch).
 //!
 //! The daemon owns the windows and child processes and persists across client
 //! detaches, so closing a client (or an SSH disconnect) leaves everything running.
