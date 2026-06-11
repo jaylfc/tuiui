@@ -99,41 +99,9 @@ impl From<&ModifierState> for u32 {
     }
 }
 
-// ── Cursor icon ──────────────────────────────────────────────────────────────
+// ── Cursor icon (re-exported from protocols) ──────────────────────────────────
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum CursorIcon {
-    #[default]
-    LeftPtr,
-    Default,
-    Pointer,
-    Text,
-    Move,
-    ResizeH,
-    ResizeV,
-    ResizeNE_SW,
-    ResizeNW_SE,
-    Grabbing,
-    NotAllowed,
-}
-
-impl CursorIcon {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Default => "default",
-            Self::Pointer => "pointer",
-            Self::Text => "text",
-            Self::Move => "move",
-            Self::ResizeH => "ew-resize",
-            Self::ResizeV => "ns-resize",
-            Self::ResizeNE_SW => "nesw-resize",
-            Self::ResizeNW_SE => "nwse-resize",
-            Self::Grabbing => "grabbing",
-            Self::NotAllowed => "not-allowed",
-            Self::LeftPtr => "left_ptr",
-        }
-    }
-}
+pub use super::protocols::CursorIcon;
 
 // ── Input device info ────────────────────────────────────────────────────────
 
@@ -199,16 +167,11 @@ fn read_device_capabilities(path: &std::path::Path) -> (bool, bool, bool) {
         let f = friendly.trim().to_lowercase();
         if f.contains("keyboard") || f.contains("kbd") {
             is_keyboard = true;
-            is_pointer = false;
-            is_touch = false;
         } else if f.contains("touchpad") {
             is_pointer = true;
-            is_keyboard = false;
-            is_touch = false;
         } else if f.contains("touchscreen") || f.contains("touch") {
             is_touch = true;
-            is_keyboard = false;
-            is_pointer = false;
+            is_pointer = true;
         }
     }
 
@@ -307,7 +270,7 @@ impl InputManager {
             s.has_touch = has_touch;
             s.keyboard_layout = config.keyboard_layout;
             s.refresh_capabilities();
-            seats.lock().unwrap().insert(primary, s);
+            seats.lock().unwrap_or_else(|e| e.into_inner()).insert(primary, s);
         }
 
         Self {
@@ -414,10 +377,9 @@ impl InputManager {
         position: Point,
         state: u32,
         windows: &[Window],
-        drag: Option<Hit>,
     ) -> InputAction {
         let kind = if state == 0x01 { MouseKind::Down } else { MouseKind::Up };
-        route_mouse(kind, position, windows, drag)
+        route_mouse(kind, position, windows, None)
     }
 
     /// Set pointer hover focus for hover highlighting.
@@ -518,7 +480,7 @@ impl VtSwitchHandler {
 
 // ── System info probe ────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct InputSystemInfo {
     pub udev_control_exists: bool,
     pub input_dir_exists: bool,
