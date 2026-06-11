@@ -42,6 +42,49 @@ chmod +x "$BIN_DIR/tuiui"
 
 echo "tuiui: installed $tag -> $BIN_DIR/tuiui"
 
+# Install compositor session files (GDM/LightDM Wayland session) on Linux
+install_compositor_session() {
+    if [ "$(uname -s)" != "Linux" ]; then return 0; fi
+    if [ "${TUIUI_COMPOSITOR:-0}" != "1" ]; then return 0; fi
+
+    # Check if display manager is available (running or socket present)
+    if ! pgrep -x "gdm\|lightdm\|sddm\|gdm3\|gdm-wayland\|lightdm" >/dev/null 2>&1 \
+        && [ ! -S /run/systemd/display-manager ] \
+        && [ ! -d /run/gdm ]; then
+        echo "tuiui: no display manager detected, skipping compositor session install"
+        return 0
+    fi
+
+    # Install desktop session file to system location (requires root)
+    DESKTOP_SRC="$BIN_DIR/tuiui.desktop"
+    DESKTOP_DST="/usr/share/wayland-sessions/tuiui.desktop"
+    if [ -f "$DESKTOP_SRC" ]; then
+        if [ -w /usr/share/wayland-sessions ]; then
+            mkdir -p /usr/share/wayland-sessions
+            cp "$DESKTOP_SRC" /usr/share/wayland-sessions/
+            chmod 644 /usr/share/wayland-sessions/tuiui.desktop
+            echo "tuiui: installed Wayland session file: $DESKTOP_DST"
+        else
+            echo "tuiui: compositor session files downloaded but need root to install:"
+            echo "  sudo cp $DESKTOP_SRC /usr/share/wayland-sessions/"
+        fi
+    fi
+
+    # Install systemd user service for compositor (substitute actual binary path)
+    SERVICE_SRC="$BIN_DIR/tuiui-compositor.service"
+    SERVICE_DST="$HOME/.config/systemd/user/tuiui-compositor.service"
+    if [ -f "$SERVICE_SRC" ]; then
+        mkdir -p "$(dirname "$SERVICE_DST")"
+        # Substitute the binary path - default to /usr/local/bin/tuiui if not in standard location
+        EXE_PATH="${TUIUI_EXE_PATH:-$BIN_DIR/tuiui}"
+        sed "s|%h/.local/bin/tuiui|$EXE_PATH|g" "$SERVICE_SRC" > "$SERVICE_DST"
+        chmod 644 "$SERVICE_DST"
+        systemctl --user daemon-reload 2>/dev/null || true
+        echo "tuiui: installed compositor service to $SERVICE_DST"
+    fi
+}
+install_compositor_session
+
 # Optional, OS-aware dependency step. Installs helpers some tray controls need
 # (currently blueutil for macOS Bluetooth). Transparent and skippable: it prints
 # what it runs, skips silently with no package manager, honours TUIUI_SKIP_DEPS,

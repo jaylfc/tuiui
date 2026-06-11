@@ -16,7 +16,21 @@ pub use input::{InputManager, InputConfig, DeviceInfo, KeyboardLayout, ModifierS
 
 use std::io::{self, Result};
 
+/// Set compositor environment variables for Wayland session integration.
+fn set_compositor_env() {
+    if std::env::var("WAYLAND_DISPLAY").is_err() {
+        std::env::set_var("WAYLAND_DISPLAY", "wayland-1");
+    }
+    if std::env::var("XDG_CURRENT_DESKTOP").is_err() {
+        std::env::set_var("XDG_CURRENT_DESKTOP", "tuiui");
+    }
+    if std::env::var("XDG_SESSION_TYPE").is_err() {
+        std::env::set_var("XDG_SESSION_TYPE", "wayland");
+    }
+}
+
 /// Run the Wayland compositor. This is the main entry point called from `main.rs`.
 pub fn run_compositor() -> Result<()> {
+    set_compositor_env();
     WaylandCompositor::new()?.run()
 }
