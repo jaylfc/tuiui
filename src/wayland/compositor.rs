@@ -6,6 +6,7 @@
 use crate::geometry::Point;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use super::input;
 
 /// Unique identifier for a Wayland output (monitor).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -53,6 +54,10 @@ pub struct WaylandCompositor {
     kms_active: bool,
     /// State shared with the rendering thread.
     state: Arc<CompositorState>,
+    /// Input manager: device enumeration, seat state, shortcuts.
+    input: Arc<Mutex<super::input::InputManager>>,
+    /// VT switch handler.
+    vt_handler: Arc<Mutex<super::input::VtSwitchHandler>>,
 }
 
 /// Shared compositor state protected by a mutex for multi-threaded access.
@@ -93,9 +98,20 @@ impl WaylandCompositor {
             eprintln!("tuiui: falling back to headless mode")
         });
 
+        let cfg = input::InputConfig {
+            shortcuts: true,
+            pointer_focus: true,
+            mouse_passthrough: true,
+            ..Default::default()
+        };
+        let input = Arc::new(Mutex::new(input::InputManager::new(cfg)));
+        let vt_handler = Arc::new(Mutex::new(input::VtSwitchHandler::new()));
+
         Ok(Self {
             kms_active,
             state: Arc::new(CompositorState::default()),
+            input,
+            vt_handler,
         })
     }
 
