@@ -26,6 +26,15 @@ pub trait AppHost: Send {
     /// Resize the app's PTY/terminal (no-op if unknown).
     fn resize(&mut self, id: AppId, cols: i32, rows: i32);
 
+    /// Scroll the app's scrollback view by `lines` (+ = back into history).
+    /// Default no-op for hosts/fakes without scrollback.
+    fn scroll(&mut self, id: AppId, lines: i32) { let _ = (id, lines); }
+
+    /// The wire-protocol version of the host actually serving the apps.
+    /// In-process hosts (and fakes) are always current; `RemoteAppHost`
+    /// reports what the running apphost declared (0 = predates the field).
+    fn proto_version(&self) -> u32 { crate::apphost::proto::PROTO_VERSION }
+
     /// Terminate the child (no-op if unknown).
     fn kill(&mut self, id: AppId);
 
@@ -52,6 +61,12 @@ pub trait AppHost: Send {
 
     /// Drop the host's tracking of the app (does not kill).
     fn remove(&mut self, id: AppId);
+
+    /// Bell rings since the last call (drained; default none for test fakes).
+    fn take_bells(&mut self, _id: AppId) -> u32 { 0 }
+
+    /// The app's latest OSC-52 clipboard store, if any (drained; default none).
+    fn take_clipboard(&mut self, _id: AppId) -> Option<String> { None }
 
     /// The app's current terminal mouse mode (default = no mouse).
     fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse { let _ = id; crate::mouse::AppMouse::default() }

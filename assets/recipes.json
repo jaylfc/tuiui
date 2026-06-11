@@ -169,7 +169,8 @@
    "windows"
   ],
   "requires_cwd": true,
-  "verified": true
+  "verified": true,
+  "tip": "First run: `claude` walks you through logging in with your Anthropic account (or set ANTHROPIC_API_KEY)."
  },
  "Claude Code Bridge": {
   "install": "pip install claude-code-bridge",
@@ -543,7 +544,8 @@
    "windows"
   ],
   "requires_cwd": true,
-  "verified": true
+  "verified": true,
+  "tip": "First run: type /connect inside kilo (or `kilo auth login`) to add a provider. A free Kilo account includes hosted models; BYOK and Ollama also work."
  },
  "Kyanos": {
   "install": "tar xvf kyanos_vx.x.x_linux_amd64.tar.gz && sudo mv kyanos /usr/local/bin/",
@@ -3573,7 +3575,8 @@
    "windows"
   ],
   "requires_cwd": true,
-  "verified": true
+  "verified": true,
+  "tip": "First run: `opencode auth login` to pick a provider and add a key \u2014 local models via Ollama are supported."
  },
  "openmux": {
   "install": "npm install -g openmux",
@@ -5594,5 +5597,38 @@
    "linux"
   ],
   "verified": true
+ },
+ "smallcode": {
+  "install": "npm install -g smallcode",
+  "method": "npm",
+  "verified": true,
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "requires_cwd": true,
+  "tip": "Needs a local OpenAI-compatible server (Ollama, LM Studio, llama.cpp). Set SMALLCODE_MODEL and SMALLCODE_BASE_URL in a .env in your project, or run /provider inside smallcode. Node 18+."
+ },
+ "Hermes": {
+  "install": "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash",
+  "method": "script",
+  "verified": true,
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "tip": "First run: `hermes model` in a shell to add providers and API keys (or `hermes setup --portal`). Config lives in ~/.hermes/config.yaml. Chat with `hermes --tui`."
+ },
+ "OpenClaw": {
+  "install": "curl -fsSL https://openclaw.ai/install.sh | bash",
+  "method": "script",
+  "verified": true,
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "tip": "First run: `openclaw onboard --install-daemon` in a shell \u2014 picks a provider, adds API keys, starts the gateway. Needs Node 22.19+. Chat with `openclaw tui`."
  }
 }

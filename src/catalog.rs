@@ -48,6 +48,10 @@ pub struct Recipe {
     /// (true for coding agents that operate on a project tree).
     #[serde(default)]
     pub requires_cwd: bool,
+    /// A one-paragraph setup tip shown in the Store's detail pane (e.g. "add
+    /// models/providers with `hermes model` first").
+    #[serde(default)]
+    pub tip: String,
 }
 
 /// The current operating system as a recipe `os` token ("macos", "linux", …).

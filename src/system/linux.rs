@@ -101,6 +101,9 @@ impl SystemControl for LinuxBackend {
                     5,
                 );
             }
+            // UI-only intents (calendar nav, notifications) are handled by the
+            // session's tray state, never the OS backend.
+            _ => {}
         }
     }
 }

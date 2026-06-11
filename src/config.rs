@@ -85,6 +85,20 @@ pub struct Config {
     /// Saved grid positions: key (abs path or pin command) → (col, row).
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub desktop_positions: std::collections::BTreeMap<String, (u16, u16)>,
+    /// Agent CLI for the ✦ assistant panel (default: first of claude, opencode,
+    /// kilo, hermes, openclaw found on $PATH).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_command: Option<String>,
+    /// Extra arguments passed to the assistant CLI.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub assistant_args: Vec<String>,
+    /// How the ✦ assistant opens: "panel" (right-docked) or "window" (floating).
+    #[serde(default = "default_assistant_mode")]
+    pub assistant_mode: String,
+    /// Git branch the in-app updater tracks ("main" = stable prebuilt releases;
+    /// any other = build that branch from source, e.g. a "dev" test channel).
+    #[serde(default = "default_update_branch")]
+    pub update_branch: String,
     /// Per-app dock badge colors: keyword (matched case-insensitively as a
     /// substring of the app name/command) → color (named or `#rrggbb`).
     #[serde(default = "default_dock_badges", skip_serializing_if = "std::collections::BTreeMap::is_empty")]
@@ -126,6 +140,10 @@ impl Default for Config {
             desktop_enabled: true,
             desktop_pins: default_desktop_pins(),
             desktop_positions: std::collections::BTreeMap::new(),
+            assistant_command: None,
+            assistant_args: Vec::new(),
+            assistant_mode: default_assistant_mode(),
+            update_branch: default_update_branch(),
             dock_badges: default_dock_badges(),
         }
     }
@@ -149,6 +167,11 @@ fn default_dock_badges() -> std::collections::BTreeMap<String, String> {
 }
 
 fn default_theme() -> String { "midnight".into() }
+fn default_assistant_mode() -> String { "panel".into() }
+fn default_update_branch() -> String { "main".into() }
+
+/// Branches the Updates-section switcher cycles through.
+pub const UPDATE_BRANCHES: &[&str] = &["main", "dev"];
 
 fn default_grid_rows() -> u8 { 2 }
 fn default_grid_cols() -> u8 { 2 }

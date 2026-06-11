@@ -38,6 +38,10 @@ pub mod gpm;
 pub mod badge;
 pub mod service;
 pub mod toolchain;
+pub mod systems;
+pub mod calendar;
+pub mod logsview;
+pub mod assistant;
 
 /// The crate version (from Cargo.toml).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -50,14 +54,12 @@ pub const REPO_URL: &str = "https://github.com/jaylfc/tuiui";
 /// can't grow it without bound.
 const DBG_LOG_MAX_BYTES: u64 = 4 * 1024 * 1024;
 
-/// Append a timestamped line to `~/tuiui-debug.log` when `$TUIUI_DEBUG` is set;
-/// a no-op otherwise (zero cost in normal use). Used to localize freezes/hangs.
-/// The log is capped at [`DBG_LOG_MAX_BYTES`]: once exceeded it's reset (keeping
-/// the most recent activity), so it never grows out of hand.
+/// Append a timestamped line to `~/tuiui-debug.log`. Always on — events are
+/// low-frequency and the in-app Logs viewer (launcher → tuiui → Logs) reads
+/// this file, so there must be something to show without re-running with an
+/// env var. The log is capped at [`DBG_LOG_MAX_BYTES`]: once exceeded it's
+/// reset (keeping the most recent activity), so it never grows out of hand.
 pub fn dbg_log(msg: &str) {
-    if std::env::var_os("TUIUI_DEBUG").is_none() {
-        return;
-    }
     let Some(home) = dirs::home_dir() else { return };
     let path = home.join("tuiui-debug.log");
     use std::io::Write;
@@ -77,13 +79,9 @@ pub fn dbg_log(msg: &str) {
     }
 }
 
-/// Truncate `~/tuiui-debug.log` and write a session-start banner when
-/// `$TUIUI_DEBUG` is set.  Called once at daemon startup so each run starts
-/// with a clean, readable log.  No-op when the env var is unset.
+/// Truncate `~/tuiui-debug.log` and write a session-start banner. Called once
+/// at daemon startup so each run starts with a clean, readable log.
 pub fn dbg_init() {
-    if std::env::var_os("TUIUI_DEBUG").is_none() {
-        return;
-    }
     let Some(home) = dirs::home_dir() else { return };
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new()

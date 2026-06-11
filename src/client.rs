@@ -3,12 +3,16 @@
 //! using the [`Flags`] the daemon sends each frame.
 
 /// How a client session ended.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ClientExit {
     /// The user detached / shut down — stop.
     Detached,
     /// The daemon asked the client to reconnect (frontend reload).
     Reload,
+    /// The user picked a system in the power menu: `main` should run the ssh
+    /// switch (and optional first-time setup) in the real terminal, then
+    /// re-attach locally when the remote session ends.
+    Switch(crate::systems::SwitchSpec),
 }
 
 use crate::geometry::{Point, SnapZone};
@@ -31,15 +35,25 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
     let mut out_stream = stream.try_clone()?;
     send(&mut out_stream, &ClientMsg::Resize { w, h })?;
 
+    // A per-system theme rides over ssh as TUIUI_THEME: apply it to this
+    // daemon's config as soon as we attach.
+    if let Ok(theme) = std::env::var("TUIUI_THEME") {
+        if !theme.is_empty() {
+            send(&mut out_stream, &ClientMsg::SetTheme(theme))?;
+        }
+    }
+
     let flags = Arc::new(Mutex::new(Flags::default()));
     let detached = Arc::new(AtomicBool::new(false));
     let reload = Arc::new(AtomicBool::new(false));
+    let switch: Arc<Mutex<Option<crate::systems::SwitchSpec>>> = Arc::new(Mutex::new(None));
 
     // Reader thread: socket frames → ANSI → stdout.
     {
         let flags = flags.clone();
         let detached = detached.clone();
         let reload = reload.clone();
+        let switch = switch.clone();
         let reader_stream = stream.try_clone()?;
         std::thread::spawn(move || {
             let mut r = BufReader::new(reader_stream);
@@ -54,8 +68,18 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                 match r.read_line(&mut line) {
                     Ok(0) | Err(_) => break,
                     Ok(_) => {
-                        if let Ok(msg) = serde_json::from_str::<FrameMsg>(line.trim()) {
+                        if let Ok(mut msg) = serde_json::from_str::<FrameMsg>(line.trim()) {
                             *flags.lock().unwrap() = msg.flags;
+                            if let Some(text) = msg.clipboard.take() {
+                                // OSC 52: set the host terminal's clipboard
+                                // (Ghostty/Kitty/WezTerm; forwarded over ssh).
+                                let b64 = crate::kitty::b64(text.as_bytes());
+                                let _ = out.write_all(format!("\x1b]52;c;{b64}\x07").as_bytes());
+                            }
+                            if let Some(spec) = msg.switch_to.take() {
+                                crate::dbg_log(&format!("client: switch requested → {} ({})", spec.name, spec.host));
+                                *switch.lock().unwrap() = Some(spec);
+                            }
                             if msg.clear {
                                 // Re-baseline (attach / resize): erase every cell and
                                 // delete all image placements *and* their data. A cell
@@ -119,6 +143,20 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                             }
                             _ => {}
                         }
+                    } else if f.power_editing {
+                        // The Add Remote form is modal: forward typing + field nav.
+                        leader = false;
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::PowerFormCancel)?,
+                            KeyCode::Enter => send(&mut out_stream, &ClientMsg::PowerFormCommit)?,
+                            KeyCode::Tab | KeyCode::Down => send(&mut out_stream, &ClientMsg::PowerFormNext)?,
+                            KeyCode::BackTab | KeyCode::Up => send(&mut out_stream, &ClientMsg::PowerFormPrev)?,
+                            KeyCode::Left => send(&mut out_stream, &ClientMsg::PowerFormLeft)?,
+                            KeyCode::Right => send(&mut out_stream, &ClientMsg::PowerFormRight)?,
+                            KeyCode::Backspace => send(&mut out_stream, &ClientMsg::PowerFormBackspace)?,
+                            KeyCode::Char(c) if !ctrl => send(&mut out_stream, &ClientMsg::PowerFormChar(c))?,
+                            _ => {}
+                        }
                     } else if leader {
                         leader = false;
                         match k.code {
@@ -137,6 +175,17 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                             KeyCode::Char(c @ '1'..='9') => send(&mut out_stream, &ClientMsg::SendToCell(c as u8 - b'0'))?,
                             KeyCode::Char('q') => break,                       // detach (apps persist)
                             KeyCode::Char('Q') => { send(&mut out_stream, &ClientMsg::Shutdown)?; break; }
+                            _ => {}
+                        }
+                    } else if f.logs_focused {
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::LogsClose)?,
+                            KeyCode::Up => send(&mut out_stream, &ClientMsg::LogsUp)?,
+                            KeyCode::Down => send(&mut out_stream, &ClientMsg::LogsDown)?,
+                            KeyCode::PageUp => send(&mut out_stream, &ClientMsg::LogsPageUp)?,
+                            KeyCode::PageDown => send(&mut out_stream, &ClientMsg::LogsPageDown)?,
+                            KeyCode::Char('c') | KeyCode::Char('C') => send(&mut out_stream, &ClientMsg::LogsCopy)?,
+                            KeyCode::Char('r') | KeyCode::Char('R') => send(&mut out_stream, &ClientMsg::LogsRefresh)?,
                             _ => {}
                         }
                     } else if f.help_open {
@@ -295,6 +344,9 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
     // Detach: dropping `term` restores the screen; dropping the socket signals
     // the daemon, which keeps the session alive.
     drop(term);
+    if let Some(spec) = switch.lock().unwrap().take() {
+        return Ok(ClientExit::Switch(spec));
+    }
     if reload.load(Ordering::SeqCst) {
         Ok(ClientExit::Reload)
     } else {
@@ -394,6 +446,12 @@ pub(crate) fn route_mouse(
         (_, A::ScrollDown) if f.store_focused => send(out, &ClientMsg::StoreDown)?,
         (_, A::ScrollUp) if f.filemanager_focused => send(out, &ClientMsg::FileManagerUp)?,
         (_, A::ScrollDown) if f.filemanager_focused => send(out, &ClientMsg::FileManagerDown)?,
+        (_, A::ScrollUp) if f.logs_focused => send(out, &ClientMsg::LogsUp)?,
+        (_, A::ScrollDown) if f.logs_focused => send(out, &ClientMsg::LogsDown)?,
+        // Anywhere else, the wheel scrolls the scrollback of the PTY window
+        // under the pointer (a no-op if that's not a non-mouse app window).
+        (_, A::ScrollUp) => send(out, &ClientMsg::ScrollAt { p, lines: 3 })?,
+        (_, A::ScrollDown) => send(out, &ClientMsg::ScrollAt { p, lines: -3 })?,
         _ => {}
     }
     Ok(())
@@ -435,6 +493,28 @@ fn send(stream: &mut UnixStream, msg: &ClientMsg) -> std::io::Result<()> {
     stream.write_all(&buf)
 }
 
+/// Encode a key into the bytes forwarded to the focused PTY app.
+fn encode_key(code: KeyCode, mods: KeyModifiers) -> Vec<u8> {
+    match code {
+        KeyCode::Char(c) => {
+            if mods.contains(KeyModifiers::CONTROL) {
+                vec![(c.to_ascii_uppercase() as u8).wrapping_sub(0x40)]
+            } else {
+                c.to_string().into_bytes()
+            }
+        }
+        KeyCode::Enter => vec![b'\r'],
+        KeyCode::Backspace => vec![0x7f],
+        KeyCode::Tab => vec![b'\t'],
+        KeyCode::Esc => vec![0x1b],
+        KeyCode::Up => b"\x1b[A".to_vec(),
+        KeyCode::Down => b"\x1b[B".to_vec(),
+        KeyCode::Right => b"\x1b[C".to_vec(),
+        KeyCode::Left => b"\x1b[D".to_vec(),
+        _ => vec![],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -449,6 +529,8 @@ mod tests {
             images,
             image_data: Vec::new(),
             clear: false,
+            switch_to: None,
+            clipboard: None,
         }
     }
 
@@ -498,24 +580,3 @@ mod tests {
     }
 }
 
-/// Encode a key into the bytes forwarded to the focused PTY app.
-fn encode_key(code: KeyCode, mods: KeyModifiers) -> Vec<u8> {
-    match code {
-        KeyCode::Char(c) => {
-            if mods.contains(KeyModifiers::CONTROL) {
-                vec![(c.to_ascii_uppercase() as u8).wrapping_sub(0x40)]
-            } else {
-                c.to_string().into_bytes()
-            }
-        }
-        KeyCode::Enter => vec![b'\r'],
-        KeyCode::Backspace => vec![0x7f],
-        KeyCode::Tab => vec![b'\t'],
-        KeyCode::Esc => vec![0x1b],
-        KeyCode::Up => b"\x1b[A".to_vec(),
-        KeyCode::Down => b"\x1b[B".to_vec(),
-        KeyCode::Right => b"\x1b[C".to_vec(),
-        KeyCode::Left => b"\x1b[D".to_vec(),
-        _ => vec![],
-    }
-}

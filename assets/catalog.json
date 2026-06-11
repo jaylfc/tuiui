@@ -1123,7 +1123,7 @@
   "name": "snips.sh",
   "bin": "snips.sh",
   "category": "Development",
-  "description": "✂️ passwordless, anonymous SSH-powered pastebin with a human-friendly TUI and web UI",
+  "description": "\u2702\ufe0f passwordless, anonymous SSH-powered pastebin with a human-friendly TUI and web UI",
   "homepage": "https://github.com/robherley/snips.sh"
  },
  {
@@ -1648,7 +1648,7 @@
   "name": "nnn",
   "bin": "nnn",
   "category": "File Managers",
-  "description": "n³ The unorthodox terminal file manager.",
+  "description": "n\u00b3 The unorthodox terminal file manager.",
   "homepage": "https://github.com/jarun/nnn"
  },
  {
@@ -3496,7 +3496,7 @@
   "name": "hygg",
   "bin": "hygg",
   "category": "Productivity",
-  "description": "📚 Simplifying the way you read. Minimalistic Vim-like TUI document reader.",
+  "description": "\ud83d\udcda Simplifying the way you read. Minimalistic Vim-like TUI document reader.",
   "homepage": "https://github.com/kruserr/hygg"
  },
  {
@@ -4189,7 +4189,7 @@
   "name": "vhs",
   "bin": "vhs",
   "category": "Multimedia",
-  "description": "Write terminal GIFs as code — scriptable session recorder.",
+  "description": "Write terminal GIFs as code \u2014 scriptable session recorder.",
   "homepage": "https://github.com/charmbracelet/vhs"
  },
  {
@@ -4233,5 +4233,26 @@
   "category": "Development",
   "description": "SQLite CLI with auto-completion and syntax highlighting.",
   "homepage": "https://github.com/dbcli/litecli"
+ },
+ {
+  "name": "smallcode",
+  "bin": "smallcode",
+  "category": "AI",
+  "description": "AI coding agent optimized for small local LLMs (8B-35B) via Ollama/LM Studio/llama.cpp, with optional escalation to cloud models.",
+  "homepage": "https://github.com/Doorman11991/smallcode"
+ },
+ {
+  "name": "Hermes",
+  "bin": "hermes",
+  "category": "AI",
+  "description": "Nous Research's self-improving AI agent: creates skills from experience and builds a persistent model of its user. Chat TUI via hermes --tui.",
+  "homepage": "https://hermes-agent.nousresearch.com"
+ },
+ {
+  "name": "OpenClaw",
+  "bin": "openclaw",
+  "category": "AI",
+  "description": "Your own personal AI assistant \u2014 self-hosted gateway answering on WhatsApp/Telegram/Slack/Discord and more; terminal chat via openclaw tui.",
+  "homepage": "https://openclaw.ai"
  }
 ]

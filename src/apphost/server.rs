@@ -77,6 +77,7 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
             .into_iter()
             .map(|id| RosterEntry { app: id.0, meta: local.meta(id).unwrap_or_default() })
             .collect(),
+        proto: crate::apphost::proto::PROTO_VERSION,
     };
     // Best-effort: a short-lived connection (e.g. `tuiui kill` sending Shutdown)
     // may close before we finish writing the roster. Don't abandon the
@@ -105,6 +106,7 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
                 }
                 Ok(HostReq::Input { app, bytes }) => local.input(AppId(app), &bytes),
                 Ok(HostReq::Resize { app, cols, rows }) => local.resize(AppId(app), cols, rows),
+                Ok(HostReq::Scroll { app, lines }) => local.scroll(AppId(app), lines),
                 Ok(HostReq::SetMeta { app, meta }) => local.set_meta(AppId(app), meta),
                 Ok(HostReq::Kill { app }) => local.kill(AppId(app)),
                 Ok(HostReq::Shutdown) => {
@@ -144,11 +146,13 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
                 }
             }
 
+            let bells = local.take_bells(id);
+            let clip = local.take_clipboard(id);
             let grid_changed = last_grid.get(&id) != Some(&grid);
             let placements_changed = last_placements.get(&id) != Some(&placements);
             let mouse_changed = last_mouse.get(&id) != Some(&mouse);
-            if grid_changed || placements_changed || mouse_changed || !images.is_empty() {
-                let evt = HostEvt::Frame { app: id.0, grid: grid.clone(), placements: placements.clone(), images, alive: true, mouse };
+            if grid_changed || placements_changed || mouse_changed || !images.is_empty() || bells > 0 || clip.is_some() {
+                let evt = HostEvt::Frame { app: id.0, grid: grid.clone(), placements: placements.clone(), images, alive: true, mouse, bells, clip };
                 if send(&mut writer, &evt).is_err() {
                     return;
                 }

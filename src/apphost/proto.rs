@@ -13,6 +13,8 @@ pub enum HostReq {
     Spawn { req_id: u64, cmd: String, args: Vec<String>, cwd: Option<String>, cols: i32, rows: i32 },
     Input { app: u64, bytes: Vec<u8> },
     Resize { app: u64, cols: i32, rows: i32 },
+    /// Scroll the app's scrollback view by `lines` (+ = back into history).
+    Scroll { app: u64, lines: i32 },
     SetMeta { app: u64, meta: Vec<u8> },
     Kill { app: u64 },
     /// Stop the apphost process entirely (full shutdown / `tuiui kill`).
@@ -25,6 +27,17 @@ pub struct ImgBlob {
     pub image_id: u32,
     pub png_b64: String,
 }
+
+/// The apphost wire-protocol version this binary speaks. Bump on ANY change
+/// to `HostReq`/`HostEvt`.
+pub const PROTO_VERSION: u32 = 1;
+
+/// The OLDEST apphost protocol this frontend can safely talk to. Apphosts
+/// predating the `proto` roster field report 0. Bump this to `PROTO_VERSION`
+/// ONLY when a change genuinely breaks older apphosts — doing so arms the
+/// post-update safety dialog ("restart the app server, closes your apps"),
+/// giving users a chance to save work instead of silent breakage.
+pub const MIN_COMPAT: u32 = 0;
 
 /// One app's metadata in the on-connect roster.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -46,11 +59,22 @@ pub enum HostEvt {
         images: Vec<ImgBlob>,
         alive: bool,
         mouse: crate::mouse::AppMouse,
+        /// Bell rings since the previous frame (default 0 across version skew).
+        #[serde(default)]
+        bells: u32,
+        /// The app's latest OSC-52 clipboard store, forwarded to the host.
+        #[serde(default)]
+        clip: Option<String>,
     },
     /// The app's child exited.
     Gone { app: u64 },
     /// Sent right after a frontend connects so it can rebuild its window list.
-    Roster { apps: Vec<RosterEntry> },
+    Roster {
+        apps: Vec<RosterEntry>,
+        /// The apphost's [`PROTO_VERSION`] (0 = an apphost too old to say).
+        #[serde(default)]
+        proto: u32,
+    },
 }
 
 /// Write a newline-JSON message. Returns `Err` if the peer is gone.
@@ -73,6 +97,26 @@ pub fn recv<T: for<'de> Deserialize<'de>, R: BufRead>(r: &mut R) -> std::io::Res
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn roster_proto_round_trips_and_legacy_defaults_to_zero() {
+        let evt = HostEvt::Roster { apps: vec![], proto: PROTO_VERSION };
+        let mut buf: Vec<u8> = Vec::new();
+        send(&mut buf, &evt).unwrap();
+        let mut r = std::io::BufReader::new(&buf[..]);
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Roster { proto, .. } => assert_eq!(proto, PROTO_VERSION),
+            _ => panic!("wrong variant"),
+        }
+        // A roster from an apphost that predates the field parses with proto 0.
+        let legacy = br#"{"Roster":{"apps":[]}}
+"#;
+        let mut r = std::io::BufReader::new(&legacy[..]);
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Roster { proto, .. } => assert_eq!(proto, 0),
+            _ => panic!("wrong variant"),
+        }
+    }
     use crate::cell::Cell;
 
     #[test]
@@ -105,19 +149,23 @@ mod tests {
             images: vec![ImgBlob { image_id: 1, png_b64: "QUJD".into() }],
             alive: true,
             mouse: Default::default(),
+            bells: 2,
+            clip: Some("copied".into()),
         };
         let mut buf: Vec<u8> = Vec::new();
         send(&mut buf, &evt).unwrap();
         let mut r = std::io::BufReader::new(&buf[..]);
         let back: HostEvt = recv(&mut r).unwrap().unwrap();
         match back {
-            HostEvt::Frame { app, grid: g, placements, images, alive, mouse } => {
+            HostEvt::Frame { app, grid: g, placements, images, alive, mouse, bells, clip } => {
                 assert_eq!(app, 5);
                 assert_eq!(g, grid);
                 assert_eq!(placements.len(), 1);
                 assert_eq!(images[0].png_b64, "QUJD");
                 assert!(alive);
                 assert_eq!(mouse, Default::default());
+                assert_eq!(bells, 2);
+                assert_eq!(clip.as_deref(), Some("copied"));
             }
             _ => panic!("wrong variant"),
         }

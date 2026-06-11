@@ -61,6 +61,12 @@ impl AppHost for LocalAppHost {
         }
     }
 
+    fn scroll(&mut self, id: AppId, lines: i32) {
+        if let Some(app) = self.apps.get_mut(&id) {
+            app.scroll(lines);
+        }
+    }
+
     fn kill(&mut self, id: AppId) {
         if let Some(app) = self.apps.get_mut(&id) {
             app.kill();
@@ -69,6 +75,14 @@ impl AppHost for LocalAppHost {
 
     fn is_alive(&mut self, id: AppId) -> bool {
         self.apps.get_mut(&id).map(|a| a.is_alive()).unwrap_or(false)
+    }
+
+    fn take_bells(&mut self, id: AppId) -> u32 {
+        self.apps.get(&id).map(|a| a.take_bells()).unwrap_or(0)
+    }
+
+    fn take_clipboard(&mut self, id: AppId) -> Option<String> {
+        self.apps.get(&id).and_then(|a| a.take_clipboard())
     }
 
     fn snapshot(&self, id: AppId) -> Option<CellBuffer> {

@@ -26,6 +26,7 @@ fn dock_layer_is_bottom_row() {
         badge_letter: 'B',
         badge_color: badge_color(),
         focused: true,
+        attention: false,
     }];
     let layer = render_dock(40, 24, &items);
     assert_eq!(layer.origin, Point::new(0, 23));
@@ -41,6 +42,7 @@ fn dock_hit_regions_map_clicks_to_pills() {
             badge_letter: 'B',
             badge_color: badge_color(),
             focused: true,
+        attention: false,
         },
         DockItem {
             kind: DockKind::Single(WindowId(2)),
@@ -49,6 +51,7 @@ fn dock_hit_regions_map_clicks_to_pills() {
             badge_letter: 'L',
             badge_color: badge_color(),
             focused: false,
+        attention: false,
         },
     ];
     let regions = dock_hit_regions(40, 24, &items);
@@ -71,6 +74,7 @@ fn dock_single_pill_renders_badge_letter() {
         badge_letter: 'B',
         badge_color: badge_color(),
         focused: false,
+        attention: false,
     }];
     let layer = render_dock(40, 24, &items);
     // The bottom row should contain 'B' (the badge letter)
@@ -87,6 +91,7 @@ fn dock_group_pill_renders_count_glyph() {
         badge_letter: 'C',
         badge_color: badge_color(),
         focused: false,
+        attention: false,
     }];
     let layer = render_dock(60, 24, &items);
     let row: String = (0..60).map(|x| layer.buf.get(x, 0).unwrap().ch).collect();
@@ -118,7 +123,10 @@ fn menubar_has_power_button_on_right() {
     let r = menubar_power_region(width, power);
     assert_eq!(r.y, 0);
     assert_eq!(r.right(), width - 1);
-    // the region actually covers the power-button label (the 'x' in "devbox")
-    let xcol = row.rfind('x').unwrap() as i32;
+    // the region actually covers the power-button label (the 'x' in "devbox").
+    // Use a CHAR column, not `rfind`'s byte offset — the bar holds multi-byte
+    // glyphs (the ⊞ mode toggle and ✦ assistant button) left of the label.
+    let chars: Vec<char> = row.chars().collect();
+    let xcol = chars.iter().rposition(|c| *c == 'x').unwrap() as i32;
     assert!(r.contains(Point::new(xcol, 0)));
 }

@@ -6,6 +6,10 @@
 //! - `tuiui kill`       shut the daemon down (closing all windows).
 //! - `tuiui reload`     restart the frontend only; apps keep running.
 //! - `tuiui service …`  install|uninstall|status the per-user apphost service.
+//! - `tuiui launch …`   open a new app window in the running desktop.
+//! - `tuiui tile`       tile all windows into the configured grid.
+//! - `tuiui theme <t>`  switch the theme.
+//! - `tuiui msg '<j>'`  send a raw ClientMsg (the assistant's escape hatch).
 //!
 //! The daemon owns the windows and child processes and persists across client
 //! detaches, so closing a client (or an SSH disconnect) leaves everything running.
@@ -32,14 +36,56 @@ fn main() -> std::io::Result<()> {
                 Ok(())
             }
         },
+        Some("launch") => {
+            let mut rest = std::env::args().skip(2);
+            let Some(command) = rest.next() else {
+                eprintln!("usage: tuiui launch <command> [args…]");
+                return Ok(());
+            };
+            let args: Vec<String> = rest.collect();
+            let name = command.rsplit('/').next().unwrap_or(&command).to_string();
+            ctl(&tuiui::session::ClientMsg::Launch { name, command, args })
+        }
+        Some("tile") => ctl(&tuiui::session::ClientMsg::TileAll),
+        Some("theme") => match std::env::args().nth(2) {
+            Some(name) => ctl(&tuiui::session::ClientMsg::SetTheme(name)),
+            None => {
+                eprintln!("usage: tuiui theme <{}>", tuiui::theme::PRESETS.join("|"));
+                Ok(())
+            }
+        },
+        Some("msg") => match std::env::args().nth(2) {
+            Some(json) => match serde_json::from_str::<tuiui::session::ClientMsg>(&json) {
+                Ok(msg) => ctl(&msg),
+                Err(e) => {
+                    eprintln!("tuiui msg: not a valid ClientMsg: {e}");
+                    Ok(())
+                }
+            },
+            None => {
+                eprintln!("usage: tuiui msg '<ClientMsg JSON>'  e.g.  tuiui msg '\"MaximizeFocused\"'");
+                Ok(())
+            }
+        },
         Some(other) => {
             eprintln!(
-                "tuiui: unknown command '{other}' (try: attach, kill, reload, service, --daemon)"
+                "tuiui: unknown command '{other}' (try: attach, kill, reload, launch, tile, theme, msg, service, --daemon)"
             );
             Ok(())
         }
         None => attach(true),
     }
+}
+
+/// Send one control message to the running daemon (used by `tuiui launch/tile/
+/// theme/msg` — and by the desktop assistant to drive the UI).
+fn ctl(msg: &tuiui::session::ClientMsg) -> std::io::Result<()> {
+    if send_control(msg)? {
+        println!("tuiui: sent");
+    } else {
+        eprintln!("tuiui: no daemon running (start it with `tuiui`)");
+    }
+    Ok(())
 }
 
 /// Connect to the daemon and run a client. If `spawn_if_missing`, start a daemon
@@ -67,6 +113,13 @@ fn attach(spawn_if_missing: bool) -> std::io::Result<()> {
         let stream = UnixStream::connect(&path)?;
         match tuiui::client::run(stream)? {
             tuiui::client::ClientExit::Detached => return Ok(()),
+            tuiui::client::ClientExit::Switch(spec) => {
+                // Run ssh (and any first-time setup) in the real terminal; when
+                // the remote session ends, loop to re-attach to the local
+                // daemon — its apps kept running the whole time.
+                run_switch(&spec);
+                continue;
+            }
             tuiui::client::ClientExit::Reload => {
                 // The daemon is restarting; wait briefly for the old socket to
                 // drop, then loop to spawn/connect the fresh daemon.
@@ -77,6 +130,57 @@ fn attach(spawn_if_missing: bool) -> std::io::Result<()> {
                 continue;
             }
         }
+    }
+}
+
+/// Switch to a remote system: run the generated ssh/setup script with inherited
+/// stdio so password and host-key prompts are fully interactive. The setup
+/// password (if any) is passed via the `SSHPASS` env var — never on a command
+/// line and never written anywhere.
+fn run_switch(spec: &tuiui::systems::SwitchSpec) {
+    println!(
+        "tuiui: switching to {} ({}{}){}…",
+        spec.name,
+        spec.host,
+        spec.port.map(|p| format!(":{p}")).unwrap_or_default(),
+        if spec.setup { " — first-time setup" } else { "" },
+    );
+    let script = tuiui::systems::switch_script(spec);
+    // With TUIUI_DEBUG set, show exactly what will run (the password is never
+    // embedded in the script) and mirror it to ~/tuiui-debug.log.
+    if std::env::var_os("TUIUI_DEBUG").is_some() {
+        eprintln!("tuiui: switch script:\n{script}");
+    }
+    tuiui::dbg_log(&format!(
+        "switch: name={} host={} port={:?} theme={:?} setup={} password={}",
+        spec.name, spec.host, spec.port, spec.theme, spec.setup,
+        if spec.password.is_some() { "yes (via SSHPASS)" } else { "no" },
+    ));
+    let mut cmd = std::process::Command::new("sh");
+    cmd.arg("-c").arg(&script);
+    if let Some(pw) = &spec.password {
+        cmd.env("SSHPASS", pw);
+    }
+    match cmd.status() {
+        Ok(status) if status.success() => {
+            tuiui::dbg_log("switch: remote session ended cleanly");
+            println!("tuiui: remote session ended — back to this machine.");
+        }
+        Ok(status) => {
+            tuiui::dbg_log(&format!("switch: ended with {status}"));
+            eprintln!("tuiui: switch to {} ended with {status} — back to this machine.", spec.name);
+            eprintln!("tuiui: (re-run with TUIUI_DEBUG=1 to see the exact script; log: ~/tuiui-debug.log)");
+        }
+        Err(e) => {
+            tuiui::dbg_log(&format!("switch: could not run sh/ssh: {e}"));
+            eprintln!("tuiui: could not run ssh: {e}");
+        }
+    }
+    // Give the user a beat to read any setup/ssh output before tuiui's
+    // alternate screen swallows it on re-attach.
+    if spec.setup {
+        println!("tuiui: re-attaching to the local session in 3s… (Ctrl-C to stay in the shell)");
+        std::thread::sleep(Duration::from_secs(3));
     }
 }
 

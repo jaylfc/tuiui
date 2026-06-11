@@ -266,3 +266,187 @@ pub fn mode_rwx(mode: u32) -> String {
     }
     s
 }
+
+// ── Remote filesystem over ssh (the Systems feature's file browser) ─────────────
+
+/// Forward `FsOps` through a boxed backend so one `FileManager` type can browse
+/// either the local disk (`StdFs`) or a saved remote system (`SshFs`).
+impl FsOps for Box<dyn FsOps + Send> {
+    fn list(&self, dir: &Path, show_hidden: bool) -> io::Result<Vec<Entry>> {
+        (**self).list(dir, show_hidden)
+    }
+    fn mkdir(&self, parent: &Path, name: &str) -> io::Result<PathBuf> {
+        (**self).mkdir(parent, name)
+    }
+    fn rename(&self, path: &Path, new_name: &str) -> io::Result<PathBuf> {
+        (**self).rename(path, new_name)
+    }
+    fn copy(&self, src: &Path, dst_dir: &Path) -> io::Result<PathBuf> {
+        (**self).copy(src, dst_dir)
+    }
+    fn move_to(&self, src: &Path, dst_dir: &Path) -> io::Result<PathBuf> {
+        (**self).move_to(src, dst_dir)
+    }
+    fn trash(&self, path: &Path) -> io::Result<()> {
+        (**self).trash(path)
+    }
+    fn set_mode(&self, path: &Path, mode: u32) -> io::Result<()> {
+        (**self).set_mode(path, mode)
+    }
+}
+
+/// `FsOps` on a remote machine, via non-interactive ssh commands (`BatchMode`,
+/// so a system without key auth fails fast instead of hanging on a prompt).
+/// Every call is timeout-guarded by [`crate::system::run_capped`].
+pub struct SshFs {
+    /// `user@host` (or bare host).
+    pub target: String,
+    pub port: Option<u16>,
+}
+
+impl SshFs {
+    pub fn new(target: String, port: Option<u16>) -> Self {
+        SshFs { target, port }
+    }
+
+    /// Run `cmd` through `sh -c` on the remote; `None` on failure/timeout.
+    fn ssh(&self, cmd: &str, secs: u64) -> Option<String> {
+        let port = self.port.map(|p| p.to_string());
+        let mut args: Vec<&str> = vec!["-o", "BatchMode=yes", "-o", "ConnectTimeout=4"];
+        if let Some(p) = port.as_deref() {
+            args.extend(["-p", p]);
+        }
+        args.push(&self.target);
+        args.push(cmd);
+        let out = crate::system::run_capped("ssh", &args, secs);
+        if out.is_none() {
+            crate::dbg_log(&format!("sshfs {}: FAILED: {}", self.target, cmd));
+        }
+        out
+    }
+
+    /// The remote home directory (the browser's starting point), or `None`
+    /// when the system is unreachable / key auth is not set up.
+    pub fn remote_home(&self) -> Option<PathBuf> {
+        let home = self.ssh("pwd", 6)?;
+        let home = home.trim();
+        (!home.is_empty()).then(|| PathBuf::from(home))
+    }
+
+    fn q(p: &Path) -> String {
+        crate::systems::sh_quote(&p.to_string_lossy())
+    }
+
+    fn err(what: &str) -> io::Error {
+        io::Error::other(format!("ssh {what} failed (is the system online / key installed?)"))
+    }
+}
+
+impl FsOps for SshFs {
+    fn list(&self, dir: &Path, show_hidden: bool) -> io::Result<Vec<Entry>> {
+        let cmd = format!("cd {} && LC_ALL=C ls -lA", Self::q(dir));
+        let out = self.ssh(&cmd, 8).ok_or_else(|| Self::err("list"))?;
+        let mut entries = Vec::new();
+        for line in out.lines() {
+            let Some((kind, size, name)) = parse_ls_line(line) else { continue };
+            if !show_hidden && name.starts_with('.') {
+                continue;
+            }
+            let is_dir = kind == 'd';
+            let path = dir.join(&name);
+            let role = classify(&path, is_dir);
+            entries.push(Entry { name, path, is_dir, size, modified: None, role });
+        }
+        entries.sort_by(|a, b| {
+            b.is_dir
+                .cmp(&a.is_dir)
+                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        });
+        Ok(entries)
+    }
+
+    fn mkdir(&self, parent: &Path, name: &str) -> io::Result<PathBuf> {
+        let p = parent.join(name);
+        self.ssh(&format!("mkdir {}", Self::q(&p)), 8).ok_or_else(|| Self::err("mkdir"))?;
+        Ok(p)
+    }
+
+    fn rename(&self, path: &Path, new_name: &str) -> io::Result<PathBuf> {
+        let dst = path.parent().unwrap_or(Path::new("/")).join(new_name);
+        self.ssh(&format!("mv {} {}", Self::q(path), Self::q(&dst)), 8)
+            .ok_or_else(|| Self::err("rename"))?;
+        Ok(dst)
+    }
+
+    fn copy(&self, src: &Path, dst_dir: &Path) -> io::Result<PathBuf> {
+        self.ssh(&format!("cp -r {} {}/", Self::q(src), Self::q(dst_dir)), 20)
+            .ok_or_else(|| Self::err("copy"))?;
+        Ok(dst_dir.join(src.file_name().unwrap_or_default()))
+    }
+
+    fn move_to(&self, src: &Path, dst_dir: &Path) -> io::Result<PathBuf> {
+        self.ssh(&format!("mv {} {}/", Self::q(src), Self::q(dst_dir)), 20)
+            .ok_or_else(|| Self::err("move"))?;
+        Ok(dst_dir.join(src.file_name().unwrap_or_default()))
+    }
+
+    fn trash(&self, path: &Path) -> io::Result<()> {
+        // Move to the remote's trash (mac ~/.Trash, else XDG) — never a hard rm.
+        let cmd = format!(
+            "if [ -d \"$HOME/.Trash\" ]; then mv {p} \"$HOME/.Trash/\"; \
+else mkdir -p \"$HOME/.local/share/Trash/files\" && mv {p} \"$HOME/.local/share/Trash/files/\"; fi",
+            p = Self::q(path),
+        );
+        self.ssh(&cmd, 10).ok_or_else(|| Self::err("trash"))?;
+        Ok(())
+    }
+
+    fn set_mode(&self, path: &Path, mode: u32) -> io::Result<()> {
+        self.ssh(&format!("chmod {:o} {}", mode & 0o7777, Self::q(path)), 8)
+            .ok_or_else(|| Self::err("chmod"))?;
+        Ok(())
+    }
+}
+
+/// Parse one `LC_ALL=C ls -lA` line into (kind char, size, name). Skips the
+/// `total` header and anything that doesn't look like a listing row. Symlink
+/// names keep only the link side of `name -> target`.
+fn parse_ls_line(line: &str) -> Option<(char, u64, String)> {
+    let kind = line.chars().next()?;
+    if !matches!(kind, 'd' | '-' | 'l' | 'c' | 'b' | 'p' | 's') {
+        return None; // "total 12" or noise
+    }
+    // perms links owner group size month day time NAME (name may hold spaces).
+    let mut rest = line;
+    let mut fields: Vec<&str> = Vec::new();
+    for _ in 0..8 {
+        rest = rest.trim_start();
+        let idx = rest.find(char::is_whitespace)?;
+        fields.push(&rest[..idx]);
+        rest = &rest[idx..];
+    }
+    let size: u64 = fields[4].parse().unwrap_or(0);
+    let mut name = rest.trim_start().to_string();
+    if kind == 'l' {
+        if let Some(i) = name.find(" -> ") {
+            name.truncate(i);
+        }
+    }
+    (!name.is_empty()).then_some((kind, size, name))
+}
+
+#[cfg(test)]
+mod ssh_tests {
+    use super::*;
+
+    #[test]
+    fn ls_lines_parse_kinds_sizes_and_spaced_names() {
+        assert_eq!(parse_ls_line("total 12"), None);
+        let (k, sz, name) = parse_ls_line("drwxr-xr-x  2 user group 4096 Jun 10 10:00 My Documents").unwrap();
+        assert_eq!((k, sz, name.as_str()), ('d', 4096, "My Documents"));
+        let (k, sz, name) = parse_ls_line("-rw-r--r--  1 user group  220 Jun 10 10:00 notes.txt").unwrap();
+        assert_eq!((k, sz, name.as_str()), ('-', 220, "notes.txt"));
+        let (k, _, name) = parse_ls_line("lrwxrwxrwx  1 user group    7 Jun 10 10:00 link -> /target").unwrap();
+        assert_eq!((k, name.as_str()), ('l', "link"));
+    }
+}

@@ -10,9 +10,10 @@ It's a multiplexer at heart — like tmux, but with windows and a mouse: apps ru
 
 - **Floating, overlapping windows** with drop shadows, each running a real TUI (btop, a shell, vim, …) in its own pseudo-terminal.
 - **Faithful rendering** via a full terminal emulator ([`alacritty_terminal`](https://docs.rs/alacritty_terminal)) — even demanding apps like btop render correctly.
-- **Mouse-driven**: drag titlebars to move, drag edges to resize, click the dock to focus, click titlebar buttons to minimize/maximize/close — and the mouse **passes through into apps** that request it (btop, yazi, lazygit, vim with `mouse=a`): clicks, drag, scroll, and modifiers, in both windowed and full-screen views.
+- **Mouse-driven**: drag titlebars to move, drag edges to resize, click the dock to focus, click titlebar buttons to minimize/maximize/close, and **scroll the wheel** over any app window to page back through its scrollback (typing snaps back to the live bottom). The mouse also **passes through into apps** that request it (btop, yazi, lazygit, vim with `mouse=a`): clicks, drag, scroll, and modifiers, in both windowed and full-screen views.
 - **Configurable grid tiling** — set a rows×columns grid (e.g. 2×3 for an ultra-wide) and use drag-to-cell snapping (with a live preview), a one-key *tile-all*, an *auto-tile* mode, or send a window straight to a numbered cell.
-- **Menubar status tray** — clock, CPU/memory, volume, WiFi, Bluetooth, and battery, with click-through popovers that control the **host's** volume, switch to a known WiFi network, and connect a paired Bluetooth device.
+- **Menubar status tray** — clock + date, CPU/memory, volume, WiFi, Bluetooth, and battery (Linux sysfs / macOS `pmset`), with click-through popovers that control the **host's** volume, switch to a known WiFi network, and connect a paired Bluetooth device. Clicking the clock opens a **month calendar** (today highlighted, `◂ ▸` to browse months) that also shows your **upcoming events** and underlines their days when [`khal`](https://github.com/pimutils/khal) is installed.
+- **Notifications** — when a background or minimized app rings the terminal bell, its dock pill gets an attention dot and a 🔔 counter appears in the tray; the popover lists who rang and when — click an entry to jump to that window. Apps that copy via **OSC 52** (vim, tmux, …) have their clipboard forwarded to your real terminal.
 - **Native image viewing** — real raster images inside windows via the Kitty graphics protocol (Ghostty/Kitty/WezTerm), with a cell placeholder fallback elsewhere. Open one with a launcher entry `command = "@image"`, `args = ["~/pic.png"]`.
 - **File manager** — a native, mouse-and-keyboard file browser (launcher entry **Files**, or `@files`): **icon-grid, list, and Miller-columns** views, **image thumbnails** (via the Kitty graphics layer), a **preview pane** (text head / PDF text / metadata), **tabs**, **Get Info** (size, kind, Unix permissions, symlink target), folder navigation with history, single/ctrl/shift selection, new folder, rename, copy/cut/paste, and **delete-to-Trash** (never a hard delete). Double-click/Enter opens each file with its default app.
 - **Default Apps** — a configurable file-type → app map (**Settings → Default Apps**): images open in the built-in viewer, text/code in your `$EDITOR`, and you can cycle the handler for each role. The file manager uses it to open files "just like a real OS."
@@ -26,7 +27,11 @@ It's a multiplexer at heart — like tmux, but with windows and a mouse: apps ru
 - **Simple view mode** — a top-bar toggle (`⊞` desktop ⇄ `▦` simple) that flips to a tmux-style full-screen-single-app view (no window decorations), keeping the menubar + dock; the dock is your app switcher. Same running apps in both modes.
 - **Persistent daemon + thin client, with live updates** (tmux-style): apps run in a separate **apphost** process and survive client detach, SSH disconnects, **and a frontend reload** — update the binary and **reload the UI without killing your apps** (menubar **Restart**, `tuiui reload`, or **Settings → Update & Reload**). Closing an app window (titlebar **✕**) asks for confirmation first since it ends the process; built-in panels (Store/Settings/Files) close without asking. `tuiui kill` stops everything (daemon + apphost), and works even while a client is attached.
 - **Bare-console mouse (Linux)** — on a raw Linux VT with no GUI terminal, tuiui reads the mouse directly from the **gpm** daemon (`apt install gpm`); see [the gpm section](#mouse-on-a-bare-linux-console-gpm).
-- **In-app updater** — check for and install updates from **Settings → Updates** (then reload, apps intact).
+- **In-app updater** — check for and install updates from **Settings → Updates**. The default **main** channel installs the latest **prebuilt release** (a fast download, not a source recompile), reloads, and reopens Settings on the Updates screen — apps intact. A **dev** channel (toggle in the same section) tracks the dev branch from source for testing. Mouse-clickable. Updates never close your running apps — and if a future update ever required restarting the app server, a **safety dialog** warns you first and lets you save your work (with a "restart later" row in Settings → Updates).
+- **Systems switcher** — hop between tuiui sessions on different machines from the power menu (**host name ▾ → Systems**). Saved machines show a live **●/○ reachability dot** and switch in one click over ssh; **+ Add Remote…** asks for an ssh target (+ optional password and per-system theme), then transfers your SSH key (`ssh-copy-id`, generating one if needed), installs tuiui on the remote (mac / Linux / WSL2) plus **gpm** for console mouse, and connects. Exiting the remote session drops you straight back into your local desktop — whose apps never stopped. Each system can carry its **own theme**, applied on attach via `TUIUI_THEME`. Passwords are used once for the key copy (via `sshpass`, which the installer sets up) and never saved.
+- **Remote files** — every saved system gets a **Files on <name>** entry in the launcher (Systems category): browse the remote machine's disk over ssh, make/rename/trash folders, and **copy files between machines** — `Ctrl+C` in one window, `Ctrl+V` in another, and tuiui runs the `scp` in the background (local↔remote and remote↔remote via `scp -3`).
+- **AI assistant** — the **✦** menubar button opens a persistent chat panel (or a floating window — pick in **Settings → Assistant**) running your coding agent. Six frameworks are supported and verified: **Claude Code**, **[opencode](https://opencode.ai)**, **[smallcode](https://github.com/Doorman11991/smallcode)** (fully-local small models), **[Kilo Code](https://kilo.ai/cli)**, **[Hermes](https://hermes-agent.nousresearch.com)** (`hermes --tui`), and **[OpenClaw](https://openclaw.ai)** (`openclaw tui`). The agent's instructions live in the repo's [`agent/`](agent/) pack — embedded in the binary and stamped into `~/.local/share/tuiui/assistant/` on every launch in every convention the CLIs read (`CLAUDE.md`, `AGENTS.md`, `HERMES.md`, `knowledge/*.md`, plus an OpenClaw workspace pointer and a smallcode `.env` template) — and that folder is forced as the agent's cwd whatever framework runs. The briefing covers its role, the desktop-control CLI (`tuiui launch/tile/theme/msg`), the logs, the repo (so it can fix bugs and open PRs), **and all your saved systems** — so the agent can ssh/scp across your machines ("get that file from my ubuntu box onto this desktop") with the keys Add Remote already installed; the systems list is synced to remotes during setup so the assistant knows the same machines everywhere. The chat survives detach and reloads; all six install from the Store with setup tips shown in the detail pane. Hermes and OpenClaw also get **launcher chat shortcuts** when installed.
+- **Logs viewer** — launcher → **tuiui → Logs** opens a live view of `~/tuiui-debug.log` (logging is always on): scroll with `↑/↓/PgUp/PgDn` or the wheel, press **`c` to copy the log to your terminal's clipboard** (OSC 52 — works in Ghostty/Kitty/WezTerm, even over ssh), `r` to refresh. Perfect for pasting into a bug report.
 
 ## Controls
 
@@ -46,7 +51,7 @@ tuiui uses a **leader key** (`Ctrl+Space`) so its shortcuts never collide with m
 | `Ctrl+Space` then `?` | **Help** — show this shortcut cheatsheet in-app (any key dismisses) |
 | `Ctrl+Space` then `q` | Detach (apps keep running in the background) |
 
-Exit/Restart/Shutdown live in the top-right **host-name menu** (`▾`): **Exit** detaches, **Restart** reloads the UI keeping apps alive, **Shutdown** stops everything.
+Exit/Restart/Shutdown live in the top-right **host-name menu** (`▾`): **Exit** detaches, **Restart** reloads the UI keeping apps alive, **Shutdown** stops everything. **Systems** cascades the machine switcher: click a saved machine to ssh into its tuiui session (its `✕` forgets it), or **+ Add Remote…** to set up a new one (Tab/↑↓ between fields, `←`/`→` picks the theme, Enter connects). Setup also copies your terminal's **terminfo** to the remote (so Ghostty/Kitty `TERM`s like `xterm-ghostty` don't break curses apps there — with an automatic `xterm-256color` fallback on every connect) and syncs your saved-systems list. Troubleshooting a switch: every step logs to `~/tuiui-debug.log` (open it in-app via launcher → tuiui → **Logs**, press `c` to copy it); `TUIUI_DEBUG=1` additionally prints the exact ssh/setup script before it runs.
 
 Forget a shortcut? Press **`Ctrl+Space` then `?`** for the in-app cheatsheet.
 
@@ -58,7 +63,7 @@ In the **file manager** (launcher → **Files**): `↑`/`↓`/`←`/`→` move t
 
 On the **desktop** (the empty wallpaper): click an icon to select, **double-click to open** (folders → the file manager, files → their default app, pins → the app), **drag** an icon to rearrange it (snaps to a grid, position saved), and **right-click** an icon (open / rename / move to Trash) or the empty desktop (new folder / clean up). Icons come from your `~/Desktop` folder plus pinned shortcuts.
 
-Mouse: click **tuiui** (top-left) for the app launcher, the **`⊞`/`▦`** toggle (next to it) to switch desktop/simple view, your **host name `▾`** (top-right) for the Exit/Restart/Shutdown menu, titlebar buttons (`– ▢ ✕`), and **double-click a titlebar to rename** the window. Drag titlebars/edges to move/resize, drag a window to a screen edge to snap it into a grid cell, click a tray indicator (clock/volume/WiFi/…) for its popover, and click dock pills to focus (a grouped pill opens a chooser). The mouse passes through into apps that enable mouse reporting.
+Mouse: click **tuiui** (top-left) for the app launcher, the **`⊞`/`▦`** toggle (next to it) to switch desktop/simple view, **✦** to open/hide the AI assistant panel, your **host name `▾`** (top-right) for the Exit/Restart/Shutdown menu, titlebar buttons (`– ▢ ✕`), and **double-click a titlebar to rename** the window. Drag titlebars/edges to move/resize, drag a window to a screen edge to snap it into a grid cell, click a tray indicator (clock/volume/WiFi/…) for its popover, and click dock pills to focus (a grouped pill opens a chooser). Scroll the wheel over a shell/app window to read its scrollback. The mouse passes through into apps that enable mouse reporting.
 
 ## Build & run
 
@@ -105,7 +110,14 @@ and it's all still there.
 ```bash
 tuiui            # ensure the daemon is running, then attach
 tuiui attach     # attach to an already-running daemon
+tuiui reload     # restart the UI only; apps keep running
 tuiui kill       # shut the daemon down (closes all windows)
+
+# Control a running desktop from any shell (also how the AI assistant drives it):
+tuiui launch btop          # open a new window running btop
+tuiui tile                 # tile all windows into the grid
+tuiui theme nord           # switch theme
+tuiui msg '"MaximizeFocused"'   # raw control message (ClientMsg JSON)
 ```
 
 Detach with **`Ctrl+Space` then `q`** (apps keep running); to fully stop, **shut
@@ -185,6 +197,15 @@ snap_threshold = 3        # edge band (cells) that engages snapping
 window_shadows = true
 theme = "midnight"        # midnight | nord | gruvbox | dracula
 
+# AI assistant (the ✦ menubar button; also editable in Settings → Assistant)
+# assistant_command = "opencode"   # pin a framework (default: auto-detect
+#                                  # claude/opencode/smallcode/kilo/hermes/openclaw)
+# assistant_args = ["--model", "anthropic/claude-sonnet-4-6"]  # extra CLI args
+assistant_mode = "panel"  # "panel" (right-docked) | "window" (floating)
+
+# In-app updater (Settings → Updates)
+update_branch = "main"    # "main" = fast prebuilt releases; "dev" = build from source
+
 # Tiling grid (also editable in Settings → Windows)
 grid_rows = 2
 grid_cols = 3
@@ -248,6 +269,14 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 - **✅ Apphost as a service:** `tuiui service install` runs the apphost as a per-user service (launchd / systemd `--user` / `~/.profile` fallback) that auto-starts on login and restarts on crash; the macOS LaunchAgent also restores Keychain access (e.g. Claude Code login) inside tuiui.
 - **✅ Smart installs:** the store detects a missing toolchain (Go/Rust/Node/Python) before an install and offers to set it up first; a confirm dialog guards closing an app window (which ends its process).
 - **✅ Terminal office suite:** word processor (`wordgrinder`), spreadsheets (`sheets`/`sc-im`/`visidata`), presentations (`slides`/`presenterm`), email (`himalaya`/`aerc`), calendar (`khal`/`calcure`), contacts (`khard`/`abook`), and notes (`nb`/`nap`) — all in the store.
+- **✅ Systems switcher:** power menu → Systems — saved machines with live ●/○ dots; Add Remote transfers SSH keys, installs tuiui + gpm + your terminal's terminfo on the remote, syncs the systems list, and connects; per-system themes; drop back to the local desktop when the remote session ends.
+- **✅ Clock + calendar:** date+time in the menubar; click for a month calendar with `◂ ▸` navigation and `khal` events.
+- **✅ Notifications:** background bell → dock attention dot + 🔔 tray popover (click to focus); apps' OSC-52 copies forwarded to the host clipboard.
+- **✅ Remote files:** browse saved systems over ssh in the file manager; copy between machines with Ctrl+C/Ctrl+V (background scp, `-3` for remote↔remote).
+- **✅ Logs viewer:** launcher → tuiui → Logs; `c` copies the log to the host clipboard via OSC 52.
+- **✅ Scrollback:** the mouse wheel pages back through any app window's history.
+- **✅ Versioned releases + update channels:** semver in `Cargo.toml`, a `CHANGELOG`, and a main/dev channel switcher in Settings → Updates (main installs prebuilt releases fast; dev builds from source).
+- **✅ AI assistant:** the ✦ chat panel/window — six agent frameworks, the repo `agent/` briefing pack, desktop control via the `tuiui` CLI, cross-machine awareness.
 - **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client) — plus a parked idea: a fullscreen **browser PWA** of tuiui (multiple simultaneous frontends on one apphost).
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 

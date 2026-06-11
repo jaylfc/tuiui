@@ -11,8 +11,14 @@ const GO_LABEL: &str = " tuiui ";
 /// Column where the view-mode toggle is drawn (just right of the brand button).
 const MODE_X: i32 = 8; // GO_LABEL is 7 cells wide, + a 1-cell gap
 
-/// Column where the focused-app name starts (after the brand + mode toggle).
-const APP_X: i32 = 12;
+/// Column where the assistant (✦) button is drawn (right of the mode toggle).
+const ASSIST_X: i32 = 12;
+
+/// Label for the assistant button (opens the AI chat panel).
+const ASSIST_LABEL: &str = " \u{2726} "; // ✦
+
+/// Column where the focused-app name starts (after brand + mode + assistant).
+const APP_X: i32 = 16;
 
 /// Menubar view-mode toggle glyphs (shows the CURRENT mode; click to switch).
 const MODE_DESKTOP: &str = " \u{229E} "; // ⊞  windowed desktop
@@ -42,6 +48,8 @@ pub struct DockItem {
     pub badge_color: crate::cell::Rgba,
     /// Whether any window in this pill is focused.
     pub focused: bool,
+    /// Whether any window in this pill has an unseen bell notification.
+    pub attention: bool,
 }
 
 // ── Public render functions ────────────────────────────────────────────────────
@@ -57,6 +65,7 @@ pub fn render_menubar(width: i32, focused_app: &str, segments: &[crate::tray::Se
     buf.write_str(0, 0, GO_LABEL, t.accent, t.active_bg);
     let mode = if simple { MODE_SIMPLE } else { MODE_DESKTOP };
     buf.write_str(MODE_X, 0, mode, t.accent, t.active_bg);
+    buf.write_str(ASSIST_X, 0, ASSIST_LABEL, t.accent, t.active_bg);
     // Power button (the host name + ▾), right-aligned, with a button-like fill.
     let px = (width - power_label.chars().count() as i32).max(0);
     // Status-tray segments occupy the right side, just left of the power button.
@@ -83,6 +92,11 @@ pub fn menubar_brand_region() -> Rect {
 /// Screen-space hit region for the menubar view-mode toggle (just right of the brand).
 pub fn menubar_mode_region() -> Rect {
     Rect::new(MODE_X, 0, MODE_DESKTOP.chars().count() as i32, 1)
+}
+
+/// Screen-space hit region for the assistant (✦) button — opens the AI chat panel.
+pub fn menubar_assistant_region() -> Rect {
+    Rect::new(ASSIST_X, 0, ASSIST_LABEL.chars().count() as i32, 1)
 }
 
 /// Screen-space hit region for the menubar power button (the host name + ▾, top
@@ -119,6 +133,15 @@ pub fn render_dock(width: i32, height: i32, items: &[DockItem]) -> Layer {
         let bg = if item.focused { t.active_bg } else { t.dock_bg };
         // Write the full pill background first
         buf.write_str(r.x, 0, &label_text, t.text, bg);
+        // Bell-notification dot at the pill's right edge.
+        if item.attention {
+            buf.set(r.x + r.w - 1, 0, crate::cell::Cell {
+                ch: '•',
+                fg: t.accent,
+                bg,
+                attrs: Default::default(),
+            });
+        }
         // Overwrite the badge cell (first char of label_text) with badge color
         buf.set(badge_x, 0, crate::cell::Cell {
             ch: item.badge_letter,

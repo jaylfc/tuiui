@@ -27,6 +27,15 @@ fn frame_msg_roundtrips_json() {
         images: Vec::new(),
         image_data: Vec::new(),
         clear: true,
+        clipboard: Some("copied text".into()),
+        switch_to: Some(tuiui::systems::SwitchSpec {
+            name: "pi".into(),
+            host: "pi@10.0.0.2".into(),
+            port: Some(2222),
+            theme: Some("nord".into()),
+            setup: true,
+            password: None,
+        }),
     };
     let s = serde_json::to_string(&f).unwrap();
     let back: FrameMsg = serde_json::from_str(&s).unwrap();
@@ -34,15 +43,20 @@ fn frame_msg_roundtrips_json() {
     assert_eq!(back.changes[0].cell.ch, 'A');
     assert!(back.flags.launcher_open);
     assert!(back.clear);
+    let spec = back.switch_to.expect("switch spec survives the round trip");
+    assert_eq!(spec.host, "pi@10.0.0.2");
+    assert!(spec.setup);
 }
 
 #[test]
 fn frame_msg_clear_defaults_off_for_older_daemons() {
-    // A frame from a daemon that predates `clear` must still parse, with the
-    // wipe defaulted off (no spurious screen clears on version skew).
+    // A frame from a daemon that predates `clear` (and `switch_to`) must still
+    // parse, with the wipe defaulted off and no switch requested.
     let s = r#"{"changes":[],"cursor":null,"flags":{}}"#;
     let f: FrameMsg = serde_json::from_str(s).unwrap();
     assert!(!f.clear);
+    assert!(f.switch_to.is_none());
+    assert!(!f.flags.power_editing);
 }
 
 #[test]

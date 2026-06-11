@@ -15,7 +15,11 @@ const ACCENT: Rgba = Rgba { r: 108, g: 182, b: 255, a: 255 };
 const GREEN: Rgba = Rgba { r: 126, g: 231, b: 135, a: 255 };
 
 const SIDEBAR_W: i32 = 18;
-const SECTIONS: &[&str] = &["Windows", "Appearance", "Updates", "Apps", "Default Apps", "About"];
+const SECTIONS: &[&str] = &["Windows", "Appearance", "Updates", "Apps", "Default Apps", "Assistant", "About"];
+
+/// Framework choices for the Assistant section: auto-detect, then the
+/// supported agent CLIs (see `assistant::AGENT_CLIS`).
+const ASSISTANT_FRAMEWORKS: &[&str] = &["auto", "claude", "opencode", "smallcode", "kilo", "hermes", "openclaw"];
 
 /// Roles listed in the Default Apps section (config key, label).
 const DEFAULT_APP_ROLES: &[(&str, &str)] = &[
@@ -34,6 +38,9 @@ const DEFAULT_APP_ROLES: &[(&str, &str)] = &[
 /// (these touch the network / spawn processes, so the panel only requests them).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SettingsAction {
+    /// Restart the app server (closes all apps) — shown only after a compat
+    /// warning flagged the running apphost as too old for this binary.
+    RestartApphost,
     /// Check upstream for a newer commit.
     CheckUpdates,
     /// Install the latest version.
@@ -51,6 +58,8 @@ struct AppEdit {
 
 /// Settings panel state (owns a working copy of the config).
 pub struct Settings {
+    /// Whether the running apphost is older than this binary supports.
+    apphost_outdated: bool,
     cfg: Config,
     section: usize,
     sel: usize,
@@ -63,7 +72,7 @@ pub struct Settings {
 impl Settings {
     /// Create a settings panel editing a copy of `cfg`.
     pub fn new(cfg: Config) -> Self {
-        Self { cfg, section: 0, sel: 0, action: None, update_status: String::new(), edit: None }
+        Self { apphost_outdated: false, cfg, section: 0, sel: 0, action: None, update_status: String::new(), edit: None }
     }
 
     /// Take a pending action requested by the user (cleared on read).
@@ -74,6 +83,20 @@ impl Settings {
     /// Set the text shown under the Updates section after a check.
     pub fn set_update_status(&mut self, s: String) {
         self.update_status = s;
+    }
+
+    /// Show the "Restart app server" row (set when the apphost was flagged as
+    /// older than this binary's minimum-compatible protocol).
+    pub fn set_apphost_outdated(&mut self, outdated: bool) {
+        self.apphost_outdated = outdated;
+    }
+
+    /// Jump to the Updates section (used to reopen there after an update reload).
+    pub fn show_updates_section(&mut self) {
+        if let Some(i) = SECTIONS.iter().position(|s| *s == "Updates") {
+            self.section = i;
+            self.sel = 0;
+        }
     }
 
     /// The live (edited) config.
@@ -92,9 +115,10 @@ impl Settings {
         match self.section {
             0 => 7,                            // snapping, threshold, grid rows/cols, gap, auto-tile, launch-maximized
             1 => 2,                            // shadows, theme
-            2 => 2,                            // check, install
+            2 => if self.apphost_outdated { 4 } else { 3 }, // check, install, branch [, restart apphost]
             3 => self.cfg.launcher.len() + 1,  // custom apps + "＋ Add app…"
             4 => DEFAULT_APP_ROLES.len(),
+            5 => 2,                            // assistant framework, mode
             _ => 0,                            // About
         }
     }
@@ -209,8 +233,32 @@ impl Settings {
             // Updates section: Enter/Space (dir 0) requests an action from the session.
             (2, 0) if dir == 0 => self.action = Some(SettingsAction::CheckUpdates),
             (2, 1) if dir == 0 => self.action = Some(SettingsAction::InstallUpdate),
+            (2, 3) if dir == 0 && self.apphost_outdated => {
+                self.action = Some(SettingsAction::RestartApphost)
+            }
+            (2, 2) => {
+                let b = crate::config::UPDATE_BRANCHES;
+                let cur = b.iter().position(|x| *x == self.cfg.update_branch).unwrap_or(0);
+                let next = match dir { -1 => (cur + b.len() - 1) % b.len(), _ => (cur + 1) % b.len() };
+                self.cfg.update_branch = b[next].to_string();
+            }
             // Apps section.
             (3, _) => self.adjust_apps(dir),
+            (5, 0) => {
+                // Framework cycler: "auto" ↔ each supported agent CLI.
+                let cur = self.cfg.assistant_command.as_deref().unwrap_or("auto");
+                let idx = ASSISTANT_FRAMEWORKS.iter().position(|f| *f == cur).unwrap_or(0);
+                let n = ASSISTANT_FRAMEWORKS.len();
+                let next = if dir == -1 { (idx + n - 1) % n } else { (idx + 1) % n };
+                self.cfg.assistant_command = match ASSISTANT_FRAMEWORKS[next] {
+                    "auto" => None,
+                    f => Some(f.to_string()),
+                };
+            }
+            (5, 1) => {
+                self.cfg.assistant_mode =
+                    if self.cfg.assistant_mode == "panel" { "window".into() } else { "panel".into() };
+            }
             (4, i) => {
                 if let Some((key, _)) = DEFAULT_APP_ROLES.get(i) {
                     let role = role_from_key(key);
@@ -345,14 +393,40 @@ impl Settings {
             2 => {
                 self.row(&mut buf, cx, 3, 0, "Check for updates", String::new());
                 self.row(&mut buf, cx, 4, 1, "Update & Reload", String::new());
+                self.row(&mut buf, cx, 5, 2, "Channel", format!("\u{25C2} {} \u{25B8}", self.cfg.update_branch));
                 let sha = &crate::GIT_SHA[..crate::GIT_SHA.len().min(7)];
-                buf.write_str(cx, 6, &format!("installed: v{} ({})", crate::VERSION, sha), DIM, BG);
+                buf.write_str(cx, 7, &format!("installed: v{} ({})", crate::VERSION, sha), DIM, BG);
                 if !self.update_status.is_empty() {
-                    let col = if self.update_status.contains("Update available") { GREEN } else { DIM };
-                    buf.write_str(cx, 7, &self.update_status, col, BG);
+                    let col = if self.update_status.contains("available") { GREEN } else { DIM };
+                    buf.write_str(cx, 8, &self.update_status, col, BG);
+                }
+                if self.cfg.update_branch != "main" {
+                    buf.write_str(cx, 9, "dev channel: builds from source (slower).", DIM, BG);
+                }
+                if self.apphost_outdated {
+                    self.row(&mut buf, cx, 6, 3, "Restart app server", "(closes apps)".into());
+                    buf.write_str(cx, 10, "The app server predates this update; some features", DIM, BG);
+                    buf.write_str(cx, 11, "won't work until it restarts (your apps will close).", DIM, BG);
                 }
             }
             3 => self.render_apps(&mut buf, cx, w),
+            5 => {
+                let cur = self.cfg.assistant_command.as_deref().unwrap_or("auto");
+                let shown = if cur == "auto" {
+                    match crate::assistant::resolve_agent(None, &[]) {
+                        Some((cmd, _)) => format!("auto ({cmd})"),
+                        None => "auto (none found)".into(),
+                    }
+                } else {
+                    let mark = if crate::catalog::is_installed(cur) { "" } else { " (not installed)" };
+                    format!("{cur}{mark}")
+                };
+                self.row(&mut buf, cx, 3, 0, "Framework", format!("\u{25C2} {shown} \u{25B8}"));
+                self.row(&mut buf, cx, 4, 1, "Open as", format!("\u{25C2} {} \u{25B8}", self.cfg.assistant_mode));
+                buf.write_str(cx, 6, "The \u{2726} menubar button opens the assistant.", DIM, BG);
+                buf.write_str(cx, 7, "Its briefing pack: ~/.local/share/tuiui/assistant", DIM, BG);
+                buf.write_str(cx, 8, "Extra CLI args: assistant_args in config.toml", DIM, BG);
+            }
             4 => {
                 for (i, (key, label)) in DEFAULT_APP_ROLES.iter().enumerate() {
                     let val = self.cfg.default_apps.get(*key).cloned().unwrap_or_else(|| "(ask)".into());

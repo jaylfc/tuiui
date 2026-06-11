@@ -16,6 +16,10 @@ use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Duration;
 
+/// Out-of-band control messages (`tuiui launch/tile/theme/msg`) queued by the
+/// control-socket thread and drained into the session by the render loop.
+type CtlQueue = Arc<std::sync::Mutex<Vec<ClientMsg>>>;
+
 /// Shared out-of-band control state, set by the control-socket thread and polled
 /// by the render loop: 0 = none, 1 = shutdown, 2 = reload.
 const CTL_NONE: u8 = 0;
@@ -45,10 +49,12 @@ pub fn run() -> std::io::Result<()> {
     let ctl_path = daemon_ctl_path();
     let _ = std::fs::remove_file(&ctl_path);
     let ctl = Arc::new(AtomicU8::new(CTL_NONE));
+    let ctl_queue: CtlQueue = Arc::new(std::sync::Mutex::new(Vec::new()));
     if let Ok(ctl_listener) = UnixListener::bind(&ctl_path) {
         let _ = std::fs::set_permissions(&ctl_path, Permissions::from_mode(0o600));
         let ctl_flag = Arc::clone(&ctl);
-        std::thread::spawn(move || serve_control(ctl_listener, ctl_flag));
+        let queue = Arc::clone(&ctl_queue);
+        std::thread::spawn(move || serve_control(ctl_listener, ctl_flag, queue));
     }
 
     let cfg = Config::load();
@@ -87,6 +93,13 @@ pub fn run() -> std::io::Result<()> {
             std::thread::sleep(Duration::from_millis(16));
         }
     }
+    // Safety check: if the running apphost is older than this binary can
+    // safely talk to AND owns live apps, raise the "restart app server"
+    // dialog so the user can save work first (instead of silent breakage).
+    core.check_apphost_compat();
+    // Honour a one-shot UI reopen hint (e.g. reopen Settings → Updates after an
+    // in-app update reloaded the frontend).
+    core.reopen_ui_from_hint();
     let mut comp = Compositor::new(w, h);
 
     // While unattached, the loop blocks in `accept()`; a control message can't be
@@ -95,11 +108,11 @@ pub fn run() -> std::io::Result<()> {
     // we re-check the control flag on each wake.
     let mut reloading = false;
     for stream in listener.incoming() {
-        if apply_ctl(&ctl, &mut core) {
+        if apply_ctl(&ctl, &ctl_queue, &mut core) {
             // A control message arrived while unattached; this stream is the wake
             // poke. Don't serve it as a client.
         } else if let Ok(stream) = stream {
-            serve_client(&mut core, &mut comp, stream, &ctl);
+            serve_client(&mut core, &mut comp, stream, &ctl, &ctl_queue);
         }
         core.clear_quit();
         if core.shutdown_requested() {
@@ -176,6 +189,7 @@ fn serve_client(
     comp: &mut Compositor,
     stream: UnixStream,
     ctl: &Arc<AtomicU8>,
+    ctl_queue: &CtlQueue,
 ) {
     let Ok(reader_stream) = stream.try_clone() else { return };
     let mut writer = stream;
@@ -229,12 +243,13 @@ fn serve_client(
         }
         // Out-of-band `tuiui kill` / `tuiui reload` (control socket) — honored even
         // though this client is attached.
-        apply_ctl(ctl, core);
+        apply_ctl(ctl, ctl_queue, core);
         if core.shutdown_requested() {
             return;
         }
 
         core.reap_dead();
+        core.pump_app_events();
         core.refresh_app_graphics();
         core.sync_app_meta();
         core.pump_thumbnails();
@@ -255,6 +270,8 @@ fn serve_client(
             desktop_editing: core.desktop_editing(),
             renaming: core.renaming(),
             confirm_close: core.confirm_close_open(),
+            power_editing: core.power_form_editing(),
+            logs_focused: core.focused_is_logs(),
             detach: core.quit_requested(),
             reload: core.reload_requested(),
             app_area: core.app_mouse_area(),
@@ -279,6 +296,8 @@ fn serve_client(
             images: frame.images.clone(),
             image_data,
             clear: clear_pending,
+            switch_to: core.switch_spec(),
+            clipboard: core.take_clipboard(),
         })
             .unwrap_or_default();
         buf.push(b'\n');
@@ -289,6 +308,9 @@ fn serve_client(
         clear_pending = false;
 
         if core.quit_requested() {
+            if let Some(spec) = core.switch_spec() {
+                crate::dbg_log(&format!("daemon: switch frame delivered (→ {} {})", spec.name, spec.host));
+            }
             return; // detach (flag already delivered)
         }
         if core.reload_requested() {
@@ -300,7 +322,10 @@ fn serve_client(
 
 /// If a control message has arrived, apply it to `core` (setting its
 /// shutdown/reload flag, which the loops already act on) and return `true`.
-fn apply_ctl(ctl: &Arc<AtomicU8>, core: &mut SessionCore) -> bool {
+fn apply_ctl(ctl: &Arc<AtomicU8>, queue: &CtlQueue, core: &mut SessionCore) -> bool {
+    for msg in queue.lock().unwrap().drain(..) {
+        core.apply(msg);
+    }
     match ctl.swap(CTL_NONE, Ordering::SeqCst) {
         CTL_SHUTDOWN => {
             core.apply(ClientMsg::Shutdown);
@@ -317,7 +342,7 @@ fn apply_ctl(ctl: &Arc<AtomicU8>, core: &mut SessionCore) -> bool {
 /// Accept control connections for the daemon's lifetime, flipping the shared flag
 /// on `Shutdown` / `Reload`. Each connection is one short-lived message from the
 /// `tuiui kill` / `tuiui reload` CLI.
-fn serve_control(listener: UnixListener, ctl: Arc<AtomicU8>) {
+fn serve_control(listener: UnixListener, ctl: Arc<AtomicU8>, queue: CtlQueue) {
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
         let mut r = BufReader::new(stream);
@@ -326,7 +351,13 @@ fn serve_control(listener: UnixListener, ctl: Arc<AtomicU8>) {
             match serde_json::from_str::<ClientMsg>(line.trim()) {
                 Ok(ClientMsg::Shutdown) => ctl.store(CTL_SHUTDOWN, Ordering::SeqCst),
                 Ok(ClientMsg::Reload) => ctl.store(CTL_RELOAD, Ordering::SeqCst),
-                _ => {}
+                // Any other message (e.g. `tuiui launch/tile/theme/msg` from the
+                // CLI or the desktop assistant) queues for the render loop.
+                Ok(msg) => {
+                    crate::dbg_log(&format!("ctl: queued {msg:?}"));
+                    queue.lock().unwrap().push(msg);
+                }
+                Err(_) => {}
             }
         }
     }

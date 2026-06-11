@@ -161,12 +161,26 @@ impl Store {
             }
             buf.write_str(dx + 1, 3, truncate(&app.name, dw as usize - 2), ACCENT, PANEL);
             buf.write_str(dx + 1, 4, truncate(&app.category, dw as usize - 2), DIM, PANEL);
-            for (i, line) in wrap(&app.description, dw as usize - 2).into_iter().enumerate() {
-                let y = 6 + i as i32;
-                if y >= h - 4 {
+            let mut y = 6;
+            for line in wrap(&app.description, dw as usize - 2) {
+                if y >= h - 5 {
                     break;
                 }
                 buf.write_str(dx + 1, y, &line, FG, PANEL);
+                y += 1;
+            }
+            // Setup tip (e.g. "add models/providers with `hermes model` first").
+            if let Some(r) = catalog::recipe(&app.name) {
+                if !r.tip.is_empty() {
+                    y += 1;
+                    for line in wrap(&format!("Setup: {}", r.tip), dw as usize - 2) {
+                        if y >= h - 5 {
+                            break;
+                        }
+                        buf.write_str(dx + 1, y, &line, ACCENT, PANEL);
+                        y += 1;
+                    }
+                }
             }
             buf.write_str(dx + 1, h - 4, truncate(&app.homepage, dw as usize - 2), DIM, PANEL);
             // Verified-recipe badge.

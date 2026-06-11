@@ -11,7 +11,7 @@
 //! expose on a socket.
 
 use crate::chrome::{
-    render_menubar, render_dock, dock_hit_regions, menubar_brand_region, menubar_mode_region, menubar_power_region, DockItem, DockKind,
+    render_menubar, render_dock, dock_hit_regions, menubar_assistant_region, menubar_brand_region, menubar_mode_region, menubar_power_region, DockItem, DockKind,
 };
 use crate::powermenu::{PowerClick, PowerMenu, PowerOutcome};
 use crate::confirmclose::ConfirmClose;
@@ -41,6 +41,10 @@ struct WinMeta {
     app_key: String,
 }
 
+/// A file-manager window's backend identity: `None` browses the local disk,
+/// `Some((ssh_target, port))` a saved remote system.
+type FmBackend = Option<(String, Option<u16>)>;
+
 /// The content hosted by a window: a PTY-backed app or a native Tuiui widget.
 ///
 /// This is the [`WindowContent`](../../docs) seam — the window manager, chrome,
@@ -50,12 +54,15 @@ enum WinContent {
     App(AppId),
     /// The native app store browser.
     Store(Store),
-    /// The native settings panel.
-    Settings(Settings),
+    /// The native settings panel (boxed: by far the largest variant, and there
+    /// is at most one settings window).
+    Settings(Box<Settings>),
     /// A native image viewer (placeholder cells + a Kitty graphics placement).
     ImageView(crate::imageview::ImageView),
-    /// The native file manager.
-    FileManager(crate::filemanager::FileManager),
+    /// The native file manager (local disk or a remote system over ssh).
+    FileManager(crate::filemanager::DynFileManager),
+    /// The native log viewer (tail of ~/tuiui-debug.log + clipboard copy).
+    Logs(crate::logsview::LogsView),
 }
 
 impl WinContent {
@@ -66,6 +73,7 @@ impl WinContent {
             WinContent::Settings(s) => s.render(w, h),
             WinContent::ImageView(v) => v.render(w, h),
             WinContent::FileManager(f) => f.render(w, h),
+            WinContent::Logs(l) => l.render(w, h),
         }
     }
 }
@@ -263,6 +271,37 @@ pub enum ClientMsg {
     Reload,
     /// A raw mouse event destined for the focused app's PTY (passthrough).
     MouseInput(crate::mouse::MouseInput),
+    /// Scroll the scrollback of the PTY window under `p` by `lines`
+    /// (+ = back into history). Sent by the wheel when no overlay claims it.
+    ScrollAt { p: Point, lines: i32 },
+    /// Power-menu Add Remote form: type a character into the focused field.
+    PowerFormChar(char),
+    /// Power-menu form: delete the last character of the focused field.
+    PowerFormBackspace,
+    /// Power-menu form: focus the next / previous field (Tab / Shift-Tab, ↓ / ↑).
+    PowerFormNext,
+    PowerFormPrev,
+    /// Power-menu form: cycle the theme field (← / →).
+    PowerFormLeft,
+    PowerFormRight,
+    /// Power-menu form: Enter — advance, submitting from the last field.
+    PowerFormCommit,
+    /// Power-menu form: Esc — back to the Systems submenu.
+    PowerFormCancel,
+    /// Apply (and persist) a theme by name. Sent by the client on attach when
+    /// `TUIUI_THEME` is set — how a per-system theme rides over ssh.
+    SetTheme(String),
+    /// Logs viewer: scroll one line / one page.
+    LogsUp,
+    LogsDown,
+    LogsPageUp,
+    LogsPageDown,
+    /// Logs viewer: copy the log tail to the host clipboard (OSC 52).
+    LogsCopy,
+    /// Logs viewer: re-read the log file.
+    LogsRefresh,
+    /// Logs viewer: close the window.
+    LogsClose,
 }
 
 // ── Output frame type ─────────────────────────────────────────────────────────
@@ -303,6 +342,24 @@ pub struct SessionCore {
     settings_win: Option<WindowId>,
     /// The file-manager window's id, if open.
     filemanager_win: Option<WindowId>,
+    /// Remote file-manager windows: window → (system name, ssh target, port).
+    remote_fms: HashMap<WindowId, (String, String, Option<u16>)>,
+    /// Cross-window file clipboard for system↔system transfers: the source
+    /// window's ssh backend (`None` = local disk) and the copied paths.
+    transfer: Option<(FmBackend, Vec<std::path::PathBuf>)>,
+    /// Post-update safety dialog: the running apphost predates this binary's
+    /// minimum-compatible protocol, so a full app-server restart (which closes
+    /// the user's apps) is needed for everything to work. The dialog gives
+    /// them a chance to save work first.
+    compat_dialog: bool,
+    /// Set once the user was warned (so Settings can show the restart row even
+    /// after the dialog is dismissed).
+    apphost_outdated: bool,
+    /// The logs-viewer window's id, if open.
+    logs_win: Option<WindowId>,
+    /// Text to put on the HOST terminal's clipboard (OSC 52), shipped to the
+    /// client in the next frame: log copies and app OSC-52 stores.
+    pending_clipboard: Option<String>,
     /// Dock-ordered list of (id, display-name) pairs.
     titles: Vec<(WindowId, String)>,
     /// Immutable grouping key per window (set at spawn/open; never mutated).
@@ -369,6 +426,11 @@ pub struct SessionCore {
     /// Last `WinMeta` blob pushed to the apphost per app window (change-gate so
     /// we only send `set_meta` when a window actually moved/retitled/minimized).
     last_meta: HashMap<WindowId, Vec<u8>>,
+    /// Saved remote systems shown in the power menu's Systems submenu.
+    systems: Vec<crate::systems::RemoteSystem>,
+    /// Set when the user picked a system to switch to: shipped to the client in
+    /// the next frame (alongside `quit`), which exits and ssh-es over.
+    switch_to: Option<crate::systems::SwitchSpec>,
 }
 
 impl SessionCore {
@@ -385,7 +447,8 @@ impl SessionCore {
     /// default `LocalAppHost` via [`new`](Self::new).
     pub fn with_apphost(w: i32, h: i32, cfg: Config, apphost: Box<dyn AppHost>) -> Self {
         let work = Rect::new(0, 1, w, h - 2);
-        let launcher = Launcher::new(Self::build_launcher_apps(&cfg));
+        let systems = crate::systems::load();
+        let launcher = Launcher::new(Self::build_launcher_apps(&cfg, &systems));
         let desktop_dir = dirs::home_dir().map(|h| h.join("Desktop")).unwrap_or_default();
         let mut core = Self {
             wm: WindowManager::new(work),
@@ -394,6 +457,12 @@ impl SessionCore {
             store_win: None,
             settings_win: None,
             filemanager_win: None,
+            remote_fms: HashMap::new(),
+            transfer: None,
+            compat_dialog: false,
+            apphost_outdated: false,
+            logs_win: None,
+            pending_clipboard: None,
             titles: Vec::new(),
             app_keys: HashMap::new(),
             dock_popup: None,
@@ -426,6 +495,8 @@ impl SessionCore {
             thumb_ids: HashMap::new(),
             role_icon_ids: HashMap::new(),
             last_meta: HashMap::new(),
+            systems,
+            switch_to: None,
         };
         core.generate_role_icons();
         core.reload_desktop();
@@ -481,6 +552,36 @@ impl SessionCore {
         }
         self.refresh_desktop_thumbnails();
         self.refresh_fm_thumbnails();
+    }
+
+    /// Drain app events captured by the PTY emulators: bell rings become dock/
+    /// tray notifications (for unfocused or minimized windows), and OSC-52
+    /// clipboard stores are forwarded to the host terminal. Called once per
+    /// daemon tick; cheap (drains in-memory counters).
+    pub fn pump_app_events(&mut self) {
+        let focused = self.wm.focused();
+        let minimized: std::collections::HashSet<WindowId> =
+            self.wm.z_ordered().iter().filter(|w| w.minimized).map(|w| w.id).collect();
+        let now = self.tray_state.read().map(|st| st.clock.time.clone()).unwrap_or_default();
+        let wins: Vec<(WindowId, AppId, String)> = self
+            .titles
+            .iter()
+            .filter_map(|(id, title)| match self.contents.get(id) {
+                Some(WinContent::App(aid)) => Some((*id, *aid, title.clone())),
+                _ => None,
+            })
+            .collect();
+        for (id, aid, title) in wins {
+            let bells = self.apphost.take_bells(aid);
+            if bells > 0 && (focused != Some(id) || minimized.contains(&id)) {
+                crate::dbg_log(&format!("notify: '{title}' rang the bell x{bells}"));
+                self.tray.notify(id.0, title.clone(), now.clone());
+            }
+            if let Some(text) = self.apphost.take_clipboard(aid) {
+                crate::dbg_log(&format!("clipboard: forwarding {} bytes from '{title}' (OSC 52)", text.len()));
+                self.pending_clipboard = Some(text);
+            }
+        }
     }
 
     /// Point the desktop at a specific directory and reload (integration tests).
@@ -563,6 +664,124 @@ impl SessionCore {
             .filter(|w| !w.minimized && w.content_rect().contains(p))
             .map(|w| (w.id, w.content_rect()))
             .next_back()
+    }
+
+    /// Fire any pending Updates-section action (Check / Install), from either
+    /// the keyboard or the mouse path.
+    fn drain_settings_action(&mut self) {
+        match self.focused_settings_mut().and_then(|s| s.take_action()) {
+            Some(crate::settings::SettingsAction::CheckUpdates) => {
+                let branch = self.cfg.update_branch.clone();
+                let msg = check_for_updates(&branch);
+                if let Some(s) = self.focused_settings_mut() {
+                    s.set_update_status(msg);
+                }
+            }
+            Some(crate::settings::SettingsAction::RestartApphost) => {
+                self.restart_apphost();
+            }
+            Some(crate::settings::SettingsAction::InstallUpdate) => {
+                // Remember to reopen Settings on the Updates screen after the
+                // reload, so the user isn't dumped back on the bare desktop.
+                write_reopen_hint(Ui_SETTINGS_UPDATES);
+                let cmd = update_command(&self.cfg.update_branch);
+                self.launch("update tuiui".into(), "sh".into(), vec!["-lc".into(), cmd]);
+            }
+            None => {}
+        }
+    }
+
+    /// Called by the daemon after connecting to the apphost: if the running app
+    /// server predates this binary's minimum-compatible protocol AND owns live
+    /// apps, raise the safety dialog instead of silently misbehaving — the user
+    /// gets a chance to save and close work before restarting the app server.
+    pub fn check_apphost_compat(&mut self) {
+        let proto = self.apphost.proto_version();
+        let min = crate::apphost::proto::MIN_COMPAT;
+        if needs_apphost_restart(proto, min, self.host_app_count()) {
+            crate::dbg_log(&format!(
+                "compat: apphost proto {proto} < required {min} with {} app(s) — raising safety dialog",
+                self.host_app_count()
+            ));
+            self.compat_dialog = true;
+            self.apphost_outdated = true;
+        }
+    }
+
+    /// Restart the app server (CLOSES every running app — only ever offered via
+    /// the safety dialog / Settings row, after the user was warned): stop the
+    /// apphost and reload the frontend; the fresh daemon spawns a new-binary
+    /// apphost.
+    fn restart_apphost(&mut self) {
+        crate::dbg_log("compat: user confirmed app-server restart (apps will close)");
+        write_reopen_hint(Ui_SETTINGS_UPDATES);
+        self.apphost.shutdown_host();
+        self.compat_dialog = false;
+        self.apphost_outdated = false;
+        self.reload = true;
+    }
+
+    /// Whether the post-update compat dialog is showing (modal).
+    pub fn compat_dialog_open(&self) -> bool {
+        self.compat_dialog
+    }
+
+    /// Render the post-update safety dialog (empty when closed).
+    fn render_compat_dialog(&self) -> Vec<crate::compositor::Layer> {
+        if !self.compat_dialog {
+            return Vec::new();
+        }
+        let t = crate::theme::current();
+        let d = compat_dialog_rect(self.w, self.h);
+        let mut buf = crate::buffer::CellBuffer::new(d.w, d.h);
+        buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.window_bg, attrs: Default::default() });
+        for x in 0..d.w {
+            buf.set(x, 0, crate::cell::Cell { ch: ' ', fg: t.title_fg, bg: t.title_focus, attrs: Default::default() });
+        }
+        buf.write_str(2, 0, " tuiui update ", t.title_fg, t.title_focus);
+        let b = |ch: char| crate::cell::Cell { ch, fg: t.border, bg: t.window_bg, attrs: Default::default() };
+        for y in 1..d.h {
+            buf.set(0, y, b('\u{2502}'));
+            buf.set(d.w - 1, y, b('\u{2502}'));
+        }
+        for x in 0..d.w {
+            buf.set(x, d.h - 1, b('\u{2500}'));
+        }
+        buf.set(0, d.h - 1, b('\u{2570}'));
+        buf.set(d.w - 1, d.h - 1, b('\u{256F}'));
+        let n = self.host_app_count();
+        buf.write_str(2, 2, "This update needs to restart the app server.", t.text, t.window_bg);
+        buf.write_str(2, 3, &format!("Your {n} running app(s) will CLOSE when it restarts."), t.close_fg, t.window_bg);
+        buf.write_str(2, 5, "Save your work first, then restart - or keep apps", t.dim, t.window_bg);
+        buf.write_str(2, 6, "running for now (restart later in Settings > Updates).", t.dim, t.window_bg);
+        let (keep, restart) = compat_dialog_buttons(self.w, self.h);
+        let keep_s = format!("{:^width$}", "Keep apps", width = keep.w as usize);
+        buf.write_str(keep.x - d.x, keep.y - d.y, &keep_s, t.text, t.active_bg);
+        let restart_s = format!("{:^width$}", "Restart app server", width = restart.w as usize);
+        buf.write_str(restart.x - d.x, restart.y - d.y, &restart_s, t.close_fg, t.accent);
+        vec![crate::compositor::Layer { z: 6500, origin: Point::new(d.x, d.y), buf, opacity: 1.0, scissor: None }]
+    }
+
+    /// On startup (fresh or post-reload), honour a one-shot reopen hint left by
+    /// the in-app updater so Settings comes back on the Updates screen.
+    pub fn reopen_ui_from_hint(&mut self) {
+        if take_reopen_hint() == Some(Ui_SETTINGS_UPDATES) {
+            self.open_settings();
+            if let Some(s) = self.focused_settings_mut() {
+                s.show_updates_section();
+            }
+            self.sync_settings();
+        }
+    }
+
+    /// Scroll the scrollback of the PTY app window under `p`. No-op when the
+    /// pointer isn't over an app window (native widgets handle their own scroll).
+    fn scroll_app_at(&mut self, p: Point, lines: i32) {
+        if let Some((id, _)) = self.topmost_window_content_at(p) {
+            if let Some(WinContent::App(aid)) = self.contents.get(&id) {
+                self.apphost.scroll(*aid, lines);
+            }
+        }
     }
 
     /// Persist the desktop's current icon positions to the config.
@@ -776,13 +995,35 @@ impl SessionCore {
     /// The current tray segments, laid out from the live snapshot.
     fn tray_segments_now(&self) -> Vec<crate::tray::Segment> {
         let st = self.tray_state.read().unwrap();
-        crate::tray::tray_segments(&st, self.w)
+        crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32, self.tray.notif_count())
     }
 
     /// Apply a tray control intent: optimistically update the cached snapshot so
     /// the UI responds immediately, then run the (timeout-guarded) backend call.
     fn apply_intent(&mut self, intent: crate::system::ControlIntent) {
         use crate::system::ControlIntent as I;
+        // Calendar navigation and notifications are session/tray UI state, not
+        // OS controls.
+        match intent {
+            I::CalendarPrev => return self.tray.calendar_step(-1),
+            I::CalendarNext => return self.tray.calendar_step(1),
+            I::NotifFocus(raw) => {
+                let id = WindowId(raw);
+                self.tray.clear_notifs_for(raw);
+                self.tray.close();
+                if self.contents.contains_key(&id) {
+                    self.wm.unminimize(id);
+                    if self.simple { self.sync_app_size(id); }
+                }
+                return;
+            }
+            I::NotifClear => {
+                self.tray.clear_notifs();
+                self.tray.close();
+                return;
+            }
+            _ => {}
+        }
         if let Ok(mut s) = self.tray_state.write() {
             match &intent {
                 I::VolumeUp => s.volume.level = s.volume.level.saturating_add(5).min(100),
@@ -834,18 +1075,91 @@ impl SessionCore {
 
     /// Clear the detach (quit) flag — called by the daemon after a client detaches
     /// so the next client doesn't immediately detach again.
-    pub fn clear_quit(&mut self) { self.quit = false; }
+    pub fn clear_quit(&mut self) {
+        self.quit = false;
+        self.switch_to = None;
+    }
+
+    /// The pending system switch, if the user picked one in the Systems menu.
+    /// Shipped to the client in the frame that also carries the detach flag.
+    pub fn switch_spec(&self) -> Option<crate::systems::SwitchSpec> {
+        self.switch_to.clone()
+    }
+
+    /// Whether the power menu's Add Remote form is open (the client forwards
+    /// typed characters / field navigation to it).
+    pub fn power_form_editing(&self) -> bool {
+        self.power_menu.form_open()
+    }
+
+    /// Carry out a confirmed power-menu outcome (button click or form submit).
+    fn apply_power_outcome(&mut self, outcome: PowerOutcome) {
+        match outcome {
+            PowerOutcome::Detach => self.quit = true,
+            PowerOutcome::Reload => self.reload = true,
+            PowerOutcome::Shutdown => self.shutdown = true,
+            PowerOutcome::Switch(spec) => {
+                crate::dbg_log(&format!("systems: switch to '{}' ({})", spec.name, spec.host));
+                self.switch_to = Some(spec);
+                self.quit = true; // detach locally; apps keep running
+            }
+            PowerOutcome::AddAndConnect { system, password } => {
+                let mut spec = crate::systems::SwitchSpec::connect(&system);
+                spec.setup = true;
+                spec.password = password; // setup-only; never persisted
+                crate::dbg_log(&format!(
+                    "systems: add '{}' ({}) theme={:?} → saving + first-time setup",
+                    system.name, system.host, system.theme
+                ));
+                self.systems.retain(|s| s.name != system.name);
+                self.systems.push(system);
+                if let Err(e) = crate::systems::save(&self.systems) {
+                    crate::dbg_log(&format!("systems: save failed: {e}"));
+                }
+                self.switch_to = Some(spec);
+                self.quit = true;
+            }
+            PowerOutcome::Forget(name) => {
+                crate::dbg_log(&format!("systems: forget '{name}'"));
+                self.systems.retain(|s| s.name != name);
+                if let Err(e) = crate::systems::save(&self.systems) {
+                    crate::dbg_log(&format!("systems: save failed: {e}"));
+                }
+            }
+        }
+    }
 
     /// Build the launcher's app list: the configured apps (with categories filled
     /// in from the catalog where missing), plus any known TUIs detected on `$PATH`
     /// that aren't already listed.
-    fn build_launcher_apps(cfg: &Config) -> Vec<AppEntry> {
+    fn build_launcher_apps(cfg: &Config, systems: &[crate::systems::RemoteSystem]) -> Vec<AppEntry> {
         // Pinned tuiui actions first (open the store / settings windows).
         let mut apps = vec![
             AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
             AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
             AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
+            AppEntry { name: "Logs".into(), command: "@logs".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
         ];
+        // Chat shortcuts for the gateway-style assistants when installed
+        // (their chat UI is behind a flag/subcommand, so the bare-binary
+        // entries the catalog auto-detects wouldn't open the right thing).
+        if crate::catalog::is_installed("hermes") {
+            apps.push(AppEntry { name: "Hermes Chat".into(), command: "hermes".into(), args: vec!["--tui".into()], category: Some("AI".into()), requires_cwd: None, cwd: None });
+        }
+        if crate::catalog::is_installed("openclaw") {
+            apps.push(AppEntry { name: "OpenClaw Chat".into(), command: "openclaw".into(), args: vec!["tui".into()], category: Some("AI".into()), requires_cwd: None, cwd: None });
+        }
+        // One remote file browser per saved system (Systems category).
+        for sys in systems {
+            apps.push(AppEntry {
+                name: format!("Files on {}", sys.name),
+                command: "@rfiles".into(),
+                args: vec![sys.name.clone()],
+                category: Some("Systems".into()),
+                requires_cwd: None,
+                cwd: None,
+            });
+        }
         apps.extend(cfg.launcher_apps());
         for a in &mut apps {
             if a.category.is_none() {
@@ -873,7 +1187,7 @@ impl SessionCore {
     fn refresh_launcher_if_closed(&mut self) {
         if !self.launcher.is_open() {
             crate::catalog::refresh_installed();
-            self.launcher.set_items(Self::build_launcher_apps(&self.cfg));
+            self.launcher.set_items(Self::build_launcher_apps(&self.cfg, &self.systems));
         }
     }
 
@@ -945,13 +1259,14 @@ impl SessionCore {
             let wins = groups.remove(&key).unwrap_or_default();
             let badge = crate::badge::badge_for(&key, &self.cfg.dock_badges);
             let is_focused = wins.iter().any(|w| Some(*w) == focused);
+            let attention = wins.iter().any(|w| self.tray.has_notif_for(w.0));
             if wins.len() == 1 {
                 let id = wins[0];
                 let label = self.titles.iter().find(|(i, _)| *i == id).map(|(_, t)| t.clone()).unwrap_or_else(|| key.clone());
-                DockItem { kind: DockKind::Single(id), label, count: 1, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused }
+                DockItem { kind: DockKind::Single(id), label, count: 1, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused, attention }
             } else {
                 let count = wins.len();
-                DockItem { kind: DockKind::Group(key.clone(), wins), label: key, count, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused }
+                DockItem { kind: DockKind::Group(key.clone(), wins), label: key, count, badge_letter: badge.letter, badge_color: badge.color, focused: is_focused, attention }
             }
         }).collect()
     }
@@ -1193,24 +1508,7 @@ impl SessionCore {
                 if let Some(s) = self.focused_settings_mut() {
                     s.toggle();
                 }
-                match self.focused_settings_mut().and_then(|s| s.take_action()) {
-                    Some(crate::settings::SettingsAction::CheckUpdates) => {
-                        let msg = check_for_updates();
-                        if let Some(s) = self.focused_settings_mut() {
-                            s.set_update_status(msg);
-                        }
-                    }
-                    Some(crate::settings::SettingsAction::InstallUpdate) => {
-                        let cmd = format!(
-                            "clear; echo 'Updating tuiui from {repo} …'; echo; \
-cargo install --git {repo} --force && {{ echo; echo 'Reloading tuiui …'; tuiui reload; }} || \
-echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
-                            repo = crate::REPO_URL,
-                        );
-                        self.launch("update tuiui".into(), "sh".into(), vec!["-lc".into(), cmd]);
-                    }
-                    None => {}
-                }
+                self.drain_settings_action();
                 self.sync_settings();
             }
             ClientMsg::SettingsChar(c) => { if let Some(s) = self.focused_settings_mut() { s.type_char(c); } }
@@ -1259,9 +1557,20 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             ClientMsg::FileManagerNewFolder => { if let Some(f) = self.focused_filemanager_mut() { f.begin_new_folder(); } }
             ClientMsg::FileManagerRename => { if let Some(f) = self.focused_filemanager_mut() { f.begin_rename(); } }
             ClientMsg::FileManagerDelete => { if let Some(f) = self.focused_filemanager_mut() { f.begin_delete(); } }
-            ClientMsg::FileManagerCopy => { if let Some(f) = self.focused_filemanager_mut() { f.copy_selection(); } }
+            ClientMsg::FileManagerCopy => {
+                // Record the copy in the session-level transfer clipboard too, so
+                // pasting into a window on a DIFFERENT system scp's the files.
+                let backend = self.focused_fm_backend();
+                if let Some(f) = self.focused_filemanager_mut() {
+                    f.copy_selection();
+                    let paths = f.selected_paths();
+                    if !paths.is_empty() {
+                        self.transfer = Some((backend, paths));
+                    }
+                }
+            }
             ClientMsg::FileManagerCut => { if let Some(f) = self.focused_filemanager_mut() { f.cut_selection(); } }
-            ClientMsg::FileManagerPaste => { if let Some(f) = self.focused_filemanager_mut() { f.paste(); } }
+            ClientMsg::FileManagerPaste => self.fm_paste(),
             ClientMsg::FileManagerChar(c) => { if let Some(f) = self.focused_filemanager_mut() { f.overlay_char(c); } }
             ClientMsg::FileManagerBackspace => { if let Some(f) = self.focused_filemanager_mut() { f.overlay_backspace(); } }
             ClientMsg::FileManagerCommit => {
@@ -1395,6 +1704,55 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             ClientMsg::Shutdown => self.shutdown = true,
             ClientMsg::Reload => self.reload = true,
             ClientMsg::MouseInput(m) => self.forward_mouse_to_app(m),
+            ClientMsg::ScrollAt { p, lines } => self.scroll_app_at(p, lines),
+            ClientMsg::PowerFormChar(c) => self.power_menu.form_char(c),
+            ClientMsg::PowerFormBackspace => self.power_menu.form_backspace(),
+            ClientMsg::PowerFormNext => self.power_menu.form_next(),
+            ClientMsg::PowerFormPrev => self.power_menu.form_prev(),
+            ClientMsg::PowerFormLeft => self.power_menu.form_left(),
+            ClientMsg::PowerFormRight => self.power_menu.form_right(),
+            ClientMsg::PowerFormCommit => {
+                if let PowerClick::Act(outcome) = self.power_menu.form_commit() {
+                    self.apply_power_outcome(outcome);
+                }
+            }
+            ClientMsg::PowerFormCancel => self.power_menu.form_cancel(),
+            ClientMsg::LogsUp => { if let Some(l) = self.focused_logs_mut() { l.scroll_by(-1); } }
+            ClientMsg::LogsDown => { if let Some(l) = self.focused_logs_mut() { l.scroll_by(1); } }
+            ClientMsg::LogsPageUp => {
+                if let Some(l) = self.focused_logs_mut() {
+                    let n = l.page_size() as i32;
+                    l.scroll_by(-n);
+                }
+            }
+            ClientMsg::LogsPageDown => {
+                if let Some(l) = self.focused_logs_mut() {
+                    let n = l.page_size() as i32;
+                    l.scroll_by(n);
+                }
+            }
+            ClientMsg::LogsCopy => {
+                if let Some(l) = self.focused_logs_mut() {
+                    let payload = l.copy_payload();
+                    self.pending_clipboard = Some(payload);
+                }
+            }
+            ClientMsg::LogsRefresh => { if let Some(l) = self.focused_logs_mut() { l.reload(); } }
+            ClientMsg::LogsClose => {
+                if let Some(id) = self.wm.focused() {
+                    if matches!(self.contents.get(&id), Some(WinContent::Logs(_))) {
+                        self.close(id);
+                    }
+                }
+            }
+            ClientMsg::SetTheme(name) => {
+                crate::dbg_log(&format!("theme: set '{name}' (client attach / TUIUI_THEME)"));
+                crate::theme::set(&name);
+                self.cfg.theme = name;
+                if let Err(e) = self.cfg.save() {
+                    crate::dbg_log(&format!("theme: config save failed: {e}"));
+                }
+            }
         }
         // Refresh thumbnails after any message that may have changed the focused
         // file manager's listing (cheap: ImageStore loads are content-hash cached).
@@ -1456,7 +1814,9 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         let rect = Rect::new((self.w - w) / 2, 3, w, h);
         let id = self.wm.add_window("Settings".into(), rect);
         self.app_keys.insert(id, "Settings".into());
-        self.contents.insert(id, WinContent::Settings(Settings::new(self.cfg.clone())));
+        let mut panel = Settings::new(self.cfg.clone());
+        panel.set_apphost_outdated(self.apphost_outdated);
+        self.contents.insert(id, WinContent::Settings(Box::new(panel)));
         self.titles.push((id, "Settings".into()));
         self.settings_win = Some(id);
     }
@@ -1503,7 +1863,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             crate::theme::set(&self.cfg.theme);
             let _ = self.cfg.save();
             if launcher_changed {
-                self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg));
+                self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg, &self.systems));
             }
         }
     }
@@ -1567,6 +1927,145 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         }
     }
 
+    /// The assistant panel's window, if one exists (found by app key so it
+    /// survives frontend reloads, where the window is restored from the apphost
+    /// roster).
+    fn assistant_window(&self) -> Option<WindowId> {
+        self.app_keys.iter().find(|(_, k)| k.as_str() == "Assistant").map(|(id, _)| *id)
+    }
+
+    /// The ✦ menubar button: toggle the assistant chat panel. Focused → hide
+    /// (minimize; the agent keeps running); hidden/blurred → show + focus;
+    /// absent → spawn the configured agent CLI in a right-docked panel.
+    fn toggle_assistant(&mut self) {
+        if let Some(id) = self.assistant_window() {
+            let minimized = self.wm.get(id).map(|w| w.minimized).unwrap_or(false);
+            if self.wm.focused() == Some(id) && !minimized {
+                self.wm.minimize(id);
+            } else {
+                self.wm.unminimize(id);
+                if self.simple {
+                    self.sync_app_size(id);
+                }
+            }
+            return;
+        }
+        self.open_assistant();
+    }
+
+    /// Spawn the assistant agent in a persistent right-side panel. The agent is
+    /// a normal apphost app (survives detach/reload); its briefing is injected
+    /// via CLAUDE.md/AGENTS.md in a dedicated working directory, which the
+    /// major agent CLIs read on startup.
+    fn open_assistant(&mut self) {
+        let Some((command, args)) =
+            crate::assistant::resolve_agent(self.cfg.assistant_command.as_deref(), &self.cfg.assistant_args)
+        else {
+            crate::dbg_log(&format!(
+                "assistant: no agent CLI found (looked for {:?}; set assistant_command in config.toml)",
+                crate::assistant::AGENT_CLIS
+            ));
+            // Point the user at the AI category instead of failing silently.
+            self.open_store();
+            return;
+        };
+        let Some(dir) = crate::assistant::workdir() else { return };
+        let host = self.power_label.trim().trim_end_matches('\u{25be}').trim().to_string();
+        if let Err(e) = crate::assistant::write_briefing(&dir, &host, &self.systems) {
+            crate::dbg_log(&format!("assistant: briefing write failed: {e}"));
+        }
+        // OpenClaw assembles its prompt from its own workspace, not our cwd:
+        // leave a marked pointer there so it finds the pack too.
+        match command.rsplit('/').next() {
+            Some("openclaw") => {
+                if let Err(e) = crate::assistant::inject_openclaw_pointer(&dir) {
+                    crate::dbg_log(&format!("assistant: openclaw pointer failed: {e}"));
+                }
+            }
+            Some("smallcode") | Some("smolv2") => {
+                if let Err(e) = crate::assistant::seed_smallcode_env(&dir) {
+                    crate::dbg_log(&format!("assistant: smallcode .env seed failed: {e}"));
+                }
+            }
+            _ => {}
+        }
+        crate::dbg_log(&format!(
+            "assistant: starting '{command}' ({}) in {}",
+            self.cfg.assistant_mode,
+            dir.display()
+        ));
+        // "panel": right-docked, full work height, 2/5 width (clamped readable).
+        // "window": a regular floating window — the popped-out mode. Either way
+        // it's a normal WM window, so the user can drag/resize/maximize it.
+        let rect = if self.cfg.assistant_mode == "window" {
+            let w = 84.min((self.w - 4).max(30));
+            let h = 30.min((self.h - 4).max(8));
+            Rect::new((self.w - w) / 2, ((self.h - h) / 2).max(1), w, h)
+        } else {
+            let panel_w = (self.w * 2 / 5).clamp(34.min(self.w), 70);
+            Rect::new((self.w - panel_w).max(0), 1, panel_w, (self.h - 2).max(4))
+        };
+        let id = self.wm.add_window("Assistant".into(), rect);
+        let content = self.wm.get(id).unwrap().content_rect();
+        match self.apphost.spawn(&command, &args, Some(&dir), content.w.max(1), content.h.max(1)) {
+            Ok(app_id) => {
+                self.app_keys.insert(id, "Assistant".into());
+                self.contents.insert(id, WinContent::App(app_id));
+                self.titles.push((id, "Assistant".into()));
+                if self.simple {
+                    self.sync_app_size(id);
+                }
+            }
+            Err(e) => {
+                crate::dbg_log(&format!("assistant: spawn '{command}' failed: {e}"));
+                self.wm.close(id);
+            }
+        }
+    }
+
+    /// Open (or re-focus) the Logs viewer window.
+    fn open_logs(&mut self) {
+        if let Some(id) = self.logs_win {
+            if self.contents.contains_key(&id) {
+                self.wm.unminimize(id);
+                if let Some(WinContent::Logs(l)) = self.contents.get_mut(&id) {
+                    l.reload();
+                }
+                return;
+            }
+        }
+        let w = 100.min((self.w - 4).max(40));
+        let h = 28.min((self.h - 4).max(10));
+        let rect = Rect::new((self.w - w) / 2, 1, w, h);
+        let id = self.wm.add_window("Logs".into(), rect);
+        self.app_keys.insert(id, "Logs".into());
+        self.contents.insert(id, WinContent::Logs(crate::logsview::LogsView::new()));
+        self.titles.push((id, "Logs".into()));
+        self.logs_win = Some(id);
+    }
+
+    /// `true` when the focused window hosts the logs viewer (keyboard routing).
+    pub fn focused_is_logs(&self) -> bool {
+        matches!(
+            self.wm.focused().and_then(|id| self.contents.get(&id)),
+            Some(WinContent::Logs(_))
+        )
+    }
+
+    fn focused_logs_mut(&mut self) -> Option<&mut crate::logsview::LogsView> {
+        let id = self.wm.focused()?;
+        match self.contents.get_mut(&id)? {
+            WinContent::Logs(l) => Some(l),
+            _ => None,
+        }
+    }
+
+    /// Text the client should put on the HOST terminal clipboard via OSC 52
+    /// (one-shot; cleared on take).
+    pub fn take_clipboard(&mut self) -> Option<String> {
+        self.pending_clipboard.take()
+    }
+
     fn open_filemanager(&mut self) {
         let root = self.picker_root();
         self.open_filemanager_root(root);
@@ -1588,7 +2087,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         self.app_keys.insert(id, "Files".into());
         self.contents.insert(
             id,
-            WinContent::FileManager(crate::filemanager::FileManager::new(root, self.cfg.default_apps.clone())),
+            WinContent::FileManager(crate::filemanager::DynFileManager::new_local(root, self.cfg.default_apps.clone())),
         );
         self.titles.push((id, "Files".into()));
         self.filemanager_win = Some(id);
@@ -1605,6 +2104,55 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             self.wm.close(id);
         }
         self.open_filemanager_root(dir);
+    }
+
+    /// Open (or re-focus) a remote file browser for the saved system `name`.
+    /// Resolving the remote home blocks briefly (one capped ssh call); failures
+    /// open nothing and log the reason.
+    fn open_remote_files(&mut self, name: &str) {
+        // Re-focus an existing browser for this system.
+        if let Some((&id, _)) = self.remote_fms.iter().find(|(_, (n, _, _))| n == name) {
+            if self.contents.contains_key(&id) {
+                self.wm.unminimize(id);
+                return;
+            }
+        }
+        let Some(sys) = self.systems.iter().find(|s| s.name == name).cloned() else {
+            crate::dbg_log(&format!("rfiles: unknown system '{name}'"));
+            return;
+        };
+        crate::dbg_log(&format!("rfiles: opening {} ({})", sys.name, sys.host));
+        let fs = crate::fileops::SshFs::new(sys.host.clone(), sys.port);
+        let Some(home) = fs.remote_home() else {
+            crate::dbg_log(&format!(
+                "rfiles: {} unreachable (no key auth / offline) — set it up via Systems → Add Remote",
+                sys.host
+            ));
+            return;
+        };
+        let w = 90.min((self.w - 4).max(40));
+        let h = 30.min((self.h - 4).max(12));
+        let rect = Rect::new((self.w - w) / 2, 2, w, h);
+        let title = format!("Files on {}", sys.name);
+        let id = self.wm.add_window(title.clone(), rect);
+        self.app_keys.insert(id, title.clone());
+        self.contents.insert(
+            id,
+            WinContent::FileManager(crate::filemanager::DynFileManager::new_remote(
+                sys.host.clone(),
+                sys.port,
+                home,
+                self.cfg.default_apps.clone(),
+            )),
+        );
+        self.titles.push((id, title));
+        self.remote_fms.insert(id, (sys.name.clone(), sys.host, sys.port));
+    }
+
+    /// The ssh backend of the focused file-manager window (`None` = local).
+    fn focused_fm_backend(&self) -> FmBackend {
+        let id = self.wm.focused()?;
+        self.remote_fms.get(&id).map(|(_, target, port)| (target.clone(), *port))
     }
 
     /// `true` when the focused window hosts the file manager.
@@ -1624,12 +2172,73 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         )
     }
 
-    fn focused_filemanager_mut(&mut self) -> Option<&mut crate::filemanager::FileManager> {
+    fn focused_filemanager_mut(&mut self) -> Option<&mut crate::filemanager::DynFileManager> {
         let id = self.wm.focused()?;
         match self.contents.get_mut(&id)? {
             WinContent::FileManager(f) => Some(f),
             _ => None,
         }
+    }
+
+    /// Paste into the focused file manager. Same backend → the manager's own
+    /// clipboard; different backend (local↔remote) → background `scp -r`.
+    fn fm_paste(&mut self) {
+        let dest_backend = self.focused_fm_backend();
+        let cross = match (&self.transfer, &dest_backend) {
+            (Some((src, _)), dst) => src != dst,
+            (None, _) => false,
+        };
+        if !cross {
+            if let Some(f) = self.focused_filemanager_mut() {
+                f.paste();
+            }
+            return;
+        }
+        let Some((source, paths)) = self.transfer.clone() else { return };
+        let Some(f) = self.focused_filemanager_mut() else { return };
+        let cwd = f.cwd().to_path_buf();
+        // Build one scp invocation per path; remote↔remote uses scp -3 (via us).
+        let mut cmds: Vec<Vec<String>> = Vec::new();
+        for p in &paths {
+            let mut args: Vec<String> = vec!["-r".into()];
+            match (&source, &dest_backend) {
+                (Some((st, sp)), None) => {
+                    if let Some(port) = sp { args.extend(["-P".into(), port.to_string()]); }
+                    args.push(format!("{}:{}", st, p.display()));
+                    args.push(format!("{}/", cwd.display()));
+                }
+                (None, Some((dt, dp))) => {
+                    if let Some(port) = dp { args.extend(["-P".into(), port.to_string()]); }
+                    args.push(p.display().to_string());
+                    args.push(format!("{}:{}/", dt, cwd.display()));
+                }
+                (Some((st, _)), Some((dt, _))) => {
+                    args.insert(0, "-3".into());
+                    args.push(format!("{}:{}", st, p.display()));
+                    args.push(format!("{}:{}/", dt, cwd.display()));
+                }
+                (None, None) => continue, // handled by the non-cross path
+            }
+            cmds.push(args);
+        }
+        f.set_status(format!("transferring {} item(s) in the background (scp)…", cmds.len()));
+        crate::dbg_log(&format!("scp transfer: {} item(s) → {}", cmds.len(), cwd.display()));
+        std::thread::spawn(move || {
+            for args in cmds {
+                crate::dbg_log(&format!("scp {}", args.join(" ")));
+                match std::process::Command::new("scp")
+                    .args(&args)
+                    .stdin(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status()
+                {
+                    Ok(st) if st.success() => crate::dbg_log("scp: ok"),
+                    Ok(st) => crate::dbg_log(&format!("scp: FAILED ({st}) — args: {}", args.join(" "))),
+                    Err(e) => crate::dbg_log(&format!("scp: could not run: {e}")),
+                }
+            }
+        });
     }
 
     /// The cwd of the focused file manager (for launching an app in-place).
@@ -1761,6 +2370,12 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             "@store" => self.open_store(),
             "@settings" => self.open_settings(),
             "@files" => self.open_filemanager(),
+            "@logs" => self.open_logs(),
+            "@rfiles" => {
+                if let Some(name) = e.args.first().cloned() {
+                    self.open_remote_files(&name);
+                }
+            }
             "@image" => { if let Some(p) = e.args.first().cloned() { self.open_image(p); } }
             _ => self.launch_maybe_cwd(e.name, e.command, e.args, e.requires_cwd.unwrap_or(false), e.cwd),
         }
@@ -1839,13 +2454,26 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             return;
         }
 
+        // The post-update compat dialog is the topmost modal of all: nothing
+        // else reacts until the user picks "keep apps" or "restart app server".
+        if kind == MouseKind::Down && self.compat_dialog {
+            let (keep, restart) = compat_dialog_buttons(self.w, self.h);
+            if restart.contains(p) {
+                self.restart_apphost();
+            } else if keep.contains(p) || !compat_dialog_rect(self.w, self.h).contains(p) {
+                // "Keep apps" (or a click outside): dismiss; the restart stays
+                // available in Settings → Updates once work is saved.
+                crate::dbg_log("compat: user chose to keep apps for now");
+                self.compat_dialog = false;
+            }
+            return;
+        }
+
         // The power menu (dropdown / confirm dialog) is modal while open: route
         // the click to it and act on a confirmed choice.
         if kind == MouseKind::Down && self.power_menu.is_open() {
-            match self.power_menu.on_click(p, self.w, self.h) {
-                PowerClick::Act(PowerOutcome::Detach) => self.quit = true,
-                PowerClick::Act(PowerOutcome::Reload) => self.reload = true,
-                PowerClick::Act(PowerOutcome::Shutdown) => self.shutdown = true,
+            match self.power_menu.on_click(p, self.w, self.h, &self.systems) {
+                PowerClick::Act(outcome) => self.apply_power_outcome(outcome),
                 PowerClick::Consumed => {}
             }
             return;
@@ -1932,6 +2560,12 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                 self.launcher.close();
                 self.power_menu.close();
                 self.toggle_simple();
+                return;
+            }
+            if menubar_assistant_region().contains(p) {
+                self.launcher.close();
+                self.power_menu.close();
+                self.toggle_assistant();
                 return;
             }
             if menubar_brand_region().contains(p) {
@@ -2183,6 +2817,9 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                     self.store_activate();
                 }
                 if settings_changed {
+                    // A click can have armed an Updates action (Check / Install);
+                    // fire it on the mouse path too, not just the keyboard one.
+                    self.drain_settings_action();
                     self.sync_settings();
                 }
                 if fm_clicked {
@@ -2317,6 +2954,10 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         if self.filemanager_win == Some(id) {
             self.filemanager_win = None;
         }
+        if self.logs_win == Some(id) {
+            self.logs_win = None;
+        }
+        self.remote_fms.remove(&id);
         self.titles.retain(|(i, _)| *i != id);
         self.app_keys.remove(&id);
         // Close popup if its group no longer exists after this window closes.
@@ -2338,7 +2979,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
     /// (install window dismissed) and `reap_dead` (install process exited).
     fn refresh_installed_apps(&mut self) {
         crate::catalog::refresh_installed();
-        self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg));
+        self.launcher = Launcher::new(Self::build_launcher_apps(&self.cfg, &self.systems));
     }
 
     // ── Frame builder ─────────────────────────────────────────────────────────
@@ -2426,7 +3067,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
 
         let segs = {
             let st = self.tray_state.read().unwrap();
-            crate::tray::tray_segments(&st, self.w)
+            crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32, self.tray.notif_count())
         };
         layers.push(render_menubar(self.w, &app_name, &segs, false, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
@@ -2476,10 +3117,14 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         }
 
         // The power menu (dropdown + confirm dialog) renders above all chrome.
-        layers.extend(self.power_menu.render(self.w, self.h));
+        {
+            let online = self.tray_state.read().map(|st| st.remotes_online.clone()).unwrap_or_default();
+            layers.extend(self.power_menu.render(self.w, self.h, &self.systems, &online));
+        }
 
         // The confirm-close dialog is the topmost modal of all.
         layers.extend(self.confirm_close.render(self.w, self.h));
+        layers.extend(self.render_compat_dialog());
 
         // Screen rects of the floating overlays now showing (empty when none open).
         let overlay_rects: Vec<crate::geometry::Rect> = layers[overlay_start..]
@@ -2623,7 +3268,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             .unwrap_or_default();
         let segs = {
             let st = self.tray_state.read().unwrap();
-            crate::tray::tray_segments(&st, self.w)
+            crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32, self.tray.notif_count())
         };
         layers.push(render_menubar(self.w, &app_name, &segs, true, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items()));
@@ -2638,8 +3283,12 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
         if self.help_open {
             layers.extend(crate::help::render_help(self.w, self.h));
         }
-        layers.extend(self.power_menu.render(self.w, self.h));
+        {
+            let online = self.tray_state.read().map(|st| st.remotes_online.clone()).unwrap_or_default();
+            layers.extend(self.power_menu.render(self.w, self.h, &self.systems, &online));
+        }
         layers.extend(self.confirm_close.render(self.w, self.h));
+        layers.extend(self.render_compat_dialog());
 
         // Images for the focused window only, mapped into the work area.
         let mut images = Vec::new();
@@ -2838,10 +3487,91 @@ fn sanitize_images(images: &mut Vec<crate::protocol::ImagePlacement>, w: i32, h:
 ///
 /// Uses `curl` against the GitHub API with a hard timeout so the call can never
 /// hang the desktop. Returns a short human-readable status string.
-fn check_for_updates() -> String {
+/// One-shot UI reopen hint codes, persisted across a frontend reload.
+#[allow(non_upper_case_globals)]
+const Ui_SETTINGS_UPDATES: u8 = 1;
+
+/// Path of the reopen-hint file (per-user socket dir, so it's reload-scoped).
+fn reopen_hint_path() -> std::path::PathBuf {
+    crate::protocol::socket_dir().join("reopen-hint")
+}
+
+/// Persist a one-shot UI reopen hint for the next frontend start.
+fn write_reopen_hint(code: u8) {
+    let _ = std::fs::create_dir_all(crate::protocol::socket_dir());
+    let _ = std::fs::write(reopen_hint_path(), [code]);
+}
+
+/// Read and consume the reopen hint (deleted after reading).
+fn take_reopen_hint() -> Option<u8> {
+    let p = reopen_hint_path();
+    let code = std::fs::read(&p).ok().and_then(|b| b.first().copied());
+    let _ = std::fs::remove_file(&p);
+    code
+}
+
+/// The shell command that updates tuiui and reloads. On `main` it prefers the
+/// prebuilt release binary (a fast download via `install.sh`, jumping straight
+/// to the latest release), falling back to a source build; on any other branch
+/// (the dev channel) it builds that branch from git. On success it reloads and
+/// EXITS so the updater window auto-closes; only a failure drops to a shell.
+fn update_command(branch: &str) -> String {
+    let repo = crate::REPO_URL;
+    let raw = "https://raw.githubusercontent.com/jaylfc/tuiui";
+    // Keep the new binary where the running one lives (cargo bin vs ~/.local/bin).
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .map(|d| d.display().to_string())
+        .unwrap_or_else(|| "$HOME/.local/bin".into());
+    if branch == "main" {
+        format!(
+            "clear; echo 'Updating tuiui (latest release)…'; echo; \
+if TUIUI_BIN_DIR={dir} sh -c 'curl -fsSL {raw}/main/install.sh | sh'; then \
+echo; echo 'Reloading…'; tuiui reload; exit 0; \
+elif cargo install --git {repo} --force; then echo; echo 'Reloading…'; tuiui reload; exit 0; \
+else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
+            dir = crate::systems::sh_quote(&exe_dir),
+        )
+    } else {
+        format!(
+            "clear; echo 'Updating tuiui (branch {branch})…'; echo; \
+if cargo install --git {repo} --branch {branch} --force; then \
+echo; echo 'Reloading…'; tuiui reload; exit 0; \
+else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
+        )
+    }
+}
+
+/// Whether a too-old apphost with live apps warrants the safety dialog: an
+/// incompatible protocol is only worth interrupting the user for when there
+/// are actually apps that would die in a restart.
+fn needs_apphost_restart(host_proto: u32, min_compat: u32, app_count: usize) -> bool {
+    host_proto < min_compat && app_count > 0
+}
+
+/// The post-update compat dialog box (shared by render + hit-testing).
+fn compat_dialog_rect(w: i32, h: i32) -> Rect {
+    let box_w = 58.min((w - 2).max(24));
+    let box_h = 9.min((h - 1).max(7));
+    Rect::new((w - box_w) / 2, ((h - box_h) / 2).max(0), box_w, box_h)
+}
+
+/// `(keep-apps, restart-app-server)` button rects of the compat dialog.
+fn compat_dialog_buttons(w: i32, h: i32) -> (Rect, Rect) {
+    let d = compat_dialog_rect(w, h);
+    let by = d.y + d.h - 2;
+    let keep = Rect::new(d.x + 2, by, 16, 1);
+    let restart_w = 24;
+    let restart = Rect::new(d.x + d.w - 2 - restart_w, by, restart_w, 1);
+    (keep, restart)
+}
+
+/// Compare the installed commit against the tip of `branch` on GitHub.
+fn check_for_updates(branch: &str) -> String {
     let short = |s: &str| s.chars().take(7).collect::<String>();
     let api = format!(
-        "https://api.github.com/repos/{}/commits/main",
+        "https://api.github.com/repos/{}/commits/{branch}",
         crate::REPO_URL.trim_start_matches("https://github.com/")
     );
     let out = std::process::Command::new("curl")
@@ -2852,15 +3582,16 @@ fn check_for_updates() -> String {
         .filter(|o| o.status.success())
         .and_then(|o| serde_json::from_slice::<serde_json::Value>(&o.stdout).ok())
         .and_then(|v| v.get("sha").and_then(|s| s.as_str()).map(str::to_string));
+    let on = if branch == "main" { String::new() } else { format!(" on {branch}") };
     match latest {
         Some(sha) => {
             let cur = crate::GIT_SHA;
             if cur == "unknown" {
-                format!("Latest is {} — reinstall to update", short(&sha))
+                format!("Latest is {}{on} — reinstall to update", short(&sha))
             } else if sha.starts_with(cur) || cur.starts_with(&short(&sha)) {
-                format!("Up to date ({})", short(cur))
+                format!("Up to date ({}){on}", short(cur))
             } else {
-                format!("Update available: {} → {}", short(cur), short(&sha))
+                format!("Update available{on}: {} → {}", short(cur), short(&sha))
             }
         }
         None => "Couldn't check (offline?)".to_string(),
@@ -2870,6 +3601,40 @@ fn check_for_updates() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compat_dialog_arms_only_for_old_hosts_with_apps() {
+        // Dormant today: MIN_COMPAT is 0, nothing is older than that.
+        assert!(!needs_apphost_restart(0, crate::apphost::proto::MIN_COMPAT, 5));
+        // When a future release bumps MIN_COMPAT, old hosts with live apps arm
+        // the dialog — but an empty apphost just restarts silently.
+        assert!(needs_apphost_restart(0, 1, 3));
+        assert!(!needs_apphost_restart(0, 1, 0), "no apps → nothing to protect");
+        assert!(!needs_apphost_restart(1, 1, 3), "compatible host → no dialog");
+        // The current binary pair is always compatible with itself (a const
+        // block so a bad MIN_COMPAT bump fails the BUILD, not just this test).
+        const {
+            assert!(crate::apphost::proto::PROTO_VERSION >= crate::apphost::proto::MIN_COMPAT);
+        }
+    }
+
+    #[test]
+    fn main_update_prefers_prebuilt_release() {
+        let cmd = update_command("main");
+        assert!(cmd.contains("install.sh"), "fast path is the prebuilt release: {cmd}");
+        assert!(cmd.contains("cargo install --git"), "with a source fallback");
+        assert!(cmd.contains("tuiui reload"), "reloads on success");
+        assert!(cmd.contains("exit 0"), "exits so the updater window auto-closes");
+        assert!(!cmd.contains("--branch"), "main needs no branch flag");
+    }
+
+    #[test]
+    fn dev_channel_builds_from_branch() {
+        let cmd = update_command("dev");
+        assert!(cmd.contains("cargo install --git"), "dev builds from source");
+        assert!(cmd.contains("--branch dev"), "on the dev branch: {cmd}");
+        assert!(!cmd.contains("install.sh"), "no prebuilt release off main");
+    }
 
     fn placement(x: i32, y: i32) -> crate::protocol::ImagePlacement {
         crate::protocol::ImagePlacement {

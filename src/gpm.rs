@@ -199,6 +199,7 @@ fn detect_vc() -> Option<i32> {
     if unsafe { libc::fstat(0, &mut st) } != 0 {
         return None;
     }
+    #[allow(clippy::unnecessary_cast)] // st_rdev is u64 on Linux but not all targets
     let rdev = st.st_rdev as u64;
     let major = (rdev >> 8) & 0xff;
     let minor = (rdev & 0xff) as i32;

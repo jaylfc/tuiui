@@ -66,6 +66,7 @@ pub fn render_help(w: i32, h: i32) -> Vec<Layer> {
     }
     lines.push((String::new(), false));
     lines.push(("In overlays:  ↑↓ move · →← expand · Enter open · Esc cancel".into(), false));
+    lines.push(("Menubar:  tuiui = launcher · ⊞/▦ = view · ✦ = assistant · host ▾ = power/Systems".into(), false));
     lines.push((String::new(), false));
     lines.push(("Press any key to close".into(), false));
 
