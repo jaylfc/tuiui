@@ -38,6 +38,14 @@ a lot of polish.
   desktop from any shell (also the assistant's control surface).
 - **Updates channel switcher** (Settings → Updates): track `main` (fast
   prebuilt releases) or a `dev` branch (built from source).
+- **Update safety net**: updates never kill running apps today (the app server
+  is a separate process the reload doesn't touch, and the wire protocol is
+  skew-tolerant by construction) — but if a future update ever *must* break
+  that protocol, a safety dialog now appears after the reload: it warns that
+  restarting the app server will close the user's N apps, and offers
+  **Keep apps** (save your work first; restart later from a row in
+  Settings → Updates) or **Restart app server**. Armed by bumping
+  `MIN_COMPAT` in `apphost/proto.rs`; dormant otherwise.
 
 ### Changed
 - The in-app updater now installs the **prebuilt latest release** by default
@@ -47,8 +55,8 @@ a lot of polish.
   always falls back to `xterm-256color`, fixing "cannot find terminfo entry for
   'xterm-ghostty'" (and the same for Kitty and other modern terminals).
 - Dependencies refreshed to current: crossterm 0.29, portable-pty 0.9,
-  sysinfo 0.38, toml 1.1, infer 0.19 (sysinfo held at 0.38: 0.39 needs a newer
-  rustc than the project's toolchain).
+  sysinfo 0.39, toml 1.1, infer 0.19. Minimum supported Rust is now **1.95**
+  (declared via `rust-version` in Cargo.toml).
 
 ### Fixed
 - Settings' "Check for updates" / "Update & Reload" now respond to **mouse**

@@ -30,6 +30,11 @@ pub trait AppHost: Send {
     /// Default no-op for hosts/fakes without scrollback.
     fn scroll(&mut self, id: AppId, lines: i32) { let _ = (id, lines); }
 
+    /// The wire-protocol version of the host actually serving the apps.
+    /// In-process hosts (and fakes) are always current; `RemoteAppHost`
+    /// reports what the running apphost declared (0 = predates the field).
+    fn proto_version(&self) -> u32 { crate::apphost::proto::PROTO_VERSION }
+
     /// Terminate the child (no-op if unknown).
     fn kill(&mut self, id: AppId);
 

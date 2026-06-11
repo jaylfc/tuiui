@@ -56,3 +56,22 @@ fn updates_branch_switcher_cycles_channels() {
     s.right();
     assert_eq!(s.config().update_branch, "main", "wraps back to main");
 }
+
+#[test]
+fn restart_app_server_row_only_when_flagged() {
+    use tuiui::settings::{Settings, SettingsAction};
+    use tuiui::config::Config;
+    let mut s = Settings::new(Config::default());
+    s.show_updates_section();
+    // Not flagged: selecting past the last row stops at Channel (row 2).
+    s.move_down(); s.move_down(); s.move_down();
+    s.toggle();
+    assert_ne!(s.take_action(), Some(SettingsAction::RestartApphost));
+
+    let mut s = Settings::new(Config::default());
+    s.set_apphost_outdated(true);
+    s.show_updates_section();
+    s.move_down(); s.move_down(); s.move_down(); // → row 3: Restart app server
+    s.toggle();
+    assert_eq!(s.take_action(), Some(SettingsAction::RestartApphost));
+}

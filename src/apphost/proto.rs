@@ -28,6 +28,17 @@ pub struct ImgBlob {
     pub png_b64: String,
 }
 
+/// The apphost wire-protocol version this binary speaks. Bump on ANY change
+/// to `HostReq`/`HostEvt`.
+pub const PROTO_VERSION: u32 = 1;
+
+/// The OLDEST apphost protocol this frontend can safely talk to. Apphosts
+/// predating the `proto` roster field report 0. Bump this to `PROTO_VERSION`
+/// ONLY when a change genuinely breaks older apphosts — doing so arms the
+/// post-update safety dialog ("restart the app server, closes your apps"),
+/// giving users a chance to save work instead of silent breakage.
+pub const MIN_COMPAT: u32 = 0;
+
 /// One app's metadata in the on-connect roster.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RosterEntry {
@@ -58,7 +69,12 @@ pub enum HostEvt {
     /// The app's child exited.
     Gone { app: u64 },
     /// Sent right after a frontend connects so it can rebuild its window list.
-    Roster { apps: Vec<RosterEntry> },
+    Roster {
+        apps: Vec<RosterEntry>,
+        /// The apphost's [`PROTO_VERSION`] (0 = an apphost too old to say).
+        #[serde(default)]
+        proto: u32,
+    },
 }
 
 /// Write a newline-JSON message. Returns `Err` if the peer is gone.
@@ -81,6 +97,26 @@ pub fn recv<T: for<'de> Deserialize<'de>, R: BufRead>(r: &mut R) -> std::io::Res
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn roster_proto_round_trips_and_legacy_defaults_to_zero() {
+        let evt = HostEvt::Roster { apps: vec![], proto: PROTO_VERSION };
+        let mut buf: Vec<u8> = Vec::new();
+        send(&mut buf, &evt).unwrap();
+        let mut r = std::io::BufReader::new(&buf[..]);
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Roster { proto, .. } => assert_eq!(proto, PROTO_VERSION),
+            _ => panic!("wrong variant"),
+        }
+        // A roster from an apphost that predates the field parses with proto 0.
+        let legacy = br#"{"Roster":{"apps":[]}}
+"#;
+        let mut r = std::io::BufReader::new(&legacy[..]);
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Roster { proto, .. } => assert_eq!(proto, 0),
+            _ => panic!("wrong variant"),
+        }
+    }
     use crate::cell::Cell;
 
     #[test]

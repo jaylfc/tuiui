@@ -347,6 +347,14 @@ pub struct SessionCore {
     /// Cross-window file clipboard for system↔system transfers: the source
     /// window's ssh backend (`None` = local disk) and the copied paths.
     transfer: Option<(FmBackend, Vec<std::path::PathBuf>)>,
+    /// Post-update safety dialog: the running apphost predates this binary's
+    /// minimum-compatible protocol, so a full app-server restart (which closes
+    /// the user's apps) is needed for everything to work. The dialog gives
+    /// them a chance to save work first.
+    compat_dialog: bool,
+    /// Set once the user was warned (so Settings can show the restart row even
+    /// after the dialog is dismissed).
+    apphost_outdated: bool,
     /// The logs-viewer window's id, if open.
     logs_win: Option<WindowId>,
     /// Text to put on the HOST terminal's clipboard (OSC 52), shipped to the
@@ -451,6 +459,8 @@ impl SessionCore {
             filemanager_win: None,
             remote_fms: HashMap::new(),
             transfer: None,
+            compat_dialog: false,
+            apphost_outdated: false,
             logs_win: None,
             pending_clipboard: None,
             titles: Vec::new(),
@@ -667,6 +677,9 @@ impl SessionCore {
                     s.set_update_status(msg);
                 }
             }
+            Some(crate::settings::SettingsAction::RestartApphost) => {
+                self.restart_apphost();
+            }
             Some(crate::settings::SettingsAction::InstallUpdate) => {
                 // Remember to reopen Settings on the Updates screen after the
                 // reload, so the user isn't dumped back on the bare desktop.
@@ -676,6 +689,77 @@ impl SessionCore {
             }
             None => {}
         }
+    }
+
+    /// Called by the daemon after connecting to the apphost: if the running app
+    /// server predates this binary's minimum-compatible protocol AND owns live
+    /// apps, raise the safety dialog instead of silently misbehaving — the user
+    /// gets a chance to save and close work before restarting the app server.
+    pub fn check_apphost_compat(&mut self) {
+        let proto = self.apphost.proto_version();
+        let min = crate::apphost::proto::MIN_COMPAT;
+        if needs_apphost_restart(proto, min, self.host_app_count()) {
+            crate::dbg_log(&format!(
+                "compat: apphost proto {proto} < required {min} with {} app(s) — raising safety dialog",
+                self.host_app_count()
+            ));
+            self.compat_dialog = true;
+            self.apphost_outdated = true;
+        }
+    }
+
+    /// Restart the app server (CLOSES every running app — only ever offered via
+    /// the safety dialog / Settings row, after the user was warned): stop the
+    /// apphost and reload the frontend; the fresh daemon spawns a new-binary
+    /// apphost.
+    fn restart_apphost(&mut self) {
+        crate::dbg_log("compat: user confirmed app-server restart (apps will close)");
+        write_reopen_hint(Ui_SETTINGS_UPDATES);
+        self.apphost.shutdown_host();
+        self.compat_dialog = false;
+        self.apphost_outdated = false;
+        self.reload = true;
+    }
+
+    /// Whether the post-update compat dialog is showing (modal).
+    pub fn compat_dialog_open(&self) -> bool {
+        self.compat_dialog
+    }
+
+    /// Render the post-update safety dialog (empty when closed).
+    fn render_compat_dialog(&self) -> Vec<crate::compositor::Layer> {
+        if !self.compat_dialog {
+            return Vec::new();
+        }
+        let t = crate::theme::current();
+        let d = compat_dialog_rect(self.w, self.h);
+        let mut buf = crate::buffer::CellBuffer::new(d.w, d.h);
+        buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.window_bg, attrs: Default::default() });
+        for x in 0..d.w {
+            buf.set(x, 0, crate::cell::Cell { ch: ' ', fg: t.title_fg, bg: t.title_focus, attrs: Default::default() });
+        }
+        buf.write_str(2, 0, " tuiui update ", t.title_fg, t.title_focus);
+        let b = |ch: char| crate::cell::Cell { ch, fg: t.border, bg: t.window_bg, attrs: Default::default() };
+        for y in 1..d.h {
+            buf.set(0, y, b('\u{2502}'));
+            buf.set(d.w - 1, y, b('\u{2502}'));
+        }
+        for x in 0..d.w {
+            buf.set(x, d.h - 1, b('\u{2500}'));
+        }
+        buf.set(0, d.h - 1, b('\u{2570}'));
+        buf.set(d.w - 1, d.h - 1, b('\u{256F}'));
+        let n = self.host_app_count();
+        buf.write_str(2, 2, "This update needs to restart the app server.", t.text, t.window_bg);
+        buf.write_str(2, 3, &format!("Your {n} running app(s) will CLOSE when it restarts."), t.close_fg, t.window_bg);
+        buf.write_str(2, 5, "Save your work first, then restart - or keep apps", t.dim, t.window_bg);
+        buf.write_str(2, 6, "running for now (restart later in Settings > Updates).", t.dim, t.window_bg);
+        let (keep, restart) = compat_dialog_buttons(self.w, self.h);
+        let keep_s = format!("{:^width$}", "Keep apps", width = keep.w as usize);
+        buf.write_str(keep.x - d.x, keep.y - d.y, &keep_s, t.text, t.active_bg);
+        let restart_s = format!("{:^width$}", "Restart app server", width = restart.w as usize);
+        buf.write_str(restart.x - d.x, restart.y - d.y, &restart_s, t.close_fg, t.accent);
+        vec![crate::compositor::Layer { z: 6500, origin: Point::new(d.x, d.y), buf, opacity: 1.0, scissor: None }]
     }
 
     /// On startup (fresh or post-reload), honour a one-shot reopen hint left by
@@ -1730,7 +1814,9 @@ impl SessionCore {
         let rect = Rect::new((self.w - w) / 2, 3, w, h);
         let id = self.wm.add_window("Settings".into(), rect);
         self.app_keys.insert(id, "Settings".into());
-        self.contents.insert(id, WinContent::Settings(Box::new(Settings::new(self.cfg.clone()))));
+        let mut panel = Settings::new(self.cfg.clone());
+        panel.set_apphost_outdated(self.apphost_outdated);
+        self.contents.insert(id, WinContent::Settings(Box::new(panel)));
         self.titles.push((id, "Settings".into()));
         self.settings_win = Some(id);
     }
@@ -2365,6 +2451,21 @@ impl SessionCore {
         // The help overlay is modal: any click dismisses it.
         if kind == MouseKind::Down && self.help_open {
             self.help_open = false;
+            return;
+        }
+
+        // The post-update compat dialog is the topmost modal of all: nothing
+        // else reacts until the user picks "keep apps" or "restart app server".
+        if kind == MouseKind::Down && self.compat_dialog {
+            let (keep, restart) = compat_dialog_buttons(self.w, self.h);
+            if restart.contains(p) {
+                self.restart_apphost();
+            } else if keep.contains(p) || !compat_dialog_rect(self.w, self.h).contains(p) {
+                // "Keep apps" (or a click outside): dismiss; the restart stays
+                // available in Settings → Updates once work is saved.
+                crate::dbg_log("compat: user chose to keep apps for now");
+                self.compat_dialog = false;
+            }
             return;
         }
 
@@ -3023,6 +3124,7 @@ impl SessionCore {
 
         // The confirm-close dialog is the topmost modal of all.
         layers.extend(self.confirm_close.render(self.w, self.h));
+        layers.extend(self.render_compat_dialog());
 
         // Screen rects of the floating overlays now showing (empty when none open).
         let overlay_rects: Vec<crate::geometry::Rect> = layers[overlay_start..]
@@ -3186,6 +3288,7 @@ impl SessionCore {
             layers.extend(self.power_menu.render(self.w, self.h, &self.systems, &online));
         }
         layers.extend(self.confirm_close.render(self.w, self.h));
+        layers.extend(self.render_compat_dialog());
 
         // Images for the focused window only, mapped into the work area.
         let mut images = Vec::new();
@@ -3440,6 +3543,30 @@ else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
     }
 }
 
+/// Whether a too-old apphost with live apps warrants the safety dialog: an
+/// incompatible protocol is only worth interrupting the user for when there
+/// are actually apps that would die in a restart.
+fn needs_apphost_restart(host_proto: u32, min_compat: u32, app_count: usize) -> bool {
+    host_proto < min_compat && app_count > 0
+}
+
+/// The post-update compat dialog box (shared by render + hit-testing).
+fn compat_dialog_rect(w: i32, h: i32) -> Rect {
+    let box_w = 58.min((w - 2).max(24));
+    let box_h = 9.min((h - 1).max(7));
+    Rect::new((w - box_w) / 2, ((h - box_h) / 2).max(0), box_w, box_h)
+}
+
+/// `(keep-apps, restart-app-server)` button rects of the compat dialog.
+fn compat_dialog_buttons(w: i32, h: i32) -> (Rect, Rect) {
+    let d = compat_dialog_rect(w, h);
+    let by = d.y + d.h - 2;
+    let keep = Rect::new(d.x + 2, by, 16, 1);
+    let restart_w = 24;
+    let restart = Rect::new(d.x + d.w - 2 - restart_w, by, restart_w, 1);
+    (keep, restart)
+}
+
 /// Compare the installed commit against the tip of `branch` on GitHub.
 fn check_for_updates(branch: &str) -> String {
     let short = |s: &str| s.chars().take(7).collect::<String>();
@@ -3474,6 +3601,22 @@ fn check_for_updates(branch: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compat_dialog_arms_only_for_old_hosts_with_apps() {
+        // Dormant today: MIN_COMPAT is 0, nothing is older than that.
+        assert!(!needs_apphost_restart(0, crate::apphost::proto::MIN_COMPAT, 5));
+        // When a future release bumps MIN_COMPAT, old hosts with live apps arm
+        // the dialog — but an empty apphost just restarts silently.
+        assert!(needs_apphost_restart(0, 1, 3));
+        assert!(!needs_apphost_restart(0, 1, 0), "no apps → nothing to protect");
+        assert!(!needs_apphost_restart(1, 1, 3), "compatible host → no dialog");
+        // The current binary pair is always compatible with itself (a const
+        // block so a bad MIN_COMPAT bump fails the BUILD, not just this test).
+        const {
+            assert!(crate::apphost::proto::PROTO_VERSION >= crate::apphost::proto::MIN_COMPAT);
+        }
+    }
 
     #[test]
     fn main_update_prefers_prebuilt_release() {

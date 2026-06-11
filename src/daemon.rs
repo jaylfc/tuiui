@@ -93,6 +93,10 @@ pub fn run() -> std::io::Result<()> {
             std::thread::sleep(Duration::from_millis(16));
         }
     }
+    // Safety check: if the running apphost is older than this binary can
+    // safely talk to AND owns live apps, raise the "restart app server"
+    // dialog so the user can save work first (instead of silent breakage).
+    core.check_apphost_compat();
     // Honour a one-shot UI reopen hint (e.g. reopen Settings → Updates after an
     // in-app update reloaded the frontend).
     core.reopen_ui_from_hint();

@@ -8,7 +8,7 @@ daemon/client socket, like a graphical tmux.
 ## Build, test, lint
 
 ```sh
-cargo build
+cargo build           # MSRV: rust 1.95 (rust-version in Cargo.toml)
 cargo test            # 300+ tests; keep them green
 cargo clippy --all-targets   # warning-clean; keep it that way
 ```
@@ -58,6 +58,11 @@ real terminal              composites frames, routes input    survives UI reload
   must be `#[serde(default)]` so version skew (old daemon ↔ new client, old
   apphost ↔ new frontend) degrades gracefully. Prefer new fields on existing
   messages over new enum variants (unknown variants fail the whole parse).
+  Bump `PROTO_VERSION` (apphost/proto.rs) on any apphost protocol change; if
+  a change genuinely breaks older apphosts, ALSO bump `MIN_COMPAT` — that
+  arms the post-update safety dialog ("restart the app server, closes your
+  apps") instead of letting users' sessions break silently. Never bump
+  `MIN_COMPAT` casually: it forces users through an app-closing restart.
 - **New windowed widgets** follow the Store/Settings/Logs pattern:
   a `WinContent` variant + `focused_is_X()` flag + `ClientMsg::X*` variants +
   a routing branch in `client.rs`. Widgets are pure state+render; they never

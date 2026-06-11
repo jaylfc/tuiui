@@ -31,6 +31,8 @@ struct Cached {
 struct Cache {
     apps: HashMap<AppId, Cached>,
     meta: HashMap<AppId, Vec<u8>>,
+    /// The apphost's declared protocol version (0 until/unless it says).
+    proto: u32,
 }
 
 type Pending = Arc<Mutex<HashMap<u64, mpsc::Sender<Result<AppId, String>>>>>;
@@ -117,8 +119,9 @@ fn apply_evt(evt: HostEvt, cache: &Arc<Mutex<Cache>>, pending: &Pending) {
                 e.alive = false;
             }
         }
-        HostEvt::Roster { apps } => {
+        HostEvt::Roster { apps, proto } => {
             let mut c = cache.lock().unwrap();
+            c.proto = proto;
             for entry in apps {
                 let id = AppId(entry.app);
                 c.meta.insert(id, entry.meta);
@@ -162,6 +165,10 @@ impl AppHost for RemoteAppHost {
 
     fn scroll(&mut self, id: AppId, lines: i32) {
         let _ = send(&mut self.writer, &HostReq::Scroll { app: id.0, lines });
+    }
+
+    fn proto_version(&self) -> u32 {
+        self.cache.lock().unwrap().proto
     }
 
     fn kill(&mut self, id: AppId) {

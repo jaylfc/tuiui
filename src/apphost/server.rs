@@ -77,6 +77,7 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
             .into_iter()
             .map(|id| RosterEntry { app: id.0, meta: local.meta(id).unwrap_or_default() })
             .collect(),
+        proto: crate::apphost::proto::PROTO_VERSION,
     };
     // Best-effort: a short-lived connection (e.g. `tuiui kill` sending Shutdown)
     // may close before we finish writing the roster. Don't abandon the
