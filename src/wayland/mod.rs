@@ -7,10 +7,12 @@
 mod compositor;
 mod backend;
 mod protocols;
+mod input;
 
 pub use compositor::{WaylandCompositor, OutputId, SeatId, LayerType, Anchor, CompositorState, SeatState, OutputInfo};
 pub use backend::{DrmBackend, DrmBuffer, DrmFormat, DrmLease, DrmDeviceHandle};
 pub use protocols::{XdgShellSurface as XdgSurface, LayerShellSurface as LayerSurfaceProtocol, Seat, Pointer, Keyboard, Touch, CursorIcon, ProtocolManager};
+pub use input::{InputManager, InputConfig, DeviceInfo, KeyboardLayout, ModifierState, SeatData, VtSwitchHandler, InputSystemInfo, enumerate_input_devices};
 
 use std::io::{self, Result};
 
