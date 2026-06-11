@@ -8,8 +8,8 @@ use crate::window::WindowId;
 /// Label drawn for the top-left launcher button (opens the app launcher).
 const GO_LABEL: &str = " tuiui ";
 
-/// Column where the view-mode toggle is drawn (just right of the brand button).
-const MODE_X: i32 = 8; // GO_LABEL is 7 cells wide, + a 1-cell gap
+/// Column where the new-shell "+" button is drawn (just right of the brand).
+const NEW_SHELL_X: i32 = 8; // GO_LABEL is 7 cells wide, + a 1-cell gap
 
 /// Column where the assistant (✦) button is drawn (right of the mode toggle).
 const ASSIST_X: i32 = 12;
@@ -58,13 +58,12 @@ pub struct DockItem {
 ///
 /// The layer is 1 row tall, `width` columns wide, positioned at `(0, 0)`.
 /// It displays the brand name on the left and `focused_app` at a fixed offset.
-pub fn render_menubar(width: i32, focused_app: &str, segments: &[crate::tray::Segment], simple: bool, power_label: &str) -> Layer {
+pub fn render_menubar(width: i32, focused_app: &str, segments: &[crate::tray::Segment], power_label: &str) -> Layer {
     let t = crate::theme::current();
     let mut buf = CellBuffer::new(width, 1);
     buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.menubar_bg, attrs: Default::default() });
     buf.write_str(0, 0, GO_LABEL, t.accent, t.active_bg);
-    let mode = if simple { MODE_SIMPLE } else { MODE_DESKTOP };
-    buf.write_str(MODE_X, 0, mode, t.accent, t.active_bg);
+    buf.write_str(NEW_SHELL_X, 0, NEW_SHELL_LABEL, crate::cell::Rgba::rgb(255, 255, 255), t.accent);
     buf.write_str(ASSIST_X, 0, ASSIST_LABEL, t.accent, t.active_bg);
     // Power button (the host name + ▾), right-aligned, with a button-like fill.
     let px = (width - power_label.chars().count() as i32).max(0);
@@ -89,9 +88,10 @@ pub fn menubar_brand_region() -> Rect {
     Rect::new(0, 0, GO_LABEL.chars().count() as i32, 1)
 }
 
-/// Screen-space hit region for the menubar view-mode toggle (just right of the brand).
-pub fn menubar_mode_region() -> Rect {
-    Rect::new(MODE_X, 0, MODE_DESKTOP.chars().count() as i32, 1)
+/// Screen-space hit region for the menubar "+" (new shell) button (just right of
+/// the brand; it swapped places with the view-mode toggle, now on the dock).
+pub fn menubar_new_shell_region() -> Rect {
+    Rect::new(NEW_SHELL_X, 0, NEW_SHELL_LABEL.chars().count() as i32, 1)
 }
 
 /// Screen-space hit region for the assistant (✦) button — opens the AI chat panel.
@@ -111,23 +111,25 @@ pub fn menubar_power_region(width: i32, power_label: &str) -> Rect {
     Rect::new(px, 0, width - px, 1)
 }
 
-/// The "new shell" quick-launch button at the dock's bottom-left corner.
+/// The "new shell" quick-launch button (menubar, next to the brand).
 const NEW_SHELL_LABEL: &str = " + ";
 
-/// Screen-space hit region for the dock's "+" (new shell) button (bottom-left).
-pub fn dock_new_shell_region(height: i32) -> Rect {
-    Rect::new(0, height - 1, NEW_SHELL_LABEL.chars().count() as i32, 1)
+/// Screen-space hit region for the dock's view-mode toggle (bottom-left; shows
+/// the CURRENT mode, click to switch desktop ⊞ / full-screen-single-app ▦).
+pub fn dock_mode_region(height: i32) -> Rect {
+    Rect::new(0, height - 1, MODE_DESKTOP.chars().count() as i32, 1)
 }
 
 /// Build a compositor [`Layer`] for the bottom dock row.
 ///
 /// The layer is 1 row tall, positioned at `(0, height - 1)`.
-pub fn render_dock(width: i32, height: i32, items: &[DockItem]) -> Layer {
+pub fn render_dock(width: i32, height: i32, items: &[DockItem], simple: bool) -> Layer {
     let t = crate::theme::current();
     let mut buf = CellBuffer::new(width, 1);
     buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.dock_bg, attrs: Default::default() });
-    // The "+" new-shell button, bottom-left.
-    buf.write_str(0, 0, NEW_SHELL_LABEL, crate::cell::Rgba::rgb(255, 255, 255), t.accent);
+    // The view-mode toggle, bottom-left (swapped places with new-shell "+").
+    let mode = if simple { MODE_SIMPLE } else { MODE_DESKTOP };
+    buf.write_str(0, 0, mode, t.accent, t.active_bg);
     for (i, (_idx, r, badge_x, label_text)) in dock_layout(items).into_iter().enumerate() {
         let item = &items[i];
         let bg = if item.focused { t.active_bg } else { t.dock_bg };
@@ -250,8 +252,8 @@ fn count_suffix(n: usize) -> String {
 /// padded with spaces. Returns `(pill_index, local_rect, badge_x, full_label_string)`.
 fn dock_layout(items: &[DockItem]) -> Vec<(usize, Rect, i32, String)> {
     let mut out = Vec::new();
-    // Pills start after the bottom-left "+" new-shell button.
-    let mut x = NEW_SHELL_LABEL.chars().count() as i32 + 1;
+    // Pills start after the bottom-left view-mode toggle.
+    let mut x = MODE_DESKTOP.chars().count() as i32 + 1;
     for (i, it) in items.iter().enumerate() {
         let suffix = count_suffix(it.count);
         // Pill format: " B label[suffix] "

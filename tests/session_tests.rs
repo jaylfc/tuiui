@@ -278,23 +278,36 @@ fn cascade_keyboard_launches_app_from_submenu() {
 
 #[test]
 fn mode_toggle_switches_view() {
-    use tuiui::chrome::menubar_mode_region;
+    // The view toggle moved to the dock's bottom-left (swapped with new-shell +).
+    use tuiui::chrome::dock_mode_region;
     let mut core = SessionCore::new(120, 40, Config::default());
     assert!(!core.simple_mode());
-    let r = menubar_mode_region();
-    core.apply(ClientMsg::MouseDown(Point::new(r.x, 0)));
+    let r = dock_mode_region(40);
+    core.apply(ClientMsg::MouseDown(Point::new(r.x, r.y)));
     assert!(core.simple_mode(), "clicking the toggle enters simple mode");
-    core.apply(ClientMsg::MouseDown(Point::new(r.x, 0)));
+    core.apply(ClientMsg::MouseDown(Point::new(r.x, r.y)));
     assert!(!core.simple_mode(), "clicking again returns to desktop");
     core.shutdown();
 }
 
 #[test]
+fn menubar_plus_opens_a_new_shell() {
+    use tuiui::chrome::menubar_new_shell_region;
+    let mut core = SessionCore::new(120, 40, Config::default());
+    let before = core.window_count();
+    let r = menubar_new_shell_region();
+    core.apply(ClientMsg::MouseDown(Point::new(r.x, 0)));
+    assert_eq!(core.window_count(), before + 1, "menubar + opens a shell window");
+    core.shutdown();
+}
+
+#[test]
 fn simple_mode_renders_focused_app_fullscreen_without_desktop() {
-    use tuiui::chrome::menubar_mode_region;
+    use tuiui::chrome::dock_mode_region;
     let mut core = SessionCore::new(120, 40, Config::default());
     core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
-    core.apply(ClientMsg::MouseDown(Point::new(menubar_mode_region().x, 0)));
+    let r = dock_mode_region(40);
+    core.apply(ClientMsg::MouseDown(Point::new(r.x, r.y)));
     assert!(core.simple_mode());
     let frame = core.build_frame();
     // The focused app's content layer originates at the work area top (row 1),
@@ -407,13 +420,15 @@ fn spurious_teleport_drag_does_not_fling_window() {
 }
 
 #[test]
-fn dock_plus_button_opens_a_shell_window() {
-    use tuiui::chrome::dock_new_shell_region;
+fn dock_corner_no_longer_opens_a_shell() {
+    // The "+" moved to the menubar (see menubar_plus_opens_a_new_shell); the
+    // dock's bottom-left is now the view toggle and must NOT spawn windows.
+    use tuiui::chrome::dock_mode_region;
     let mut core = SessionCore::new(120, 40, Config::default());
     let before = core.window_count();
-    let r = dock_new_shell_region(40); // bottom-left of a height-40 screen
+    let r = dock_mode_region(40);
     core.apply(ClientMsg::MouseDown(Point::new(r.x, r.y)));
-    assert_eq!(core.window_count(), before + 1, "clicking + should open a new shell window");
+    assert_eq!(core.window_count(), before, "the dock corner toggles the view, not a shell");
     core.shutdown();
 }
 

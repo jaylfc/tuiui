@@ -4,6 +4,19 @@ All notable changes to tuiui are recorded here. The project uses
 [semantic versioning](https://semver.org); while pre-1.0, minor versions may
 carry user-visible feature work and the occasional breaking config change.
 
+## [Unreleased]
+
+### Changed
+- **Settings → Updates simplified**: the update check now runs automatically
+  (on a background thread) whenever the Updates screen opens or the channel
+  changes — no more pressing Update blind and reinstalling the same version.
+  One **Update & Reload** button remains.
+- The **`+` (new shell)** button and the **`⊞`/`▦` view toggle** swapped
+  places: `+` now sits in the menubar next to the brand; the view toggle
+  lives at the dock's bottom-left.
+- `dirs` bumped to 6 — the last outdated dependency flagged by the update
+  build.
+
 ## [0.2.0] — 2026-06-10
 
 The "desktop, networked" release: switch between machines, an AI copilot, and

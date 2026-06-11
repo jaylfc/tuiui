@@ -11,7 +11,7 @@
 //! expose on a socket.
 
 use crate::chrome::{
-    render_menubar, render_dock, dock_hit_regions, menubar_assistant_region, menubar_brand_region, menubar_mode_region, menubar_power_region, DockItem, DockKind,
+    render_menubar, render_dock, dock_hit_regions, menubar_assistant_region, menubar_brand_region, menubar_new_shell_region, menubar_power_region, DockItem, DockKind,
 };
 use crate::powermenu::{PowerClick, PowerMenu, PowerOutcome};
 use crate::confirmclose::ConfirmClose;
@@ -360,6 +360,9 @@ pub struct SessionCore {
     /// Text to put on the HOST terminal's clipboard (OSC 52), shipped to the
     /// client in the next frame: log copies and app OSC-52 stores.
     pending_clipboard: Option<String>,
+    /// In-flight background update check (Settings → Updates auto-checks when
+    /// shown; the curl runs off-thread so it can never stall the render loop).
+    update_check_rx: Option<std::sync::mpsc::Receiver<String>>,
     /// Dock-ordered list of (id, display-name) pairs.
     titles: Vec<(WindowId, String)>,
     /// Immutable grouping key per window (set at spawn/open; never mutated).
@@ -463,6 +466,7 @@ impl SessionCore {
             apphost_outdated: false,
             logs_win: None,
             pending_clipboard: None,
+            update_check_rx: None,
             titles: Vec::new(),
             app_keys: HashMap::new(),
             dock_popup: None,
@@ -584,6 +588,35 @@ impl SessionCore {
         }
     }
 
+    /// Drive the automatic update check: deliver a finished result to the
+    /// Settings panel, and start a new background check when the panel asks
+    /// (it asks whenever its Updates section is showing without a result).
+    pub fn pump_update_check(&mut self) {
+        if let Some(rx) = &self.update_check_rx {
+            if let Ok(msg) = rx.try_recv() {
+                self.update_check_rx = None;
+                if let Some(id) = self.settings_win {
+                    if let Some(WinContent::Settings(s)) = self.contents.get_mut(&id) {
+                        s.set_update_status(msg);
+                    }
+                }
+            }
+        }
+        if self.update_check_rx.is_none() {
+            if let Some(id) = self.settings_win {
+                if let Some(WinContent::Settings(s)) = self.contents.get_mut(&id) {
+                    if let Some(branch) = s.take_update_check_request() {
+                        let (tx, rx) = std::sync::mpsc::channel();
+                        self.update_check_rx = Some(rx);
+                        std::thread::spawn(move || {
+                            let _ = tx.send(check_for_updates(&branch));
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     /// Point the desktop at a specific directory and reload (integration tests).
     #[doc(hidden)]
     pub fn set_desktop_dir_for_test(&mut self, dir: std::path::PathBuf) {
@@ -670,13 +703,6 @@ impl SessionCore {
     /// the keyboard or the mouse path.
     fn drain_settings_action(&mut self) {
         match self.focused_settings_mut().and_then(|s| s.take_action()) {
-            Some(crate::settings::SettingsAction::CheckUpdates) => {
-                let branch = self.cfg.update_branch.clone();
-                let msg = check_for_updates(&branch);
-                if let Some(s) = self.focused_settings_mut() {
-                    s.set_update_status(msg);
-                }
-            }
             Some(crate::settings::SettingsAction::RestartApphost) => {
                 self.restart_apphost();
             }
@@ -2556,10 +2582,10 @@ impl SessionCore {
         // Menubar brand opens the launcher dropdown; quit button, tray segments,
         // and dock clicks are checked before normal window routing.
         if kind == MouseKind::Down {
-            if menubar_mode_region().contains(p) {
+            if menubar_new_shell_region().contains(p) {
                 self.launcher.close();
                 self.power_menu.close();
-                self.toggle_simple();
+                self.open_shell();
                 return;
             }
             if menubar_assistant_region().contains(p) {
@@ -2604,9 +2630,9 @@ impl SessionCore {
             }
 
             // The bottom-left "+" button opens a new shell window.
-            if crate::chrome::dock_new_shell_region(self.h).contains(p) {
+            if crate::chrome::dock_mode_region(self.h).contains(p) {
                 self.dock_popup = None;
-                self.open_shell();
+                self.toggle_simple();
                 return;
             }
 
@@ -3069,8 +3095,8 @@ impl SessionCore {
             let st = self.tray_state.read().unwrap();
             crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32, self.tray.notif_count())
         };
-        layers.push(render_menubar(self.w, &app_name, &segs, false, &self.power_label));
-        layers.push(render_dock(self.w, self.h, &self.dock_items()));
+        layers.push(render_menubar(self.w, &app_name, &segs, &self.power_label));
+        layers.push(render_dock(self.w, self.h, &self.dock_items(), self.simple));
 
         // The desktop context / rename menu floats above the windows (but below
         // the launcher / help overlays) on its own high-z layer.
@@ -3270,8 +3296,8 @@ impl SessionCore {
             let st = self.tray_state.read().unwrap();
             crate::tray::tray_segments(&st, self.w, self.power_label.chars().count() as i32, self.tray.notif_count())
         };
-        layers.push(render_menubar(self.w, &app_name, &segs, true, &self.power_label));
-        layers.push(render_dock(self.w, self.h, &self.dock_items()));
+        layers.push(render_menubar(self.w, &app_name, &segs, &self.power_label));
+        layers.push(render_dock(self.w, self.h, &self.dock_items(), self.simple));
 
         // Overlays that must still work in simple mode.
         let overlay_start = layers.len();
@@ -3603,6 +3629,10 @@ mod tests {
     use super::*;
 
     #[test]
+    // The const assert below is "always true" TODAY (MIN_COMPAT is 0, u32's
+    // minimum); it exists to fail the build if a future MIN_COMPAT bump ever
+    // exceeds PROTO_VERSION.
+    #[allow(clippy::absurd_extreme_comparisons)]
     fn compat_dialog_arms_only_for_old_hosts_with_apps() {
         // Dormant today: MIN_COMPAT is 0, nothing is older than that.
         assert!(!needs_apphost_restart(0, crate::apphost::proto::MIN_COMPAT, 5));
