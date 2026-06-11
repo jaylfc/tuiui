@@ -1,4 +1,4 @@
-use tuiui::chrome::{render_menubar, render_dock, dock_hit_regions, DockItem, DockKind, menubar_mode_region};
+use tuiui::chrome::{render_menubar, render_dock, dock_hit_regions, DockItem, DockKind, menubar_new_shell_region, dock_mode_region};
 use tuiui::cell::Rgba;
 use tuiui::geometry::Point;
 use tuiui::window::WindowId;
@@ -8,7 +8,7 @@ fn badge_color() -> Rgba { Rgba::rgb(70, 130, 230) }
 #[test]
 fn menubar_layer_spans_top_row_and_shows_brand() {
     // 40 cols: realistic width where the Go button + app name + power button all fit.
-    let layer = render_menubar(40, "btop", &[], false, " devbox \u{25be} ");
+    let layer = render_menubar(40, "btop", &[], " devbox \u{25be} ");
     assert_eq!(layer.origin, Point::new(0,0));
     assert_eq!(layer.buf.height(), 1);
     let row: String = (0..40).map(|x| layer.buf.get(x,0).unwrap().ch).collect();
@@ -28,7 +28,7 @@ fn dock_layer_is_bottom_row() {
         focused: true,
         attention: false,
     }];
-    let layer = render_dock(40, 24, &items);
+    let layer = render_dock(40, 24, &items, false);
     assert_eq!(layer.origin, Point::new(0, 23));
 }
 
@@ -76,7 +76,7 @@ fn dock_single_pill_renders_badge_letter() {
         focused: false,
         attention: false,
     }];
-    let layer = render_dock(40, 24, &items);
+    let layer = render_dock(40, 24, &items, false);
     // The bottom row should contain 'B' (the badge letter)
     let row: String = (0..40).map(|x| layer.buf.get(x, 0).unwrap().ch).collect();
     assert!(row.contains('B'), "badge letter 'B' should appear in dock row: {row:?}");
@@ -93,22 +93,28 @@ fn dock_group_pill_renders_count_glyph() {
         focused: false,
         attention: false,
     }];
-    let layer = render_dock(60, 24, &items);
+    let layer = render_dock(60, 24, &items, false);
     let row: String = (0..60).map(|x| layer.buf.get(x, 0).unwrap().ch).collect();
     // Group of 2 → superscript ² should appear
     assert!(row.contains('\u{00B2}'), "group pill should show ² for count=2: {row:?}");
 }
 
 #[test]
-fn menubar_shows_mode_toggle_glyph() {
-    let desktop: String = (0..40).map(|x| render_menubar(40, "x", &[], false, " h \u{25be} ").buf.get(x, 0).unwrap().ch).collect();
-    assert!(desktop.contains('\u{229E}'), "desktop mode shows ⊞, got {desktop:?}");
-    let simple: String = (0..40).map(|x| render_menubar(40, "x", &[], true, " h \u{25be} ").buf.get(x, 0).unwrap().ch).collect();
-    assert!(simple.contains('\u{25A6}'), "simple mode shows ▦, got {simple:?}");
-    // region sits just right of the brand
-    let r = menubar_mode_region();
+fn menubar_has_new_shell_and_dock_has_mode_toggle() {
+    // The "+" new-shell button lives next to the brand (swapped with the mode
+    // toggle, which moved to the dock's bottom-left).
+    let bar: String = (0..40).map(|x| render_menubar(40, "x", &[], " h \u{25be} ").buf.get(x, 0).unwrap().ch).collect();
+    assert!(bar.contains('+'), "menubar shows the new-shell +, got {bar:?}");
+    let r = menubar_new_shell_region();
     assert_eq!(r.y, 0);
     assert!(r.x >= 7);
+
+    let desktop: String = (0..40).map(|x| render_dock(40, 24, &[], false).buf.get(x, 0).unwrap().ch).collect();
+    assert!(desktop.contains('\u{229E}'), "desktop mode shows ⊞ on the dock, got {desktop:?}");
+    let simple: String = (0..40).map(|x| render_dock(40, 24, &[], true).buf.get(x, 0).unwrap().ch).collect();
+    assert!(simple.contains('\u{25A6}'), "simple mode shows ▦ on the dock, got {simple:?}");
+    let d = dock_mode_region(24);
+    assert_eq!((d.x, d.y), (0, 23), "toggle sits at the dock's bottom-left");
 }
 
 #[test]
@@ -116,7 +122,7 @@ fn menubar_has_power_button_on_right() {
     use tuiui::chrome::menubar_power_region;
     let width = 40;
     let power = " devbox \u{25be} ";
-    let layer = render_menubar(width, "btop", &[], false, power);
+    let layer = render_menubar(width, "btop", &[], power);
     let row: String = (0..width).map(|x| layer.buf.get(x, 0).unwrap().ch).collect();
     assert!(row.contains("devbox"), "menubar power button should show the host name, got: {row:?}");
     // region is on the top row, flush to the right edge

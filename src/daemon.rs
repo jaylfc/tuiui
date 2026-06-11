@@ -250,6 +250,7 @@ fn serve_client(
 
         core.reap_dead();
         core.pump_app_events();
+        core.pump_update_check();
         core.refresh_app_graphics();
         core.sync_app_meta();
         core.pump_thumbnails();

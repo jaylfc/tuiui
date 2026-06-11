@@ -12,7 +12,7 @@ crossterm = "0.29"
 portable-pty = "0.9"
 serde = { version = "1", features = ["derive"] }
 toml = "1.1"
-dirs = "5"
+dirs = "6"
 alacritty_terminal = "0.26.0"
 serde_json = "1.0.150"
 sysinfo = "0.39"

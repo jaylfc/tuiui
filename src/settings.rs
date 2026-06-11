@@ -41,9 +41,8 @@ pub enum SettingsAction {
     /// Restart the app server (closes all apps) — shown only after a compat
     /// warning flagged the running apphost as too old for this binary.
     RestartApphost,
-    /// Check upstream for a newer commit.
-    CheckUpdates,
-    /// Install the latest version.
+    /// Install the latest version. (The update CHECK is automatic: it runs in
+    /// the background whenever the Updates section is shown.)
     InstallUpdate,
 }
 
@@ -60,6 +59,8 @@ struct AppEdit {
 pub struct Settings {
     /// Whether the running apphost is older than this binary supports.
     apphost_outdated: bool,
+    /// An update check is running in the background (one at a time).
+    check_in_flight: bool,
     cfg: Config,
     section: usize,
     sel: usize,
@@ -72,7 +73,7 @@ pub struct Settings {
 impl Settings {
     /// Create a settings panel editing a copy of `cfg`.
     pub fn new(cfg: Config) -> Self {
-        Self { apphost_outdated: false, cfg, section: 0, sel: 0, action: None, update_status: String::new(), edit: None }
+        Self { apphost_outdated: false, check_in_flight: false, cfg, section: 0, sel: 0, action: None, update_status: String::new(), edit: None }
     }
 
     /// Take a pending action requested by the user (cleared on read).
@@ -83,6 +84,21 @@ impl Settings {
     /// Set the text shown under the Updates section after a check.
     pub fn set_update_status(&mut self, s: String) {
         self.update_status = s;
+        self.check_in_flight = false;
+    }
+
+    /// The update check is automatic: whenever the Updates section is showing
+    /// with no (current) result and no check in flight, this returns the branch
+    /// to check and marks a check as started. The session polls it every tick
+    /// and runs the network call on a background thread.
+    pub fn take_update_check_request(&mut self) -> Option<String> {
+        let updates_idx = SECTIONS.iter().position(|s| *s == "Updates")?;
+        if self.section != updates_idx || self.check_in_flight || !self.update_status.is_empty() {
+            return None;
+        }
+        self.check_in_flight = true;
+        self.update_status = "checking for updates…".into();
+        Some(self.cfg.update_branch.clone())
     }
 
     /// Show the "Restart app server" row (set when the apphost was flagged as
@@ -115,7 +131,7 @@ impl Settings {
         match self.section {
             0 => 7,                            // snapping, threshold, grid rows/cols, gap, auto-tile, launch-maximized
             1 => 2,                            // shadows, theme
-            2 => if self.apphost_outdated { 4 } else { 3 }, // check, install, branch [, restart apphost]
+            2 => if self.apphost_outdated { 3 } else { 2 }, // update, channel [, restart apphost]
             3 => self.cfg.launcher.len() + 1,  // custom apps + "＋ Add app…"
             4 => DEFAULT_APP_ROLES.len(),
             5 => 2,                            // assistant framework, mode
@@ -230,17 +246,21 @@ impl Settings {
                 };
                 self.cfg.theme = presets[next_idx].to_string();
             }
-            // Updates section: Enter/Space (dir 0) requests an action from the session.
-            (2, 0) if dir == 0 => self.action = Some(SettingsAction::CheckUpdates),
-            (2, 1) if dir == 0 => self.action = Some(SettingsAction::InstallUpdate),
-            (2, 3) if dir == 0 && self.apphost_outdated => {
+            // Updates section: Enter/Space (dir 0) requests an action from the
+            // session. The CHECK is automatic (take_update_check_request), so
+            // row 0 is the single Update & Reload button.
+            (2, 0) if dir == 0 => self.action = Some(SettingsAction::InstallUpdate),
+            (2, 2) if dir == 0 && self.apphost_outdated => {
                 self.action = Some(SettingsAction::RestartApphost)
             }
-            (2, 2) => {
+            (2, 1) => {
                 let b = crate::config::UPDATE_BRANCHES;
                 let cur = b.iter().position(|x| *x == self.cfg.update_branch).unwrap_or(0);
                 let next = match dir { -1 => (cur + b.len() - 1) % b.len(), _ => (cur + 1) % b.len() };
                 self.cfg.update_branch = b[next].to_string();
+                // Re-arm the automatic check for the newly selected channel.
+                self.update_status.clear();
+                self.check_in_flight = false;
             }
             // Apps section.
             (3, _) => self.adjust_apps(dir),
@@ -391,9 +411,11 @@ impl Settings {
                 self.row(&mut buf, cx, 4, 1, "Theme", self.cfg.theme.clone());
             }
             2 => {
-                self.row(&mut buf, cx, 3, 0, "Check for updates", String::new());
-                self.row(&mut buf, cx, 4, 1, "Update & Reload", String::new());
-                self.row(&mut buf, cx, 5, 2, "Channel", format!("\u{25C2} {} \u{25B8}", self.cfg.update_branch));
+                self.row(&mut buf, cx, 3, 0, "Update & Reload", String::new());
+                self.row(&mut buf, cx, 4, 1, "Channel", format!("\u{25C2} {} \u{25B8}", self.cfg.update_branch));
+                if self.apphost_outdated {
+                    self.row(&mut buf, cx, 5, 2, "Restart app server", "(closes apps)".into());
+                }
                 let sha = &crate::GIT_SHA[..crate::GIT_SHA.len().min(7)];
                 buf.write_str(cx, 7, &format!("installed: v{} ({})", crate::VERSION, sha), DIM, BG);
                 if !self.update_status.is_empty() {
@@ -404,7 +426,6 @@ impl Settings {
                     buf.write_str(cx, 9, "dev channel: builds from source (slower).", DIM, BG);
                 }
                 if self.apphost_outdated {
-                    self.row(&mut buf, cx, 6, 3, "Restart app server", "(closes apps)".into());
                     buf.write_str(cx, 10, "The app server predates this update; some features", DIM, BG);
                     buf.write_str(cx, 11, "won't work until it restarts (your apps will close).", DIM, BG);
                 }
