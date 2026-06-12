@@ -1,11 +1,13 @@
 # Template used by install.sh; the installer writes a generated file with the actual binary path.
+# If tuiui-compositor binary exists, prefer it; otherwise use tuiui --compositor
 [Unit]
 Description=tuiui Wayland compositor (tiling window manager for the terminal)
 Documentation=https://github.com/jaylfc/tuiui
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/tuiui --compositor
+ExecStart=%h/.local/bin/tuiui-compositor
+ExecStopPost=/bin/rm -f /tmp/tuiui-compositor.sock
 Restart=on-failure
 RestartSec=2
 Environment=XDG_CURRENT_DESKTOP=tuiui
