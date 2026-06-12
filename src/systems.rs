@@ -160,11 +160,14 @@ pub fn switch_script(spec: &SwitchSpec) -> String {
     let mut s = String::new();
     if spec.setup {
         let name = sh_quote(&spec.name);
+        // Stock Debian frequently ships wget but not curl: accept either for
+        // the installer download (install.sh itself has the same fallback).
         let install = sh_quote(&format!(
-            "curl -fsSL {repo_raw}/main/install.sh | TUIUI_INSTALL_DEPS=1 sh || \
+            "{{ command -v curl >/dev/null 2>&1 && curl -fsSL {url} || wget -qO- {url}; }} \
+| TUIUI_INSTALL_DEPS=1 sh || \
 {{ command -v cargo >/dev/null 2>&1 && cargo install --git {repo}; }}",
             repo = crate::REPO_URL,
-            repo_raw = "https://raw.githubusercontent.com/jaylfc/tuiui",
+            url = "https://raw.githubusercontent.com/jaylfc/tuiui/main/install.sh",
         ));
         let gpm = sh_quote(
             "if [ \"$(uname -s)\" = Linux ] && ! command -v gpm >/dev/null 2>&1; then \
@@ -282,6 +285,7 @@ mod tests {
         let copy = s.find("ssh-copy-id").expect("transfers the key");
         let terminfo = s.find("tic -x -").expect("copies the local terminfo (xterm-ghostty etc.)");
         let install = s.find("install.sh").expect("installs tuiui remotely");
+        assert!(s.contains("wget -qO-"), "remote install works without curl (stock Debian): {s}");
         let gpm = s.find("gpm").expect("installs gpm for the console mouse");
         let sync = s.find("systems.toml").expect("syncs the saved-systems list");
         let attach = s.find("exec ssh -t").expect("ends by attaching");

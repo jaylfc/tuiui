@@ -42,6 +42,29 @@ impl WindowManager {
     /// Replace the work area (e.g. after a terminal resize).
     pub fn set_work_area(&mut self, r: Rect) { self.work = r; }
 
+    /// Clamp every window (minimized ones too — their rect is what a restore
+    /// brings back) into the current work area: shrink rects larger than the
+    /// work area, then move the rect so it lies fully inside. Returns the ids
+    /// of windows that changed, so the session can resize their PTYs.
+    ///
+    /// Window state (snapped / tiled / maximized) is deliberately left alone:
+    /// the clamp is involuntary (the terminal shrank), not a user move.
+    pub fn clamp_all_into_work(&mut self) -> Vec<WindowId> {
+        let work = self.work;
+        let mut changed = Vec::new();
+        for w in &mut self.windows {
+            let before = w.rect;
+            w.rect.w = w.rect.w.min(work.w);
+            w.rect.h = w.rect.h.min(work.h);
+            w.rect.x = w.rect.x.clamp(work.x, work.x + work.w - w.rect.w);
+            w.rect.y = w.rect.y.clamp(work.y, work.y + work.h - w.rect.h);
+            if w.rect != before {
+                changed.push(w.id);
+            }
+        }
+        changed
+    }
+
     /// Add a new floating window with the given title and outer rect.
     ///
     /// The new window receives the highest z-index and becomes the focused window.

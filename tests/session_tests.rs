@@ -502,3 +502,54 @@ fn closing_filemanager_does_not_confirm() {
     assert_eq!(core.window_count(), 0, "file manager closes immediately");
     core.shutdown();
 }
+
+#[test]
+fn resize_clamps_stranded_windows_on_screen() {
+    // The ultrawide → small monitor bug: a window parked far right must be
+    // pulled back inside the new, smaller work area on resize.
+    let mut core = SessionCore::new(300, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    core.apply(ClientMsg::SnapFocused(tuiui::geometry::SnapZone::Right));
+    core.apply(ClientMsg::Resize { w: 60, h: 20 });
+    let r = core.focused_window_rect_for_test().unwrap();
+    assert!(r.x >= 0 && r.y >= 1, "window pulled on-screen: {r:?}");
+    assert!(r.x + r.w <= 60 && r.y + r.h <= 19, "window fits the new work area: {r:?}");
+    core.shutdown();
+}
+
+#[test]
+fn dock_right_click_reset_centres_at_half_size() {
+    use tuiui::session::dock_ctx_row_rect;
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    let items = core.dock_items_for_test();
+    let (_, pill) = tuiui::chrome::dock_hit_regions(120, 40, &items)[0];
+    core.apply(ClientMsg::MouseRightDown(Point::new(pill.x, 39)));
+    // Click row 3 (Reset size) using the same geometry the session renders with.
+    let row = dock_ctx_row_rect(pill.x, 120, 40, 3);
+    core.apply(ClientMsg::MouseDown(Point::new(row.x + 1, row.y)));
+    let r = core.focused_window_rect_for_test().unwrap();
+    assert_eq!((r.w, r.h), (60, 19), "half of the 120x38 work area");
+    assert_eq!((r.x, r.y), ((120 - 60) / 2, 1 + (38 - 19) / 2), "centred: {r:?}");
+    core.shutdown();
+}
+
+#[test]
+fn dock_right_click_elsewhere_dismisses_without_acting() {
+    use tuiui::session::dock_ctx_row_rect;
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    let before = core.focused_window_rect_for_test().unwrap();
+    let items = core.dock_items_for_test();
+    let (_, pill) = tuiui::chrome::dock_hit_regions(120, 40, &items)[0];
+    core.apply(ClientMsg::MouseRightDown(Point::new(pill.x, 39)));
+    // A click far from the menu dismisses it and must not move/close anything.
+    core.apply(ClientMsg::MouseDown(Point::new(2, 5)));
+    assert_eq!(core.focused_window_rect_for_test().unwrap(), before);
+    assert_eq!(core.window_count(), 1);
+    // And the menu really is gone: clicking a row rect now does nothing either.
+    let row = dock_ctx_row_rect(pill.x, 120, 40, 3);
+    core.apply(ClientMsg::MouseDown(Point::new(row.x + 1, row.y)));
+    assert_eq!(core.focused_window_rect_for_test().unwrap(), before);
+    core.shutdown();
+}

@@ -369,6 +369,9 @@ pub struct SessionCore {
     app_keys: HashMap<WindowId, String>,
     /// The app_key of the dock group whose chooser popup is open (`None` = closed).
     dock_popup: Option<String>,
+    /// Dock right-click context menu: `Some((target window, anchor x of the
+    /// clicked pill))` while open, `None` when closed.
+    dock_ctx: Option<(WindowId, i32)>,
     /// Menubar power-button label: the host name + ▾ (computed once at startup).
     power_label: String,
     /// Active window rename: `Some((id, buffer))` while the user is typing a new
@@ -470,6 +473,7 @@ impl SessionCore {
             titles: Vec::new(),
             app_keys: HashMap::new(),
             dock_popup: None,
+            dock_ctx: None,
             power_label: Self::host_power_label(),
             rename: None,
             cfg,
@@ -750,6 +754,34 @@ impl SessionCore {
     /// Whether the post-update compat dialog is showing (modal).
     pub fn compat_dialog_open(&self) -> bool {
         self.compat_dialog
+    }
+
+    /// Render the dock context menu (empty when closed). Uses the same
+    /// geometry fns as the hit-testing so they can never drift.
+    fn render_dock_ctx(&self) -> Vec<crate::compositor::Layer> {
+        let Some((_, ax)) = self.dock_ctx else { return Vec::new() };
+        let t = crate::theme::current();
+        let d = dock_ctx_rect(ax, self.w, self.h);
+        let mut buf = crate::buffer::CellBuffer::new(d.w, d.h);
+        buf.fill(crate::cell::Cell { ch: ' ', fg: t.text, bg: t.window_bg, attrs: Default::default() });
+        let b = |ch: char| crate::cell::Cell { ch, fg: t.border, bg: t.window_bg, attrs: Default::default() };
+        for x in 0..d.w {
+            buf.set(x, 0, b('\u{2500}'));
+            buf.set(x, d.h - 1, b('\u{2500}'));
+        }
+        for y in 0..d.h {
+            buf.set(0, y, b('\u{2502}'));
+            buf.set(d.w - 1, y, b('\u{2502}'));
+        }
+        buf.set(0, 0, b('\u{256D}'));
+        buf.set(d.w - 1, 0, b('\u{256E}'));
+        buf.set(0, d.h - 1, b('\u{2570}'));
+        buf.set(d.w - 1, d.h - 1, b('\u{256F}'));
+        for (i, label) in DOCK_CTX_ROWS.iter().enumerate() {
+            let fg = if i == 2 { t.close_fg } else { t.text };
+            buf.write_str(1, 1 + i as i32, &format!(" {label}"), fg, t.window_bg);
+        }
+        vec![crate::compositor::Layer { z: 5300, origin: Point::new(d.x, d.y), buf, opacity: 1.0, scissor: None }]
     }
 
     /// Render the post-update safety dialog (empty when closed).
@@ -1422,6 +1454,12 @@ impl SessionCore {
                 self.w = w;
                 self.h = h;
                 self.wm.set_work_area(Rect::new(0, 1, w, h - 2));
+                // Clamp every window into the new work area so nothing is left
+                // stranded off-screen (e.g. moving to a smaller monitor), and
+                // re-fit the PTYs of the windows that moved/shrank.
+                for id in self.wm.clamp_all_into_work() {
+                    self.sync_app_size(id);
+                }
                 // Re-fit the desktop grid so icons stay anchored top-right.
                 self.desktop.layout(w, h);
                 // Re-fit any maximized window and its app to the new work area.
@@ -1646,6 +1684,31 @@ impl SessionCore {
             }
             ClientMsg::MouseRightDown(p) => {
                 self.cursor = p;
+                // Right-clicking a dock pill opens its context menu (minimise /
+                // maximise / close / reset size). Groups target the focused
+                // window of the group, else the first.
+                if p.y == self.h - 1 {
+                    let items = self.dock_items();
+                    let hit = crate::chrome::dock_hit_regions(self.w, self.h, &items)
+                        .into_iter()
+                        .find(|(_, r)| r.contains(p));
+                    if let Some((idx, r)) = hit {
+                        let focused = self.wm.focused();
+                        let target = match &items[idx].kind {
+                            DockKind::Single(id) => Some(*id),
+                            DockKind::Group(_, wins) => wins
+                                .iter()
+                                .copied()
+                                .find(|w| Some(*w) == focused)
+                                .or_else(|| wins.first().copied()),
+                        };
+                        if let Some(id) = target {
+                            self.dock_popup = None;
+                            self.dock_ctx = Some((id, r.x));
+                        }
+                        return;
+                    }
+                }
                 self.handle_desktop_right(p);
             }
             ClientMsg::MouseDouble(p) => {
@@ -2495,6 +2558,37 @@ impl SessionCore {
             return;
         }
 
+        // The dock context menu captures the next click: a row applies its
+        // action; anywhere else dismisses (consuming the click, like the
+        // other transient menus).
+        if kind == MouseKind::Down && self.dock_ctx.is_some() {
+            if let Some((id, ax)) = self.dock_ctx.take() {
+                let row = (0..DOCK_CTX_ROWS.len())
+                    .find(|&i| dock_ctx_row_rect(ax, self.w, self.h, i).contains(p));
+                match row {
+                    Some(0) => self.wm.minimize(id),
+                    Some(1) => {
+                        self.wm.unminimize(id);
+                        self.wm.maximize_toggle(id);
+                        self.sync_app_size(id);
+                    }
+                    Some(2) => self.request_close(id),
+                    Some(3) => {
+                        // Reset: centre at half the work area's width/height —
+                        // the rescue hatch for a mis-sized or stranded window.
+                        self.wm.unminimize(id);
+                        let work = self.wm.work_area();
+                        let (nw, nh) = ((work.w / 2).max(20), (work.h / 2).max(5));
+                        self.wm.move_to(id, work.x + (work.w - nw) / 2, work.y + (work.h - nh) / 2);
+                        self.wm.resize_to(id, nw, nh);
+                        self.sync_app_size(id);
+                    }
+                    _ => {}
+                }
+            }
+            return;
+        }
+
         // The power menu (dropdown / confirm dialog) is modal while open: route
         // the click to it and act on a confirmed choice.
         if kind == MouseKind::Down && self.power_menu.is_open() {
@@ -3097,6 +3191,7 @@ impl SessionCore {
         };
         layers.push(render_menubar(self.w, &app_name, &segs, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items(), self.simple));
+        layers.extend(self.render_dock_ctx());
 
         // The desktop context / rename menu floats above the windows (but below
         // the launcher / help overlays) on its own high-z layer.
@@ -3298,6 +3393,7 @@ impl SessionCore {
         };
         layers.push(render_menubar(self.w, &app_name, &segs, &self.power_label));
         layers.push(render_dock(self.w, self.h, &self.dock_items(), self.simple));
+        layers.extend(self.render_dock_ctx());
 
         // Overlays that must still work in simple mode.
         let overlay_start = layers.len();
@@ -3574,6 +3670,27 @@ else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
 /// are actually apps that would die in a restart.
 fn needs_apphost_restart(host_proto: u32, min_compat: u32, app_count: usize) -> bool {
     host_proto < min_compat && app_count > 0
+}
+
+/// Rows of the dock right-click context menu (row 2, "Close", renders in the
+/// close colour and routes through the confirm-close dialog for apps).
+const DOCK_CTX_ROWS: [&str; 4] = ["Minimise", "Maximise", "Close", "Reset size"];
+
+/// The dock context-menu box, just above the dock row, anchored to the clicked
+/// pill's x (shared by render + hit-testing so they can never drift).
+#[doc(hidden)]
+pub fn dock_ctx_rect(anchor_x: i32, w: i32, h: i32) -> Rect {
+    let box_w = 14;
+    let box_h = DOCK_CTX_ROWS.len() as i32 + 2; // border rows
+    let x = anchor_x.clamp(0, (w - box_w).max(0));
+    Rect::new(x, h - 1 - box_h, box_w, box_h)
+}
+
+/// Screen rect of dock context-menu row `i` (the clickable row).
+#[doc(hidden)]
+pub fn dock_ctx_row_rect(anchor_x: i32, w: i32, h: i32, i: usize) -> Rect {
+    let d = dock_ctx_rect(anchor_x, w, h);
+    Rect::new(d.x + 1, d.y + 1 + i as i32, d.w - 2, 1)
 }
 
 /// The post-update compat dialog box (shared by render + hit-testing).
