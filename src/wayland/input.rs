@@ -11,7 +11,7 @@
 
 use crate::geometry::Point;
 use crate::input::{route_mouse, Action as InputAction, Hit, MouseKind};
-use crate::window::Window;
+use crate::window::{Window, WindowId};
 use std::collections::HashMap;
 
 // ── Keyboard layouts ─────────────────────────────────────────────────────────
@@ -349,21 +349,23 @@ impl InputManager {
 
         if !self.config.shortcuts { return None; }
 
+        // Wayland compositor shortcuts - use WindowId(0) as sentinel for "focused window"
+        // The compositor will resolve this to the actual focused window.
         if modifiers.alt {
             return match key {
                 0x09 => Some(InputAction::BeginFocusCycle),  // Tab
-                0x71 => Some(InputAction::Close(None)),       // Q
-                0x6d => Some(InputAction::Minimize(None)),    // M
-                0x6e => Some(InputAction::ToggleMaximize(None)), // N
-                0x51 => Some(InputAction::Close(None)),       // Shift+Q
+                0x71 => Some(InputAction::Close(WindowId(0))),       // Q
+                0x6d => Some(InputAction::Minimize(WindowId(0))),    // M
+                0x6e => Some(InputAction::ToggleMaximize(WindowId(0))), // N
+                0x51 => Some(InputAction::Close(WindowId(0))),       // Shift+Q
                 _ => None,
             };
         }
         if modifiers.ctrl {
             return match key {
-                0x71 => Some(InputAction::Close(None)),       // Ctrl+Q
-                0x6c => Some(InputAction::ToggleMaximize(None)), // Ctrl+L
-                0x6d => Some(InputAction::Minimize(None)),    // Ctrl+M
+                0x71 => Some(InputAction::Close(WindowId(0))),       // Ctrl+Q
+                0x6c => Some(InputAction::ToggleMaximize(WindowId(0))), // Ctrl+L
+                0x6d => Some(InputAction::Minimize(WindowId(0))),    // Ctrl+M
                 _ => None,
             };
         }

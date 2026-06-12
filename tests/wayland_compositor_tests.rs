@@ -4,7 +4,6 @@ mod tests {
         WaylandCompositor, LayerType, Anchor, OutputId, SeatId,
         CompositorState, SeatState, OutputInfo,
         InputManager, InputConfig, KeyboardLayout, ModifierState,
-        enumerate_input_devices,
     };
     use tuiui::geometry::Point;
 
@@ -36,7 +35,7 @@ mod tests {
             keyboard_focus: Some(1),
         };
         state.update_seat(SeatId(0), seat);
-        assert_eq!(state.seats.lock().unwrap().len(), 1);
+        assert_eq!(state.seat_count(), 1);
     }
 
     #[test]
