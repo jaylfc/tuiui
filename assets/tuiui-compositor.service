@@ -4,7 +4,7 @@ Documentation=https://github.com/jaylfc/tuiui
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/tuiui --compositor
+ExecStart=__TUIUI_EXE_PATH__ --compositor
 Restart=on-failure
 RestartSec=2
 Environment=XDG_CURRENT_DESKTOP=tuiui

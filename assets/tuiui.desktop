@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=tuiui
 Comment=A tiling terminal-based window manager for Wayland
-Exec=%h/.local/bin/tuiui --compositor
-Type=Wayland
+Exec=__TUIUI_BIN__ --compositor
+Type=Application
 DesktopNames=tuiui
-TryExec=%h/.local/bin/tuiui
+TryExec=__TUIUI_BIN__

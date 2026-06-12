@@ -2189,6 +2189,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
                     self.drain_fm_action();
                 }
             }
+            Action::BeginFocusCycle => self.focus_next_window(),
             Action::EndDrag => {
                 // Only consider drop-to-snap if the drag actually moved (armed);
                 // a plain titlebar click leaves a tiled window exactly as it was.
@@ -2219,6 +2220,26 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             }
             Action::None => {}
         }
+    }
+
+    fn focus_next_window(&mut self) {
+        let visible: Vec<WindowId> = self
+            .wm
+            .z_ordered()
+            .into_iter()
+            .filter(|w| !w.minimized)
+            .map(|w| w.id)
+            .collect();
+        if visible.len() <= 1 {
+            return;
+        }
+        let next = self
+            .wm
+            .focused()
+            .and_then(|id| visible.iter().position(|candidate| *candidate == id))
+            .map(|idx| visible[(idx + 1) % visible.len()])
+            .unwrap_or(visible[0]);
+        self.wm.raise(next);
     }
 
     /// The configured tiling grid (clamped to 1..=6 on each axis).

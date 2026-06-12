@@ -8,6 +8,9 @@ set -eu
 
 REPO="jaylfc/tuiui"
 BIN_DIR="${TUIUI_BIN_DIR:-$HOME/.local/bin}"
+sed_escape_replacement() {
+    printf '%s' "$1" | sed 's/[&|\\]/\\&/g'
+}
 
 os="$(uname -s)"
 arch="$(uname -m)"
@@ -61,12 +64,11 @@ install_compositor_session() {
     if [ -f "$DESKTOP_SRC" ]; then
         if [ -w /usr/share/wayland-sessions ]; then
             mkdir -p /usr/share/wayland-sessions
-            cp "$DESKTOP_SRC" /usr/share/wayland-sessions/
-            chmod 644 /usr/share/wayland-sessions/tuiui.desktop
+            sed "s|__TUIUI_BIN__|$(sed_escape_replacement "$BIN_DIR/tuiui")|g" "$DESKTOP_SRC" > "$DESKTOP_DST"
+            chmod 644 "$DESKTOP_DST"
             echo "tuiui: installed Wayland session file: $DESKTOP_DST"
         else
-            echo "tuiui: compositor session files downloaded but need root to install:"
-            echo "  sudo cp $DESKTOP_SRC /usr/share/wayland-sessions/"
+            echo "tuiui: compositor session files downloaded but need root to install to /usr/share/wayland-sessions"
         fi
     fi
 
@@ -80,7 +82,11 @@ install_compositor_session() {
             echo "tuiui: TUIUI_EXE_PATH must be an absolute path, got: $EXE_PATH" >&2
             return 1
         fi
-        printf '%s\n' "$(sed "s|%h/.local/bin/tuiui|${EXE_PATH}|g" "$SERVICE_SRC")" > "$SERVICE_DST"
+        if [ "$(printf '%s' "$EXE_PATH" | wc -l | tr -d ' ')" != "0" ]; then
+            echo "tuiui: TUIUI_EXE_PATH must not contain a newline, got: $EXE_PATH" >&2
+            return 1
+        fi
+        sed "s|__TUIUI_EXE_PATH__|$(sed_escape_replacement "$EXE_PATH")|g" "$SERVICE_SRC" > "$SERVICE_DST"
         chmod 644 "$SERVICE_DST"
         systemctl --user daemon-reload 2>/dev/null || true
         echo "tuiui: installed compositor service to $SERVICE_DST"

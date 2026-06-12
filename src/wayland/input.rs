@@ -332,6 +332,18 @@ impl InputManager {
         }
     }
 
+    fn focused_window(&self) -> Option<WindowId> {
+        self.seats
+            .lock()
+            .unwrap()
+            .get(&self.primary_seat)
+            .and_then(|seat| seat.keyboard_focus.filter(|id| *id != 0).map(WindowId))
+    }
+
+    fn focused_action(&self, action: fn(WindowId) -> InputAction) -> Option<InputAction> {
+        self.focused_window().map(action)
+    }
+
     /// Handle a key press via evdev keycode; returns compositor-level action
     /// for shortcuts, or `None` to forward the event.
     pub fn handle_key(
@@ -349,23 +361,22 @@ impl InputManager {
 
         if !self.config.shortcuts { return None; }
 
-        // Wayland compositor shortcuts - use WindowId(0) as sentinel for "focused window"
-        // The compositor will resolve this to the actual focused window.
+        // Wayland compositor shortcuts operate on the tracked focused window.
         if modifiers.alt {
             return match key {
-                0x09 => Some(InputAction::BeginFocusCycle),  // Tab
-                0x71 => Some(InputAction::Close(WindowId(0))),       // Q
-                0x6d => Some(InputAction::Minimize(WindowId(0))),    // M
-                0x6e => Some(InputAction::ToggleMaximize(WindowId(0))), // N
-                0x51 => Some(InputAction::Close(WindowId(0))),       // Shift+Q
+                0x09 => Some(InputAction::BeginFocusCycle),
+                0x71 => self.focused_action(InputAction::Close),
+                0x6d => self.focused_action(InputAction::Minimize),
+                0x6e => self.focused_action(InputAction::ToggleMaximize),
+                0x51 => self.focused_action(InputAction::Close),
                 _ => None,
             };
         }
         if modifiers.ctrl {
             return match key {
-                0x71 => Some(InputAction::Close(WindowId(0))),       // Ctrl+Q
-                0x6c => Some(InputAction::ToggleMaximize(WindowId(0))), // Ctrl+L
-                0x6d => Some(InputAction::Minimize(WindowId(0))),    // Ctrl+M
+                0x71 => self.focused_action(InputAction::Close),
+                0x6c => self.focused_action(InputAction::ToggleMaximize),
+                0x6d => self.focused_action(InputAction::Minimize),
                 _ => None,
             };
         }
