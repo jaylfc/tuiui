@@ -2240,6 +2240,7 @@ echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"",
             .map(|idx| visible[(idx + 1) % visible.len()])
             .unwrap_or(visible[0]);
         self.wm.raise(next);
+        self.sync_all_app_sizes();
     }
 
     /// The configured tiling grid (clamped to 1..=6 on each axis).

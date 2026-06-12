@@ -50,15 +50,14 @@ validate_absolute_path() {
     esac
 }
 
-reject_newline_path() {
-    if [ "$(printf '%s' "$1" | wc -l | tr -d ' ')" != "0" ]; then
-        echo "tuiui: path must not contain a newline, got: $1" >&2
-        return 1
-    fi
+reject_control_path() {
+    case "$1" in
+        *[[:cntrl:]]*) echo "tuiui: path must not contain control characters, got: $1" >&2; return 1 ;;
+    esac
 }
 
 validate_install_path() {
-    validate_absolute_path "$1" && reject_newline_path "$1"
+    validate_absolute_path "$1" && reject_control_path "$1"
 }
 
 desktop_escape_path() {
@@ -74,12 +73,10 @@ desktop_field_path() {
 }
 
 systemd_escape_exec_path() {
-    case "$1" in
-        *\'*|*\\*) return 1 ;;
-    esac
-    case "$1" in
-        *[[:space:]]*) printf "'%s'" "$1" ;;
-        *) printf '%s' "$1" ;;
+    escaped=$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/%/%%/g')
+    case "$escaped" in
+        *[[:space:]]*|*\\*|*\"*) printf '"%s"' "$escaped" ;;
+        *) printf '%s' "$escaped" ;;
     esac
 }
 

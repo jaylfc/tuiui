@@ -136,6 +136,21 @@ mod tests {
     }
 
     #[test]
+    fn close_click_does_not_set_keyboard_focus_for_shortcuts() {
+        let mgr = InputManager::new(InputConfig {
+            shortcuts: true,
+            ..Default::default()
+        });
+        let windows = vec![test_window(1, 0)];
+        let action = mgr.handle_pointer_button(Point::new(17, 0), 0x01, &windows);
+        assert!(matches!(action, InputAction::Close(WindowId(1))));
+
+        let mods = ModifierState { alt: true, ..Default::default() };
+        let action = mgr.handle_key(0x71, 0x01, mods);
+        assert!(action.is_none());
+    }
+
+    #[test]
     fn keyboard_shortcuts_trigger() {
         let mgr = InputManager::new(InputConfig {
             shortcuts: true,

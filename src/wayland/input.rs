@@ -398,6 +398,18 @@ impl InputManager {
         None
     }
 
+    fn action_sets_keyboard_focus(action: &InputAction) -> bool {
+        matches!(
+            action,
+            InputAction::BeginMove(_)
+                | InputAction::BeginResize(_)
+                | InputAction::MoveTo { .. }
+                | InputAction::ResizeTo { .. }
+                | InputAction::ToggleMaximize(_)
+                | InputAction::FocusAndForward { .. }
+        )
+    }
+
     /// Handle a pointer button event through the tuiui input model.
     pub fn handle_pointer_button(
         &self,
@@ -407,8 +419,10 @@ impl InputManager {
     ) -> InputAction {
         let kind = if state == 0x01 { MouseKind::Down } else { MouseKind::Up };
         let action = route_mouse(kind, position, windows, None);
-        if let Some(id) = Self::action_window_id(action) {
-            self.set_keyboard_focus(id.0);
+        if Self::action_sets_keyboard_focus(&action) {
+            if let Some(id) = Self::action_window_id(action) {
+                self.set_keyboard_focus(id.0);
+            }
         }
         action
     }
