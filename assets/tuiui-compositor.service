@@ -1,16 +1,14 @@
 [Unit]
 Description=tuiui Wayland compositor (tiling window manager for the terminal)
 Documentation=https://github.com/jaylfc/tuiui
-After=display-manager.target
 
 [Service]
 Type=simple
 ExecStart=%h/.local/bin/tuiui --compositor
 Restart=on-failure
 RestartSec=2
-Environment=WAYLAND_DISPLAY=wayland-1
 Environment=XDG_CURRENT_DESKTOP=tuiui
 Environment=XDG_SESSION_TYPE=wayland
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=default.target

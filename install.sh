@@ -75,9 +75,12 @@ install_compositor_session() {
     SERVICE_DST="$HOME/.config/systemd/user/tuiui-compositor.service"
     if [ -f "$SERVICE_SRC" ]; then
         mkdir -p "$(dirname "$SERVICE_DST")"
-        # Substitute the binary path - default to /usr/local/bin/tuiui if not in standard location
         EXE_PATH="${TUIUI_EXE_PATH:-$BIN_DIR/tuiui}"
-        sed "s|%h/.local/bin/tuiui|$EXE_PATH|g" "$SERVICE_SRC" > "$SERVICE_DST"
+        if ! expr "$EXE_PATH" : '^/' >/dev/null; then
+            echo "tuiui: TUIUI_EXE_PATH must be an absolute path, got: $EXE_PATH" >&2
+            return 1
+        fi
+        printf '%s\n' "$(sed "s|%h/.local/bin/tuiui|${EXE_PATH}|g" "$SERVICE_SRC")" > "$SERVICE_DST"
         chmod 644 "$SERVICE_DST"
         systemctl --user daemon-reload 2>/dev/null || true
         echo "tuiui: installed compositor service to $SERVICE_DST"
