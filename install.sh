@@ -33,7 +33,7 @@ detect_wayland_or_dm() {
     if [ -n "${WAYLAND_DISPLAY:-}" ]; then return 0; fi
     
     # Check for display manager processes (use grep since pgrep -x matches exact names only)
-    if pgrep -f "gdm\|lightdm\|sddm\|gdm3" >/dev/null 2>&1; then return 0; fi
+    if pgrep -f "gdm|lightdm|sddm|gdm3" >/dev/null 2>&1; then return 0; fi
     
     # Check for display manager sockets/directories
     if [ -S /run/systemd/display-manager ] || [ -d /run/gdm ]; then return 0; fi
@@ -181,12 +181,14 @@ install_drm_uaccess_rule() {
         echo "tuiui: DRM uaccess rule needs root to install"
         echo "tuiui: create $UDEV_RULES_FILE with the following content:"
         echo "---"
-        printf 'SUBSYSTEM=="drm", KERNEL=="card*|renderD*", TAG+="uaccess"\n'
+        printf 'SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"\n'
+        printf 'SUBSYSTEM=="drm", KERNEL=="renderD*", TAG+="uaccess"\n'
         return 0
     fi
 
     {
-        printf 'SUBSYSTEM=="drm", KERNEL=="card*|renderD*", TAG+="uaccess"\n'
+        printf 'SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"\n'
+        printf 'SUBSYSTEM=="drm", KERNEL=="renderD*", TAG+="uaccess"\n'
     } > "$UDEV_RULES_FILE"
     chmod 644 "$UDEV_RULES_FILE"
     command -v udevadm >/dev/null 2>&1 && udevadm control --reload-rules 2>/dev/null || true
@@ -228,7 +230,8 @@ while [ $# -gt 0 ]; do
         --help-drm|--help-polkit)
             echo "tuiui: DRM uaccess rule for /dev/dri/* access lets logind grant devices to the active local session"
             echo "tuiui: Create /etc/udev/rules.d/50-tuiui-drm-uaccess.rules with:"
-            echo '  SUBSYSTEM=="drm", KERNEL=="card*|renderD*", TAG+="uaccess"'
+            echo '  SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"'
+            echo '  SUBSYSTEM=="drm", KERNEL=="renderD*", TAG+="uaccess"'
             exit 0
             ;;
         --help)

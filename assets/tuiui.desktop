@@ -2,6 +2,6 @@
 [Desktop Entry]
 Name=tuiui
 Comment=A tiling terminal-based window manager for Wayland
-Exec=/bin/sh -c 'if [ -x "$HOME/.local/bin/tuiui-compositor" ]; then exec "$HOME/.local/bin/tuiui-compositor"; else exec "$HOME/.local/bin/tuiui" --compositor; fi'
+Exec=/bin/sh -c "if [ -x \"$HOME/.local/bin/tuiui-compositor\" ]; then exec \"$HOME/.local/bin/tuiui-compositor\"; else exec \"$HOME/.local/bin/tuiui\" --compositor; fi"
 Type=Application
 DesktopNames=tuiui
