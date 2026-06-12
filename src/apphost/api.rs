@@ -76,6 +76,12 @@ pub trait AppHost: Send {
     /// `None` (the remote host doesn't surface this to its in-process callers).
     fn spawn_time(&self, _id: AppId) -> Option<std::time::Instant> { None }
 
+    /// The original `cmd` + `args` used to launch the app, if the host tracks
+    /// them. Default returns `None`. `LocalAppHost` returns them for apps it
+    /// spawned; `RemoteAppHost` returns them for apps this frontend spawned
+    /// (but `None` for apps it learned about via the on-connect Roster).
+    fn launch_cmd(&self, _id: AppId) -> Option<(String, Vec<String>)> { None }
+
     /// The app's current terminal mouse mode (default = no mouse).
     fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse { let _ = id; crate::mouse::AppMouse::default() }
 

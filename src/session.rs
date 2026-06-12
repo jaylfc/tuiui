@@ -2357,8 +2357,14 @@ impl SessionCore {
     }
 
     /// Rebuild the activity monitor's row list from the current `AppHost`.
-    /// Called every frame so the table stays live.
+    /// Called every frame by the daemon, but it's a no-op when the panel
+    /// is closed — opening it primes the data on the first `open_activity`
+    /// call instead.
     pub fn refresh_activity(&mut self) {
+        let Some(win_id) = self.activity_win else { return };
+        if !matches!(self.contents.get(&win_id), Some(WinContent::Activity(_))) {
+            return;
+        }
         let entries: Vec<crate::apphost::AppListEntry> = self
             .apphost
             .list()
@@ -2385,20 +2391,19 @@ impl SessionCore {
                 }
             })
             .collect();
-        if let Some(id) = self.activity_win {
-            if let Some(WinContent::Activity(a)) = self.contents.get_mut(&id) {
-                a.set_rows(entries);
-            }
+        if let Some(WinContent::Activity(a)) = self.contents.get_mut(&win_id) {
+            a.set_rows(entries);
         }
     }
 
-    /// Try to recover the launch command + args for `id` from the in-process
-    /// `LocalAppHost` (only available for that impl; `RemoteAppHost` returns
-    /// empty strings, which is fine — the panel just shows blanks).
+    /// Try to recover the launch command + args for `id`. Prefers the
+    /// `RemoteAppHost` cache (populated at spawn time) so the in-app panel
+    /// shows real data in normal daemon mode; falls back to a `LocalAppHost`
+    /// downcast for in-process tests; remote-but-not-tracked apps see blanks.
     fn apphost_launch_cmd(&self, id: AppId) -> (String, Vec<String>) {
-        // We don't have a trait-level accessor for the original cmd/args (and
-        // adding one would force the remote host to track them). Probe the
-        // concrete `LocalAppHost` by downcasting through Any.
+        if let Some((c, a)) = self.apphost.launch_cmd(id) {
+            return (c, a);
+        }
         use std::any::Any;
         if let Some(local) = (&self.apphost as &dyn Any).downcast_ref::<crate::apphost::LocalAppHost>() {
             local

@@ -12,7 +12,7 @@ use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Default)]
 struct Cached {
@@ -25,6 +25,18 @@ struct Cached {
     bells: u32,
     /// The app's latest OSC-52 clipboard store, not yet forwarded.
     clip: Option<String>,
+    /// The app's OS pid, as reported by the apphost on `Spawned`. `None`
+    /// for apps the frontend learned about via the connect-time `Roster`
+    /// (already running before this frontend came up).
+    pid: Option<u32>,
+    /// Original `cmd` + `args` the frontend asked the apphost to spawn.
+    /// `None` for roster-only entries.
+    cmd: Option<String>,
+    args: Option<Vec<String>>,
+    /// Wall-clock instant the frontend dispatched the `Spawn` request
+    /// (the apphost's own spawn time isn't on the wire, so the frontend
+    /// stamps this as a close approximation).
+    spawned_at: Option<Instant>,
 }
 
 #[derive(Default)]
@@ -36,11 +48,17 @@ struct Cache {
 }
 
 type Pending = Arc<Mutex<HashMap<u64, mpsc::Sender<Result<AppId, String>>>>>;
+/// While a `Spawn` is in flight, we also need the cmd/args the frontend sent
+/// so we can populate the per-app cache (the apphost's `Spawned` reply
+/// doesn't carry cmd/args). Lives next to the reply channel; cleared on
+/// reply or timeout.
+type Inflight = Arc<Mutex<HashMap<u64, (String, Vec<String>)>>>;
 
 pub struct RemoteAppHost {
     writer: UnixStream,
     cache: Arc<Mutex<Cache>>,
     pending: Pending,
+    inflight: Inflight,
     next_req: AtomicU64,
 }
 
@@ -51,20 +69,22 @@ impl RemoteAppHost {
         let reader = writer.try_clone()?;
         let cache: Arc<Mutex<Cache>> = Arc::new(Mutex::new(Cache::default()));
         let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
+        let inflight: Inflight = Arc::new(Mutex::new(HashMap::new()));
 
         // The server sends Roster first; read it synchronously so the frontend
         // can rebuild windows immediately after connect.
         let mut buf_reader = std::io::BufReader::new(reader);
         if let Ok(Some(evt)) = crate::apphost::proto::recv::<crate::apphost::proto::HostEvt, _>(&mut buf_reader) {
-            apply_evt(evt, &cache, &pending);
+            apply_evt(evt, &cache, &pending, &inflight);
         }
 
         {
             let cache = cache.clone();
             let pending = pending.clone();
-            std::thread::spawn(move || reader_loop_buffered(buf_reader, cache, pending));
+            let inflight = inflight.clone();
+            std::thread::spawn(move || reader_loop_buffered(buf_reader, cache, pending, inflight));
         }
-        Ok(RemoteAppHost { writer, cache, pending, next_req: AtomicU64::new(1) })
+        Ok(RemoteAppHost { writer, cache, pending, inflight, next_req: AtomicU64::new(1) })
     }
 
     /// Tell the apphost process to exit (full shutdown). Best-effort.
@@ -73,20 +93,44 @@ impl RemoteAppHost {
     }
 }
 
-fn reader_loop_buffered(mut r: BufReader<UnixStream>, cache: Arc<Mutex<Cache>>, pending: Pending) {
+fn reader_loop_buffered(
+    mut r: BufReader<UnixStream>,
+    cache: Arc<Mutex<Cache>>,
+    pending: Pending,
+    inflight: Inflight,
+) {
     while let Ok(Some(evt)) = recv::<HostEvt, _>(&mut r) {
-        apply_evt(evt, &cache, &pending);
+        apply_evt(evt, &cache, &pending, &inflight);
     }
 }
 
-fn apply_evt(evt: HostEvt, cache: &Arc<Mutex<Cache>>, pending: &Pending) {
+fn apply_evt(evt: HostEvt, cache: &Arc<Mutex<Cache>>, pending: &Pending, inflight: &Inflight) {
     match evt {
-        HostEvt::Spawned { req_id, app } => {
+        HostEvt::Spawned { req_id, app, pid } => {
             // Seed the cache entry as alive immediately, BEFORE replying to the
             // blocked spawn(). Otherwise the window is created before the first
             // AppFrame arrives, is_alive() returns false (no entry yet), and the
             // frontend's per-tick reap_dead instantly closes the brand-new app.
-            cache.lock().unwrap().apps.entry(AppId(app)).or_default().alive = true;
+            // Also capture the cmd/args the frontend requested (the apphost
+            // doesn't echo them) and stamp the local wall-clock as the spawn
+            // time (the apphost's exact `Instant` isn't on the wire; this is
+            // within milliseconds of the real spawn, and the activity monitor
+            // only needs minute-resolution ages).
+            let (cmd, args) = inflight.lock().unwrap().remove(&req_id).unwrap_or_default();
+            let mut c = cache.lock().unwrap();
+            let entry = c.apps.entry(AppId(app)).or_default();
+            entry.alive = true;
+            if pid.is_some() {
+                entry.pid = pid;
+            }
+            if !cmd.is_empty() {
+                entry.cmd = Some(cmd);
+            }
+            if !args.is_empty() {
+                entry.args = Some(args);
+            }
+            entry.spawned_at = Some(Instant::now());
+            drop(c);
             if let Some(tx) = pending.lock().unwrap().remove(&req_id) {
                 let _ = tx.send(Ok(AppId(app)));
             }
@@ -141,6 +185,9 @@ impl AppHost for RemoteAppHost {
         let req_id = self.next_req.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::channel();
         self.pending.lock().unwrap().insert(req_id, tx);
+        // Stash the cmd/args so the Spawned handler can populate the cache
+        // (the apphost doesn't echo them back).
+        self.inflight.lock().unwrap().insert(req_id, (cmd.to_string(), args.to_vec()));
         let req = HostReq::Spawn {
             req_id,
             cmd: cmd.to_string(),
@@ -155,6 +202,7 @@ impl AppHost for RemoteAppHost {
             Ok(Err(e)) => Err(std::io::Error::other(e)),
             Err(_) => {
                 self.pending.lock().unwrap().remove(&req_id);
+                self.inflight.lock().unwrap().remove(&req_id);
                 Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "apphost spawn timed out"))
             }
         }
@@ -221,6 +269,25 @@ impl AppHost for RemoteAppHost {
         let mut c = self.cache.lock().unwrap();
         c.apps.remove(&id);
         c.meta.remove(&id);
+    }
+
+    fn pid(&self, id: AppId) -> Option<u32> {
+        self.cache.lock().unwrap().apps.get(&id).and_then(|c| c.pid)
+    }
+
+    fn spawn_time(&self, id: AppId) -> Option<std::time::Instant> {
+        self.cache.lock().unwrap().apps.get(&id).and_then(|c| c.spawned_at)
+    }
+
+    /// Try to recover the original `cmd` + `args` for `id` from the inflight
+    /// stash; the session falls back to the concrete `LocalAppHost` first and
+    /// only asks here if that didn't match.
+    fn launch_cmd(&self, id: AppId) -> Option<(String, Vec<String>)> {
+        let c = self.cache.lock().unwrap();
+        let entry = c.apps.get(&id)?;
+        let cmd = entry.cmd.clone()?;
+        let args = entry.args.clone().unwrap_or_default();
+        Some((cmd, args))
     }
 
     fn shutdown_host(&mut self) {
