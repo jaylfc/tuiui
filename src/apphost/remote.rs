@@ -128,6 +128,11 @@ fn apply_evt(evt: HostEvt, cache: &Arc<Mutex<Cache>>, pending: &Pending) {
                 c.apps.entry(id).or_default().alive = true;
             }
         }
+        HostEvt::AppList { .. } => {
+            // Reply to HostReq::ListApps (used by `tuiui ps` / `tuiui kill-app`).
+            // The remote handle isn't the consumer — those CLI commands open a
+            // short-lived connection and read the reply themselves, so we drop it.
+        }
     }
 }
 
@@ -275,6 +280,90 @@ mod tests {
 
         remote.kill(id);
         remote.shutdown_apphost();
+        let _ = std::fs::remove_file(&path);
+        let _ = server.join();
+    }
+
+    /// `tuiui ps` / `tuiui kill-app` depend on `ListApps` round-tripping
+    /// correctly through a real server connection. Spawn 3 apps, list, assert
+    /// the apphost reports 3 rows with the expected fields.
+    #[test]
+    fn loopback_list_apps_round_trip() {
+        use crate::apphost::proto::{send, HostEvt, HostReq};
+        use std::io::BufReader;
+
+        let path = crate::protocol::socket_dir().join("apphost-list-test.sock");
+        let dir = crate::protocol::socket_dir();
+        std::fs::create_dir_all(&dir).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+
+        let server = std::thread::spawn(move || {
+            use crate::apphost::LocalAppHost;
+            let mut local = LocalAppHost::new();
+            let mut shutdown = false;
+            if let Some(Ok(stream)) = listener.incoming().next() {
+                crate::apphost::server::server_serve_for_test(&mut local, stream, &mut shutdown);
+            }
+        });
+
+        std::thread::sleep(Duration::from_millis(50));
+        let mut writer = UnixStream::connect(&path).unwrap();
+        let mut r = BufReader::new(writer.try_clone().unwrap());
+
+        // Spawn three apps, then ask for the list. The server processes
+        // commands synchronously, so by the time we read AppList all three
+        // apps are registered with the shared LocalAppHost.
+        for i in 1..=3u64 {
+            send(
+                &mut writer,
+                &HostReq::Spawn {
+                    req_id: i,
+                    // Long-lived sleep so the child is alive when we read
+                    // the AppList. `true` exits instantly and trips
+                    // is_alive.
+                    cmd: "sh".into(),
+                    args: vec!["-c".into(), "sleep 30".into()],
+                    cwd: None,
+                    cols: 80,
+                    rows: 24,
+                },
+            )
+            .unwrap();
+        }
+        send(&mut writer, &HostReq::ListApps).unwrap();
+
+        // A background reader drains the apphost's frame stream so the
+        // server's `send` never blocks on a full kernel buffer. We pass the
+        // AppList back through a oneshot channel and ignore everything else.
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || loop {
+            match crate::apphost::proto::recv::<HostEvt, _>(&mut r) {
+                Ok(Some(HostEvt::AppList { apps })) => {
+                    let _ = tx.send(apps);
+                    // Keep reading: server will continue pushing Frames until
+                    // we close the socket. Ignore them.
+                }
+                Ok(Some(_)) => continue,
+                Ok(None) | Err(_) => break,
+            }
+        });
+        let apps = rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("timeout waiting for AppList");
+        assert_eq!(apps.len(), 3, "expected 3 rows, got {apps:?}");
+        for a in &apps {
+            assert_eq!(a.cmd, "sh");
+            assert!(a.pid.is_some(), "spawned app must have a pid");
+            assert!(a.alive, "freshly spawned sh -c sleep 30 should be alive");
+            assert_eq!(a.cols, 80);
+            assert_eq!(a.rows, 24);
+        }
+
+        // Tell the apphost to shut down; the background reader will hit EOF
+        // and exit, the server returns, the thread joins.
+        send(&mut writer, &HostReq::Shutdown).unwrap();
+        drop(writer);
         let _ = std::fs::remove_file(&path);
         let _ = server.join();
     }

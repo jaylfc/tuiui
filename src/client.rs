@@ -161,13 +161,14 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                         leader = false;
                         match k.code {
                             KeyCode::Char(' ') => send(&mut out_stream, &ClientMsg::ToggleSpotlight)?,
-                            KeyCode::Char('a') | KeyCode::Char('A') => send(&mut out_stream, &ClientMsg::ToggleMenu)?,
+                            KeyCode::Char('a') => send(&mut out_stream, &ClientMsg::ToggleMenu)?,
                             KeyCode::Char('m') | KeyCode::Char('M') => send(&mut out_stream, &ClientMsg::MaximizeFocused)?,
                             KeyCode::Char('n') | KeyCode::Char('N') => send(&mut out_stream, &ClientMsg::MinimizeFocused)?,
                             KeyCode::Char('[') | KeyCode::Left => send(&mut out_stream, &ClientMsg::SnapFocused(SnapZone::Left))?,
                             KeyCode::Char(']') | KeyCode::Right => send(&mut out_stream, &ClientMsg::SnapFocused(SnapZone::Right))?,
                             KeyCode::Char('s') | KeyCode::Char('S') => send(&mut out_stream, &ClientMsg::OpenStore)?,
                             KeyCode::Char(',') => send(&mut out_stream, &ClientMsg::OpenSettings)?,
+                            KeyCode::Char('A') => send(&mut out_stream, &ClientMsg::OpenActivity)?,
                             KeyCode::Char('?') | KeyCode::Char('h') => send(&mut out_stream, &ClientMsg::ToggleHelp)?,
                             KeyCode::Char('r') | KeyCode::Char('R') => send(&mut out_stream, &ClientMsg::RenameFocused)?,
                             KeyCode::Char('t') => send(&mut out_stream, &ClientMsg::TileAll)?,
@@ -257,6 +258,23 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                             KeyCode::Left => send(&mut out_stream, &ClientMsg::SettingsLeft)?,
                             KeyCode::Right => send(&mut out_stream, &ClientMsg::SettingsRight)?,
                             KeyCode::Enter | KeyCode::Char(' ') => send(&mut out_stream, &ClientMsg::SettingsToggle)?,
+                            _ => {}
+                        }
+                    } else if f.activity_focused && f.activity_confirming {
+                        // Kill-confirm overlay: Enter / y confirm, Esc / n cancel.
+                        match k.code {
+                            KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => send(&mut out_stream, &ClientMsg::ActivityCancelKill)?,
+                            KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => send(&mut out_stream, &ClientMsg::ActivityConfirmKill)?,
+                            _ => {}
+                        }
+                    } else if f.activity_focused {
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::ActivityClose)?,
+                            KeyCode::Up => send(&mut out_stream, &ClientMsg::ActivityUp)?,
+                            KeyCode::Down => send(&mut out_stream, &ClientMsg::ActivityDown)?,
+                            KeyCode::Enter | KeyCode::Char('k') => send(&mut out_stream, &ClientMsg::ActivityKill)?,
+                            KeyCode::Char('K') => send(&mut out_stream, &ClientMsg::ActivityKillDead)?,
+                            KeyCode::Char('r') | KeyCode::Char('R') => send(&mut out_stream, &ClientMsg::ActivityRefresh)?,
                             _ => {}
                         }
                     } else if f.filemanager_focused && f.filemanager_editing {

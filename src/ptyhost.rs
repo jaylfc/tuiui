@@ -10,6 +10,7 @@ use alacritty_terminal::Term;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 /// Default foreground/background used for cells that reference the terminal's
 /// "default" colors (and as a fallback for unresolved named colors).
@@ -74,6 +75,9 @@ pub struct AppInstance {
     clip: Arc<Mutex<Option<String>>>,
     cols: u16,
     rows: u16,
+    /// Wall-clock instant the child was spawned. Used by the activity monitor to
+    /// show how long each app has been running.
+    spawned_at: Instant,
 }
 
 impl AppInstance {
@@ -196,7 +200,7 @@ impl AppInstance {
             }
         });
 
-        Ok(AppInstance { term, master: pair.master, writer, child, graphics, bells, clip, cols, rows })
+        Ok(AppInstance { term, master: pair.master, writer, child, graphics, bells, clip, cols, rows, spawned_at: Instant::now() })
     }
 
     /// Bell rings since the last call (drained).
@@ -321,6 +325,17 @@ impl AppInstance {
     /// Whether the child process is still running.
     pub fn is_alive(&mut self) -> bool {
         matches!(self.child.try_wait(), Ok(None))
+    }
+
+    /// The child process's OS pid, if available. `None` when the platform can't
+    /// report one (or the child has already been reaped).
+    pub fn process_id(&self) -> Option<u32> {
+        self.child.process_id()
+    }
+
+    /// The wall-clock instant this instance was spawned.
+    pub fn spawned_at(&self) -> Instant {
+        self.spawned_at
     }
 
     /// Lock and return this app's captured Kitty-graphics state (placements +

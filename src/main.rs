@@ -21,13 +21,18 @@ use std::time::Duration;
 use tuiui::protocol::socket_path;
 
 fn main() -> std::io::Result<()> {
-    match std::env::args().nth(1).as_deref() {
+    let mut args = std::env::args().skip(1);
+    let cmd = args.next();
+    let rest: Vec<String> = args.collect();
+    match cmd.as_deref() {
         Some("--daemon") => tuiui::daemon::run(),
         Some("--apphost") => tuiui::apphost::server::run(),
         Some("kill") => kill(),
+        Some("kill-app") => kill_app(&rest),
+        Some("ps") => ps(),
         Some("attach") => attach(false),
         Some("reload") => reload(),
-        Some("service") => match std::env::args().nth(2).as_deref() {
+        Some("service") => match rest.first().map(String::as_str) {
             Some("install") => tuiui::service::install(),
             Some("uninstall") => tuiui::service::uninstall(),
             Some("status") | None => tuiui::service::status(),
@@ -69,7 +74,7 @@ fn main() -> std::io::Result<()> {
         },
         Some(other) => {
             eprintln!(
-                "tuiui: unknown command '{other}' (try: attach, kill, reload, launch, tile, theme, msg, service, --daemon)"
+                "tuiui: unknown command '{other}' (try: attach, kill, kill-app, ps, reload, launch, tile, theme, msg, service, --daemon)"
             );
             Ok(())
         }
@@ -274,6 +279,171 @@ fn kill() -> std::io::Result<()> {
             buf.push(b'\n');
             let _ = send_and_drain(&mut s, &buf);
         }
+    }
+    Ok(())
+}
+
+/// Format a `secs` duration as a short human-readable age ("12s", "3m", "1h12m",
+/// "2d04h"). Used by `tuiui ps` and the in-app activity monitor.
+fn format_age(secs: u64) -> String {
+    if secs < 60 {
+        format!("{secs}s")
+    } else if secs < 60 * 60 {
+        format!("{}m{:02}s", secs / 60, secs % 60)
+    } else if secs < 24 * 60 * 60 {
+        format!("{}h{:02}m", secs / 3600, (secs / 60) % 60)
+    } else {
+        format!("{}d{:02}h", secs / 86400, (secs / 3600) % 24)
+    }
+}
+
+fn format_cmdline(cmd: &str, args: &[String]) -> String {
+    if args.is_empty() {
+        cmd.to_string()
+    } else {
+        format!("{} {}", cmd, args.join(" "))
+    }
+}
+
+/// Connect to the apphost socket, send one `ListApps` request, and print the
+/// result as a fixed-width table. Errors with a clean message if the apphost
+/// isn't running.
+fn ps() -> std::io::Result<()> {
+    let path = tuiui::protocol::apphost_socket_path();
+    let mut s = match UnixStream::connect(&path) {
+        Ok(s) => s,
+        Err(_) => {
+            eprintln!("tuiui ps: no apphost running (start it with `tuiui`)");
+            std::process::exit(1);
+        }
+    };
+    use tuiui::apphost::proto::{send, HostEvt, HostReq};
+    send(&mut s, &HostReq::ListApps)?;
+    let mut r = std::io::BufReader::new(s);
+    let evt: HostEvt = match tuiui::apphost::proto::recv(&mut r)? {
+        Some(e) => e,
+        None => {
+            eprintln!("tuiui ps: apphost closed before replying");
+            std::process::exit(1);
+        }
+    };
+    let apps = match evt {
+        HostEvt::AppList { apps } => apps,
+        other => {
+            eprintln!("tuiui ps: unexpected reply: {other:?}");
+            std::process::exit(1);
+        }
+    };
+    if apps.is_empty() {
+        println!("(no apps running)");
+        return Ok(());
+    }
+    println!(
+        "{:>5}  {:>7}  {:<32}  {:>10}  {:>7}  STATE",
+        "APPID", "PID", "CMD", "COLSxROWS", "AGE"
+    );
+    for a in &apps {
+        let pid = a.pid.map(|p| p.to_string()).unwrap_or_else(|| "—".into());
+        let cmdline = format_cmdline(&a.cmd, &a.args);
+        let cmdline = if cmdline.chars().count() > 60 {
+            let mut s: String = cmdline.chars().take(59).collect();
+            s.push('…');
+            s
+        } else {
+            cmdline
+        };
+        let state = if a.alive { "alive" } else { "dead" };
+        println!(
+            "{:>5}  {:>7}  {:<32}  {:>4}x{:<4}  {:>7}  {}",
+            a.app,
+            pid,
+            cmdline,
+            a.cols,
+            a.rows,
+            format_age(a.age_secs),
+            state,
+        );
+    }
+    Ok(())
+}
+
+/// `tuiui kill-app <id|all>` — send `HostReq::Kill` for one (or all dead)
+/// hosted apps. `<id>` may be the apphost's numeric AppId. `all` kills every
+/// currently-known app. Errors clearly when the apphost isn't running.
+fn kill_app(args: &[String]) -> std::io::Result<()> {
+    use tuiui::apphost::proto::{send, HostEvt, HostReq};
+    let target = match args.first().map(String::as_str) {
+        Some(t) => t,
+        None => {
+            eprintln!("usage: tuiui kill-app <id|all>");
+            std::process::exit(2);
+        }
+    };
+    let path = tuiui::protocol::apphost_socket_path();
+    let mut s = match UnixStream::connect(&path) {
+        Ok(s) => s,
+        Err(_) => {
+            eprintln!("tuiui kill-app: no apphost running (start it with `tuiui`)");
+            std::process::exit(1);
+        }
+    };
+    send(&mut s, &HostReq::ListApps)?;
+    let mut r = std::io::BufReader::new(s);
+    let evt: HostEvt = match tuiui::apphost::proto::recv(&mut r)? {
+        Some(e) => e,
+        None => {
+            eprintln!("tuiui kill-app: apphost closed before replying");
+            std::process::exit(1);
+        }
+    };
+    let apps = match evt {
+        HostEvt::AppList { apps } => apps,
+        _ => {
+            eprintln!("tuiui kill-app: unexpected reply");
+            std::process::exit(1);
+        }
+    };
+    let to_kill: Vec<u64> = if target == "all" {
+        apps.iter().map(|a| a.app).collect()
+    } else {
+        let id: u64 = match target.parse() {
+            Ok(n) => n,
+            Err(_) => {
+                eprintln!("tuiui kill-app: '{target}' is not a numeric id or 'all'");
+                std::process::exit(2);
+            }
+        };
+        if !apps.iter().any(|a| a.app == id) {
+            let known: Vec<String> = apps.iter().map(|a| a.app.to_string()).collect();
+            eprintln!(
+                "tuiui kill-app: no such app (have: {})",
+                if known.is_empty() { "(none)".into() } else { known.join(", ") }
+            );
+            std::process::exit(1);
+        }
+        vec![id]
+    };
+    if to_kill.is_empty() {
+        println!("tuiui kill-app: no apps to kill");
+        return Ok(());
+    }
+    // Reconnect for each Kill — the previous connection's reader consumed
+    // the ListApps reply and would also consume any further reply we don't
+    // expect, so the cleanest path is one short-lived connection per Kill.
+    for id in &to_kill {
+        let mut s = match UnixStream::connect(&path) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("tuiui kill-app: connect failed: {e}");
+                std::process::exit(1);
+            }
+        };
+        send(&mut s, &HostReq::Kill { app: *id })?;
+    }
+    if to_kill.len() == 1 {
+        println!("tuiui kill-app: sent kill to app {}", to_kill[0]);
+    } else {
+        println!("tuiui kill-app: sent kill to {} app(s)", to_kill.len());
     }
     Ok(())
 }

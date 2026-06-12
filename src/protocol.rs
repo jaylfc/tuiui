@@ -110,6 +110,12 @@ pub struct Flags {
     pub power_editing: bool,
     /// The logs-viewer window is focused; the client routes scroll/copy keys to it.
     pub logs_focused: bool,
+    /// The activity monitor is the focused window; the client routes
+    /// navigation / kill keys to it.
+    pub activity_focused: bool,
+    /// The activity monitor is showing a kill-confirm overlay; the client
+    /// forwards Enter / y to confirm and Esc / n to cancel.
+    pub activity_confirming: bool,
 }
 
 /// Per-user directory that holds the daemon socket. Created mode `0700` by the

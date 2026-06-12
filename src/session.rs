@@ -22,6 +22,7 @@ use crate::input::{route_mouse, MouseKind, Hit, Action};
 use crate::apphost::{AppHost, AppId, LocalAppHost};
 use crate::launcher::Launcher;
 use crate::settings::Settings;
+use crate::activity::Activity;
 use crate::store::{self, Store};
 use crate::window::WindowId;
 use crate::wm::{WindowManager, render_window};
@@ -63,6 +64,8 @@ enum WinContent {
     FileManager(crate::filemanager::DynFileManager),
     /// The native log viewer (tail of ~/tuiui-debug.log + clipboard copy).
     Logs(crate::logsview::LogsView),
+    /// The activity monitor — a live table of hosted apps with kill-app controls.
+    Activity(Activity),
 }
 
 impl WinContent {
@@ -74,6 +77,7 @@ impl WinContent {
             WinContent::ImageView(v) => v.render(w, h),
             WinContent::FileManager(f) => f.render(w, h),
             WinContent::Logs(l) => l.render(w, h),
+            WinContent::Activity(a) => a.render(w, h),
         }
     }
 }
@@ -222,6 +226,25 @@ pub enum ClientMsg {
     FileManagerCloseTab,
     /// File manager: focus the next tab.
     FileManagerNextTab,
+    /// Open the activity-monitor window (or focus it if already open).
+    OpenActivity,
+    /// Activity monitor: move selection up / down.
+    ActivityUp,
+    ActivityDown,
+    /// Activity monitor: request to kill the selected app (Enter / `k`).
+    /// Returns the requested kill via the in-app confirm overlay when the app
+    /// is alive, or kills immediately when it's already dead.
+    ActivityKill,
+    /// Activity monitor: confirm a pending kill (`Enter` / `y` from confirm).
+    ActivityConfirmKill,
+    /// Activity monitor: cancel a pending kill (`Esc` / `n` from confirm).
+    ActivityCancelKill,
+    /// Activity monitor: kill every row currently in the `dead` state.
+    ActivityKillDead,
+    /// Activity monitor: force a refresh of the row list (`r`).
+    ActivityRefresh,
+    /// Activity monitor: close the panel (`Esc` when no kill is pending).
+    ActivityClose,
     /// Toggle the keyboard-shortcut help overlay.
     ToggleHelp,
     /// Open an image file in a native image-viewer window.
@@ -357,6 +380,8 @@ pub struct SessionCore {
     apphost_outdated: bool,
     /// The logs-viewer window's id, if open.
     logs_win: Option<WindowId>,
+    /// The activity-monitor window's id, if open.
+    activity_win: Option<WindowId>,
     /// Text to put on the HOST terminal's clipboard (OSC 52), shipped to the
     /// client in the next frame: log copies and app OSC-52 stores.
     pending_clipboard: Option<String>,
@@ -462,6 +487,7 @@ impl SessionCore {
             compat_dialog: false,
             apphost_outdated: false,
             logs_win: None,
+            activity_win: None,
             pending_clipboard: None,
             titles: Vec::new(),
             app_keys: HashMap::new(),
@@ -1139,6 +1165,7 @@ impl SessionCore {
             AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
             AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
             AppEntry { name: "Logs".into(), command: "@logs".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
+            AppEntry { name: "Activity".into(), command: "@activity".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
         ];
         // Chat shortcuts for the gateway-style assistants when installed
         // (their chat UI is behind a flag/subcommand, so the bare-binary
@@ -1593,6 +1620,41 @@ impl SessionCore {
             ClientMsg::FileManagerNewTab => { if let Some(f) = self.focused_filemanager_mut() { f.new_tab(); } }
             ClientMsg::FileManagerCloseTab => { if let Some(f) = self.focused_filemanager_mut() { f.close_tab(); } }
             ClientMsg::FileManagerNextTab => { if let Some(f) = self.focused_filemanager_mut() { f.next_tab(); } }
+            ClientMsg::OpenActivity => self.open_activity(),
+            ClientMsg::ActivityUp => { if let Some(a) = self.focused_activity_mut() { a.move_up(); } }
+            ClientMsg::ActivityDown => { if let Some(a) = self.focused_activity_mut() { a.move_down(); } }
+            ClientMsg::ActivityKill => {
+                if let Some(a) = self.focused_activity_mut() {
+                    if let Some(app_id) = a.request_kill_selected() {
+                        self.apphost.kill(AppId(app_id));
+                    }
+                }
+            }
+            ClientMsg::ActivityConfirmKill => {
+                if let Some(a) = self.focused_activity_mut() {
+                    if let Some(app_id) = a.request_kill_selected() {
+                        self.apphost.kill(AppId(app_id));
+                    }
+                }
+            }
+            ClientMsg::ActivityCancelKill => {
+                if let Some(a) = self.focused_activity_mut() { a.cancel_kill(); }
+            }
+            ClientMsg::ActivityKillDead => {
+                if let Some(a) = self.focused_activity_mut() {
+                    for app_id in a.kill_dead() {
+                        self.apphost.kill(AppId(app_id));
+                    }
+                }
+            }
+            ClientMsg::ActivityRefresh => self.refresh_activity(),
+            ClientMsg::ActivityClose => {
+                if let Some(id) = self.activity_win.take() {
+                    if matches!(self.contents.get(&id), Some(WinContent::Activity(_))) {
+                        self.close(id);
+                    }
+                }
+            }
             ClientMsg::ToggleHelp => self.help_open = !self.help_open,
             ClientMsg::OpenImage(p) => self.open_image(p),
             ClientMsg::DirPickerUp => { if let Some(d) = self.dirpicker.as_mut() { d.move_up(); } }
@@ -2241,6 +2303,121 @@ impl SessionCore {
         });
     }
 
+    /// Open (or re-focus) the activity-monitor window, then immediately refresh
+    /// its row list so the user sees live data on first render.
+    fn open_activity(&mut self) {
+        if let Some(id) = self.activity_win {
+            if self.contents.contains_key(&id) {
+                self.wm.unminimize(id);
+                self.refresh_activity();
+                return;
+            }
+        }
+        let w = 84.min((self.w - 4).max(40));
+        let h = 22.min((self.h - 4).max(10));
+        let rect = Rect::new((self.w - w) / 2, 2, w, h);
+        let id = self.wm.add_window("Activity Monitor".into(), rect);
+        self.app_keys.insert(id, "Activity".into());
+        self.contents.insert(id, WinContent::Activity(Activity::new()));
+        self.titles.push((id, "Activity Monitor".into()));
+        self.activity_win = Some(id);
+        self.refresh_activity();
+    }
+
+    /// `true` when the focused window hosts the activity monitor.
+    pub fn focused_is_activity(&self) -> bool {
+        matches!(
+            self.wm.focused().and_then(|id| self.contents.get(&id)),
+            Some(WinContent::Activity(_))
+        )
+    }
+
+    /// `true` when the activity monitor's kill-confirm overlay is up; the
+    /// client uses this to route Enter / Esc / y / n to the panel.
+    pub fn activity_confirming(&self) -> bool {
+        self.focused_activity()
+            .map(|a| a.has_pending_kill())
+            .unwrap_or(false)
+    }
+
+    fn focused_activity_mut(&mut self) -> Option<&mut Activity> {
+        let id = self.wm.focused()?;
+        match self.contents.get_mut(&id)? {
+            WinContent::Activity(a) => Some(a),
+            _ => None,
+        }
+    }
+
+    fn focused_activity(&self) -> Option<&Activity> {
+        let id = self.wm.focused()?;
+        match self.contents.get(&id)? {
+            WinContent::Activity(a) => Some(a),
+            _ => None,
+        }
+    }
+
+    /// Rebuild the activity monitor's row list from the current `AppHost`.
+    /// Called every frame so the table stays live.
+    pub fn refresh_activity(&mut self) {
+        let entries: Vec<crate::apphost::AppListEntry> = self
+            .apphost
+            .list()
+            .into_iter()
+            .map(|id| {
+                let alive = self.apphost.is_alive(id);
+                let pid = self.apphost.pid(id);
+                let age_secs = self
+                    .apphost
+                    .spawn_time(id)
+                    .map(|t| t.elapsed().as_secs())
+                    .unwrap_or(0);
+                let (cols, rows) = self.apphost_dims(id);
+                let (cmd, args) = self.apphost_launch_cmd(id);
+                crate::apphost::AppListEntry {
+                    app: id.0,
+                    cmd,
+                    args,
+                    pid,
+                    cols,
+                    rows,
+                    age_secs,
+                    alive,
+                }
+            })
+            .collect();
+        if let Some(id) = self.activity_win {
+            if let Some(WinContent::Activity(a)) = self.contents.get_mut(&id) {
+                a.set_rows(entries);
+            }
+        }
+    }
+
+    /// Try to recover the launch command + args for `id` from the in-process
+    /// `LocalAppHost` (only available for that impl; `RemoteAppHost` returns
+    /// empty strings, which is fine — the panel just shows blanks).
+    fn apphost_launch_cmd(&self, id: AppId) -> (String, Vec<String>) {
+        // We don't have a trait-level accessor for the original cmd/args (and
+        // adding one would force the remote host to track them). Probe the
+        // concrete `LocalAppHost` by downcasting through Any.
+        use std::any::Any;
+        if let Some(local) = (&self.apphost as &dyn Any).downcast_ref::<crate::apphost::LocalAppHost>() {
+            local
+                .launch_cmd(id)
+                .map(|(c, a)| (c.to_string(), a.to_vec()))
+                .unwrap_or_default()
+        } else {
+            (String::new(), Vec::new())
+        }
+    }
+
+    fn apphost_dims(&self, id: AppId) -> (i32, i32) {
+        if let Some(snap) = self.apphost.snapshot(id) {
+            (snap.width(), snap.height())
+        } else {
+            (0, 0)
+        }
+    }
+
     /// The cwd of the focused file manager (for launching an app in-place).
     fn focused_fm_cwd(&self) -> Option<std::path::PathBuf> {
         match self.wm.focused().and_then(|id| self.contents.get(&id)) {
@@ -2376,6 +2553,7 @@ impl SessionCore {
                     self.open_remote_files(&name);
                 }
             }
+            "@activity" => self.open_activity(),
             "@image" => { if let Some(p) = e.args.first().cloned() { self.open_image(p); } }
             _ => self.launch_maybe_cwd(e.name, e.command, e.args, e.requires_cwd.unwrap_or(false), e.cwd),
         }
@@ -2802,6 +2980,7 @@ impl SessionCore {
                 let mut store_activate = false;
                 let mut settings_changed = false;
                 let mut fm_clicked = false;
+                let mut activity_kill: Option<u64> = None;
                 if let Some(cr) = cr {
                     match self.contents.get_mut(&id) {
                         Some(WinContent::Store(s)) => store_activate = s.handle_click(local, cr.w, cr.h),
@@ -2810,8 +2989,12 @@ impl SessionCore {
                         // single-select / toolbar-nav (Ctrl/Shift-select and
                         // double-click-to-open are keyboard-driven for v1).
                         Some(WinContent::FileManager(f)) => fm_clicked = f.handle_click(local, cr.w, cr.h, false, false),
+                        Some(WinContent::Activity(a)) => activity_kill = a.handle_click(local, cr.w),
                         _ => {}
                     }
+                }
+                if let Some(app_id) = activity_kill {
+                    self.apphost.kill(AppId(app_id));
                 }
                 if store_activate {
                     self.store_activate();
@@ -2956,6 +3139,9 @@ impl SessionCore {
         }
         if self.logs_win == Some(id) {
             self.logs_win = None;
+        }
+        if self.activity_win == Some(id) {
+            self.activity_win = None;
         }
         self.remote_fms.remove(&id);
         self.titles.retain(|(i, _)| *i != id);
