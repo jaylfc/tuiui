@@ -36,3 +36,9 @@ path = "src/lib.rs"
 [[bin]]
 name = "tuiui"
 path = "src/main.rs"
+
+# Separate compositor binary built with --features wayland-compositor
+[[bin]]
+name = "tuiui-compositor"
+path = "src/compositor_main.rs"
+required-features = ["wayland-compositor"]

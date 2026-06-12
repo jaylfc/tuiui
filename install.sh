@@ -1,9 +1,9 @@
 #!/bin/sh
-# tuiui installer — downloads the latest prebuilt binary for your platform.
+# tuiui installer — downloads the latest prebuilt binary for your platform,
+# with optional Wayland compositor session installation on Linux.
 #
 #   curl -fsSL https://raw.githubusercontent.com/jaylfc/tuiui/main/install.sh | sh
 #
-# Override the install directory with TUIUI_BIN_DIR (default: ~/.local/bin).
 set -eu
 
 REPO="jaylfc/tuiui"
@@ -52,7 +52,7 @@ chmod +x "$BIN_DIR/tuiui"
 echo "tuiui: installed $tag -> $BIN_DIR/tuiui"
 
 # Install compositor session files (GDM/LightDM Wayland session) on Linux
-if [ "${TUIUI_COMPOSITOR:-0}" = "1" ] && [ "$(uname -s)" = "Linux" ]; then
+if [ "${TUIUI_COMPOSITOR:-0}" = "1" ] && [ "$os" = "Linux" ]; then
   validate_absolute_path() {
       case "$1" in
           /*) ;;
@@ -91,7 +91,7 @@ if [ "${TUIUI_COMPOSITOR:-0}" = "1" ] && [ "$(uname -s)" = "Linux" ]; then
   }
 
   install_compositor_session() {
-      if [ "$(uname -s)" != "Linux" ]; then return 0; fi
+      if [ "$os" != "Linux" ]; then return 0; fi
 
       if ! pgrep -x "gdm|lightdm|sddm|gdm3|gdm-wayland" >/dev/null 2>&1 \
           && [ ! -S /run/systemd/display-manager ] \
@@ -164,8 +164,8 @@ fi
 
 # Optional, OS-aware dependency step. Installs helpers some features need:
 #   blueutil (macOS) — Bluetooth tray control
-#   gpm (Linux) - mouse on a bare console / VT
-#   sshpass - automates the one-time password for Systems → Add Remote
+#   gpm (Linux) — mouse on a bare console / VT
+#   sshpass — automates the one-time password for Systems → Add Remote
 # Transparent and skippable: it prints what it runs, skips silently with no
 # package manager, honours TUIUI_SKIP_DEPS, and in a non-interactive
 # `curl | sh` requires explicit TUIUI_INSTALL_DEPS=1 so piping the installer

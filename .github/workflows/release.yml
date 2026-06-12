@@ -52,11 +52,14 @@ jobs:
         run: |
           mkdir -p release-assets
           cp assets/tuiui.desktop release-assets/
-          # For Linux, include compositor service file
+          cp assets/tuiui-compositor.service release-assets/
+          cp assets/drm-uaccess.rules release-assets/
+          # Linux builds include both binaries; other platforms just tuiui
           if [ "${{ runner.os }}" = "Linux" ]; then
-            cp assets/tuiui-compositor.service release-assets/
+            tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui tuiui-compositor -C release-assets .
+          else
+            tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui -C release-assets .
           fi
-          tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui -C release-assets .
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'

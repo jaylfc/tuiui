@@ -1,8 +1,7 @@
-# Template used by install.sh; the installer writes a generated file with the actual binary path.
+# Template used for manual installs; install.sh writes a generated file with the actual binary path.
 [Desktop Entry]
 Name=tuiui
 Comment=A tiling terminal-based window manager for Wayland
-Exec=tuiui --compositor
+Exec=/bin/sh -c "if [ -x \"$HOME/.local/bin/tuiui-compositor\" ]; then exec \"$HOME/.local/bin/tuiui-compositor\"; else exec \"$HOME/.local/bin/tuiui\" --compositor; fi"
 Type=Application
 DesktopNames=tuiui
-TryExec=tuiui
