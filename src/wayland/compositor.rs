@@ -174,4 +174,9 @@ impl CompositorState {
             .map(|o| (o.width, o.height))
             .unwrap_or((800, 600))
     }
+
+    /// Get seat count (for testing).
+    pub fn seat_count(&self) -> usize {
+        self.seats.lock().unwrap().len()
+    }
 }

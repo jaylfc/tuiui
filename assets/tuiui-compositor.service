@@ -1,0 +1,15 @@
+# Template used by install.sh; the installer writes a generated file with the actual binary path.
+[Unit]
+Description=tuiui Wayland compositor (tiling window manager for the terminal)
+Documentation=https://github.com/jaylfc/tuiui
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/tuiui --compositor
+Restart=on-failure
+RestartSec=2
+Environment=XDG_CURRENT_DESKTOP=tuiui
+Environment=XDG_SESSION_TYPE=wayland
+
+[Install]
+WantedBy=default.target

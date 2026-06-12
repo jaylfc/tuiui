@@ -59,6 +59,8 @@ pub enum Action {
     FocusAndForward { id: WindowId, local: Point },
     /// A drag sequence has ended (mouse button released).
     EndDrag,
+    /// Begin focus cycle (Alt+Tab). Used by Wayland compositor for window switching.
+    BeginFocusCycle,
 }
 
 // ── Private helpers ────────────────────────────────────────────────────────────

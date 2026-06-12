@@ -11,7 +11,7 @@
 
 use crate::geometry::Point;
 use crate::input::{route_mouse, Action as InputAction, Hit, MouseKind};
-use crate::window::Window;
+use crate::window::{Window, WindowId};
 use std::collections::HashMap;
 
 // ── Keyboard layouts ─────────────────────────────────────────────────────────
@@ -332,6 +332,32 @@ impl InputManager {
         }
     }
 
+    fn focused_window(&self) -> Option<WindowId> {
+        self.seats
+            .lock()
+            .unwrap()
+            .get(&self.primary_seat)
+            .and_then(|seat| seat.keyboard_focus.filter(|id| *id != 0).map(WindowId))
+    }
+
+    fn focused_action(&self, action: fn(WindowId) -> InputAction) -> Option<InputAction> {
+        self.focused_window().map(action)
+    }
+
+    fn action_window_id(action: InputAction) -> Option<WindowId> {
+        match action {
+            InputAction::BeginMove(id)
+            | InputAction::BeginResize(id)
+            | InputAction::MoveTo { id, .. }
+            | InputAction::ResizeTo { id, .. }
+            | InputAction::Close(id)
+            | InputAction::Minimize(id)
+            | InputAction::ToggleMaximize(id)
+            | InputAction::FocusAndForward { id, .. } => Some(id),
+            InputAction::None | InputAction::EndDrag | InputAction::BeginFocusCycle => None,
+        }
+    }
+
     /// Handle a key press via evdev keycode; returns compositor-level action
     /// for shortcuts, or `None` to forward the event.
     pub fn handle_key(
@@ -349,26 +375,39 @@ impl InputManager {
 
         if !self.config.shortcuts { return None; }
 
+        // Wayland compositor shortcuts operate on the tracked focused window.
         if modifiers.alt {
             return match key {
-                0x09 => Some(InputAction::BeginFocusCycle),  // Tab
-                0x71 => Some(InputAction::Close(None)),       // Q
-                0x6d => Some(InputAction::Minimize(None)),    // M
-                0x6e => Some(InputAction::ToggleMaximize(None)), // N
-                0x51 => Some(InputAction::Close(None)),       // Shift+Q
+                0x09 => Some(InputAction::BeginFocusCycle),
+                0x71 => self.focused_action(InputAction::Close),
+                0x6d => self.focused_action(InputAction::Minimize),
+                0x6e => self.focused_action(InputAction::ToggleMaximize),
+                0x51 => self.focused_action(InputAction::Close),
                 _ => None,
             };
         }
         if modifiers.ctrl {
             return match key {
-                0x71 => Some(InputAction::Close(None)),       // Ctrl+Q
-                0x6c => Some(InputAction::ToggleMaximize(None)), // Ctrl+L
-                0x6d => Some(InputAction::Minimize(None)),    // Ctrl+M
+                0x71 => self.focused_action(InputAction::Close),
+                0x6c => self.focused_action(InputAction::ToggleMaximize),
+                0x6d => self.focused_action(InputAction::Minimize),
                 _ => None,
             };
         }
 
         None
+    }
+
+    fn action_sets_keyboard_focus(action: &InputAction) -> bool {
+        matches!(
+            action,
+            InputAction::BeginMove(_)
+                | InputAction::BeginResize(_)
+                | InputAction::MoveTo { .. }
+                | InputAction::ResizeTo { .. }
+                | InputAction::ToggleMaximize(_)
+                | InputAction::FocusAndForward { .. }
+        )
     }
 
     /// Handle a pointer button event through the tuiui input model.
@@ -379,7 +418,13 @@ impl InputManager {
         windows: &[Window],
     ) -> InputAction {
         let kind = if state == 0x01 { MouseKind::Down } else { MouseKind::Up };
-        route_mouse(kind, position, windows, None)
+        let action = route_mouse(kind, position, windows, None);
+        if Self::action_sets_keyboard_focus(&action) {
+            if let Some(id) = Self::action_window_id(action) {
+                self.set_keyboard_focus(id.0);
+            }
+        }
+        action
     }
 
     /// Set pointer hover focus for hover highlighting.
@@ -388,6 +433,14 @@ impl InputManager {
         if let Some(seat) = seats.get_mut(&self.primary_seat) {
             seat.pointer_position = Some(position);
             seat.pointer_focus = Some(surface_id);
+        }
+    }
+
+    /// Set keyboard focus for a surface (e.g., on click or window raise).
+    pub fn set_keyboard_focus(&self, surface_id: u64) {
+        let mut seats = self.seats.lock().unwrap();
+        if let Some(seat) = seats.get_mut(&self.primary_seat) {
+            seat.keyboard_focus = Some(surface_id);
         }
     }
 
