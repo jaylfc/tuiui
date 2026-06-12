@@ -6,6 +6,23 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+### Added
+- **Dock right-click menu**: right-click any dock pill for Minimise /
+  Maximise / Close / **Reset size** (centres the window at half the screen —
+  the rescue hatch for a mis-placed window).
+
+### Fixed
+- **Add Remote on Debian**: three failure modes fixed — Linux release
+  binaries are now built on Ubuntu 22.04 (glibc 2.35) so they run on
+  Debian 12 instead of dying with "GLIBC_2.39 not found"; the installer and
+  the remote-setup script accept **wget** when curl is absent (stock Debian);
+  and **Linux arm64** prebuilt binaries are now published (Raspberry Pi /
+  ARM servers).
+- Windows can no longer be stranded off-screen when the terminal shrinks
+  (e.g. moving to a smaller monitor): every window — minimized ones too —
+  is clamped into the new work area on resize, shrinking any window larger
+  than the new screen.
+
 ### Changed
 - **Settings → Updates simplified**: the update check now runs automatically
   (on a background thread) whenever the Updates screen opens or the channel

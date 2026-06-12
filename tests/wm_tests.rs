@@ -164,3 +164,25 @@ fn swap_cells_exchanges_two_windows() {
     assert_eq!(m.get(a).unwrap().rect, rb);
     assert_eq!(m.get(b).unwrap().rect, ra);
 }
+
+#[test]
+fn clamp_pulls_offscreen_and_minimized_windows_into_work() {
+    let mut m = WindowManager::new(Rect::new(0, 1, 300, 38));
+    let stranded = m.add_window("far".into(), Rect::new(200, 5, 80, 20));
+    let minimized = m.add_window("min".into(), Rect::new(250, 8, 40, 12));
+    let fine = m.add_window("ok".into(), Rect::new(2, 2, 30, 10));
+    m.minimize(minimized);
+    m.set_work_area(Rect::new(0, 1, 120, 28));
+    let changed = m.clamp_all_into_work();
+    assert!(changed.contains(&stranded) && changed.contains(&minimized));
+    assert!(!changed.contains(&fine), "an in-bounds window is untouched");
+    for id in [stranded, minimized, fine] {
+        let r = m.get(id).unwrap().rect;
+        assert!(r.x >= 0 && r.y >= 1 && r.x + r.w <= 120 && r.y + r.h <= 29, "{id:?} inside: {r:?}");
+    }
+    // A window larger than the new screen is shrunk to fit.
+    let huge = m.add_window("huge".into(), Rect::new(0, 1, 500, 100));
+    m.clamp_all_into_work();
+    let r = m.get(huge).unwrap().rect;
+    assert!(r.w <= 120 && r.h <= 28, "oversized window shrunk: {r:?}");
+}
