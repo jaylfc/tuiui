@@ -93,12 +93,18 @@ install_compositor_session() {
     if [ "${TUIUI_COMPOSITOR:-0}" != "1" ]; then return 0; fi
 
     EXE_PATH="${TUIUI_EXE_PATH:-$BIN_DIR/tuiui}"
-    if ! validate_install_path "$EXE_PATH"; then return 1; fi
+    COMPOSITOR_ARGS=""
 
     # Prefer tuiui-compositor binary if available, otherwise use tuiui --compositor
     if [ -f "$BIN_DIR/tuiui-compositor" ]; then
         EXE_PATH="$BIN_DIR/tuiui-compositor"
+    else
+        case "$(basename "$EXE_PATH")" in
+            tuiui-compositor) ;;
+            *) COMPOSITOR_ARGS="--compositor" ;;
+        esac
     fi
+    if ! validate_install_path "$EXE_PATH"; then return 1; fi
 
     # Install desktop session file to system location (requires root for system-wide)
     DESKTOP_DST_DIR="/usr/share/wayland-sessions"
@@ -106,8 +112,11 @@ install_compositor_session() {
     
     if [ -w "$DESKTOP_DST_DIR" ] 2>/dev/null || [ -w /usr/share ] 2>/dev/null; then
         mkdir -p "$DESKTOP_DST_DIR"
-        desktop_exec=$(desktop_field_path "$EXE_PATH")
         desktop_tryexec=$(desktop_field_path "$EXE_PATH")
+        desktop_exec="$desktop_tryexec"
+        if [ -n "$COMPOSITOR_ARGS" ]; then
+            desktop_exec="$desktop_exec $COMPOSITOR_ARGS"
+        fi
         {
             printf '[Desktop Entry]\n'
             printf 'Name=tuiui\n'
@@ -131,6 +140,9 @@ install_compositor_session() {
     if ! exe_escaped=$(systemd_escape_exec_path "$EXE_PATH"); then
         echo "tuiui: TUIUI_EXE_PATH contains characters unsupported by systemd ExecStart, got: $EXE_PATH" >&2
         return 1
+    fi
+    if [ -n "$COMPOSITOR_ARGS" ]; then
+        exe_escaped="$exe_escaped $COMPOSITOR_ARGS"
     fi
     mkdir -p "$(dirname "$SERVICE_DST")"
     {
@@ -169,12 +181,12 @@ install_drm_uaccess_rule() {
         echo "tuiui: DRM uaccess rule needs root to install"
         echo "tuiui: create $UDEV_RULES_FILE with the following content:"
         echo "---"
-        printf 'SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"\n'
+        printf 'SUBSYSTEM=="drm", KERNEL=="card*|renderD*", TAG+="uaccess"\n'
         return 0
     fi
 
     {
-        printf 'SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"\n'
+        printf 'SUBSYSTEM=="drm", KERNEL=="card*|renderD*", TAG+="uaccess"\n'
     } > "$UDEV_RULES_FILE"
     chmod 644 "$UDEV_RULES_FILE"
     command -v udevadm >/dev/null 2>&1 && udevadm control --reload-rules 2>/dev/null || true
@@ -194,11 +206,13 @@ check_drm_permissions() {
 
     # Check if user can access DRM devices
     if [ ! -r /dev/dri/card0 ] || [ ! -w /dev/dri/card0 ]; then
-        if ! check_video_group; then
-            echo "tuiui: WARNING: No access to KMS/DRM devices (/dev/dri/card0)"
-            echo "tuiui: For compositor mode, either:"
-            echo "tuiui:   1. Add your user to the 'video' group: sudo usermod -aG video \$USER"
-            echo "tuiui:   2. Or install the udev DRM access rule (see --help-drm)"
+        echo "tuiui: WARNING: No access to KMS/DRM devices (/dev/dri/card0)"
+        if check_video_group; then
+            echo "tuiui: Your user is in the 'video' group, but /dev/dri/card0 is still not accessible"
+            echo "tuiui: Log out and back in, or install the udev DRM access rule (see --help-drm)"
+        else
+            echo "tuiui: Add your user to the 'video' group: sudo usermod -aG video \$USER"
+            echo "tuiui: Or install the udev DRM access rule (see --help-drm)"
         fi
         return 1
     fi
@@ -214,7 +228,7 @@ while [ $# -gt 0 ]; do
         --help-drm|--help-polkit)
             echo "tuiui: DRM uaccess rule for /dev/dri/* access lets logind grant devices to the active local session"
             echo "tuiui: Create /etc/udev/rules.d/50-tuiui-drm-uaccess.rules with:"
-            echo '  SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"'
+            echo '  SUBSYSTEM=="drm", KERNEL=="card*|renderD*", TAG+="uaccess"'
             exit 0
             ;;
         --help)

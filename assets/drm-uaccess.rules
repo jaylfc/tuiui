@@ -1,4 +1,4 @@
 # udev rule for KMS/DRM access.
 # Install to /etc/udev/rules.d/50-tuiui-drm-uaccess.rules
 # This lets logind grant /dev/dri/* to the active local session for tuiui compositor.
-SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"
+SUBSYSTEM=="drm", KERNEL=="card*|renderD*", TAG+="uaccess"
