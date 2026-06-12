@@ -404,6 +404,14 @@ impl InputManager {
         }
     }
 
+    /// Set keyboard focus for a surface (e.g., on click or window raise).
+    pub fn set_keyboard_focus(&self, surface_id: u64) {
+        let mut seats = self.seats.lock().unwrap();
+        if let Some(seat) = seats.get_mut(&self.primary_seat) {
+            seat.keyboard_focus = Some(surface_id);
+        }
+    }
+
     /// Clear pointer focus (pointer left all surfaces).
     pub fn clear_pointer_focus(&self) {
         let mut seats = self.seats.lock().unwrap();

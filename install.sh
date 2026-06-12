@@ -8,9 +8,6 @@ set -eu
 
 REPO="jaylfc/tuiui"
 BIN_DIR="${TUIUI_BIN_DIR:-$HOME/.local/bin}"
-sed_escape_replacement() {
-    printf '%s' "$1" | sed 's/[&|\\]/\\&/g'
-}
 
 os="$(uname -s)"
 arch="$(uname -m)"
@@ -64,7 +61,9 @@ install_compositor_session() {
     if [ -f "$DESKTOP_SRC" ]; then
         if [ -w /usr/share/wayland-sessions ]; then
             mkdir -p /usr/share/wayland-sessions
-            sed "s|__TUIUI_BIN__|$(sed_escape_replacement "$BIN_DIR/tuiui")|g" "$DESKTOP_SRC" > "$DESKTOP_DST"
+            # Escape & for sed replacement and % as %% for desktop entry field code safety
+            bin_escaped=$(printf '%s' "$BIN_DIR/tuiui" | sed 's/&/\\&/g; s/%/%%/g; s/\\/\\\\/g')
+            sed "s|__TUIUI_BIN__|'$bin_escaped'|g" "$DESKTOP_SRC" > "$DESKTOP_DST"
             chmod 644 "$DESKTOP_DST"
             echo "tuiui: installed Wayland session file: $DESKTOP_DST"
         else
@@ -86,7 +85,9 @@ install_compositor_session() {
             echo "tuiui: TUIUI_EXE_PATH must not contain a newline, got: $EXE_PATH" >&2
             return 1
         fi
-        sed "s|__TUIUI_EXE_PATH__|$(sed_escape_replacement "$EXE_PATH")|g" "$SERVICE_SRC" > "$SERVICE_DST"
+        # Escape & for sed replacement and quote path for systemd (handles spaces)
+        exe_escaped=$(printf '%s' "$EXE_PATH" | sed 's/&/\\&/g' | sed 's/\\/\\\\/g')
+        sed "s|__TUIUI_EXE_PATH__|'$exe_escaped'|g" "$SERVICE_SRC" > "$SERVICE_DST"
         chmod 644 "$SERVICE_DST"
         systemctl --user daemon-reload 2>/dev/null || true
         echo "tuiui: installed compositor service to $SERVICE_DST"
