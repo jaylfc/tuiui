@@ -1,9 +1,0 @@
-# Polkit rules for KMS/DRM access.
-# Install to /etc/polkit-1/rules.d/50-tuiui-drm.rules
-# This allows users in the 'video' group to access /dev/dri/* for tuiui compositor.
-polkit.addRule(function(action, subject) {
-    if (action.id == "org.freedesktop.devicekit.dri.device-access" &&
-        subject.isInGroup("video")) {
-        return polkit.Result.YES;
-    }
-});

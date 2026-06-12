@@ -6,7 +6,8 @@ Documentation=https://github.com/jaylfc/tuiui
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/tuiui-compositor
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/sh -c 'if command -v tuiui-compositor >/dev/null 2>&1; then exec tuiui-compositor; else exec tuiui --compositor; fi'
 ExecStopPost=/bin/rm -f /tmp/tuiui-compositor.sock
 Restart=on-failure
 RestartSec=2

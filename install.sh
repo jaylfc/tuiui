@@ -88,7 +88,7 @@ systemd_escape_exec_path() {
     esac
 }
 
-# Install Wayland session file and optionally polkit rules
+# Install Wayland session file and optionally prompt for DRM uaccess rules
 install_compositor_session() {
     if [ "${TUIUI_COMPOSITOR:-0}" != "1" ]; then return 0; fi
 
@@ -105,6 +105,7 @@ install_compositor_session() {
     DESKTOP_DST="$DESKTOP_DST_DIR/tuiui.desktop"
     
     if [ -w "$DESKTOP_DST_DIR" ] 2>/dev/null || [ -w /usr/share ] 2>/dev/null; then
+        mkdir -p "$DESKTOP_DST_DIR"
         desktop_exec=$(desktop_field_path "$EXE_PATH")
         desktop_tryexec=$(desktop_field_path "$EXE_PATH")
         {
@@ -153,40 +154,32 @@ install_compositor_session() {
     echo "tuiui: installed compositor service to $SERVICE_DST"
 }
 
-# Install polkit rules for KMS/DRM access when user requests them
-install_polkit_rules() {
-    POLKIT_RULES_DIR="/etc/polkit-1/rules.d"
-    POLKIT_RULES_FILE="$POLKIT_RULES_DIR/50-tuiui-drm.rules"
+# Install udev uaccess rule for KMS/DRM access when user requests it
+install_drm_uaccess_rule() {
+    UDEV_RULES_DIR="/etc/udev/rules.d"
+    UDEV_RULES_FILE="$UDEV_RULES_DIR/50-tuiui-drm-uaccess.rules"
     
-    if [ ! -d "$POLKIT_RULES_DIR" ]; then
-        echo "tuiui: polkit rules directory not found at $POLKIT_RULES_DIR"
+    if [ ! -d "$UDEV_RULES_DIR" ]; then
+        echo "tuiui: udev rules directory not found at $UDEV_RULES_DIR"
         return 0
     fi
 
     # Check if we can write to the directory
-    if [ ! -w "$POLKIT_RULES_DIR" ]; then
-        echo "tuiui: polkit rules need root to install"
-        echo "tuiui: create $POLKIT_RULES_FILE with the following content:"
+    if [ ! -w "$UDEV_RULES_DIR" ]; then
+        echo "tuiui: DRM uaccess rule needs root to install"
+        echo "tuiui: create $UDEV_RULES_FILE with the following content:"
         echo "---"
-        printf 'polkit.addRule(function(action, subject) {\n'
-        printf '    if (action.id == "org.freedesktop.devicekit.dri.device-access" &&\n'
-        printf '        subject.isInGroup("video")) {\n'
-        printf '        return polkit.Result.YES;\n'
-        printf '    }\n'
-        printf '});\n'
+        printf 'SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"\n'
         return 0
     fi
 
     {
-        printf 'polkit.addRule(function(action, subject) {\n'
-        printf '    if (action.id == "org.freedesktop.devicekit.dri.device-access" &&\n'
-        printf '        subject.isInGroup("video")) {\n'
-        printf '        return polkit.Result.YES;\n'
-        printf '    }\n'
-        printf '});\n'
-    } > "$POLKIT_RULES_FILE"
-    chmod 644 "$POLKIT_RULES_FILE"
-    echo "tuiui: installed polkit rules for DRM access: $POLKIT_RULES_FILE"
+        printf 'SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"\n'
+    } > "$UDEV_RULES_FILE"
+    chmod 644 "$UDEV_RULES_FILE"
+    command -v udevadm >/dev/null 2>&1 && udevadm control --reload-rules 2>/dev/null || true
+    command -v udevadm >/dev/null 2>&1 && udevadm trigger --subsystem-match=drm 2>/dev/null || true
+    echo "tuiui: installed DRM uaccess rule: $UDEV_RULES_FILE"
 }
 
 # Check KMS/DRM permissions and advise user
@@ -205,7 +198,7 @@ check_drm_permissions() {
             echo "tuiui: WARNING: No access to KMS/DRM devices (/dev/dri/card0)"
             echo "tuiui: For compositor mode, either:"
             echo "tuiui:   1. Add your user to the 'video' group: sudo usermod -aG video \$USER"
-            echo "tuiui:   2. Or install polkit rules (see --help-polkit)"
+            echo "tuiui:   2. Or install the udev DRM access rule (see --help-drm)"
         fi
         return 1
     fi
@@ -218,15 +211,10 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --compositor) MODE="compositor" ;;
         --tui) MODE="tui" ;;
-        --help-polkit)
-            echo "tuiui: Polkit rules for DRM access allow users in the 'video' group to access /dev/dri/*"
-            echo "tuiui: Create /etc/polkit-1/rules.d/50-tuiui-drm.rules with:"
-            echo '  polkit.addRule(function(action, subject) {'
-            echo '      if (action.id == "org.freedesktop.devicekit.dri.device-access" &&'
-            echo '          subject.isInGroup("video")) {'
-            echo '          return polkit.Result.YES;'
-            echo '      }'
-            echo '  });'
+        --help-drm|--help-polkit)
+            echo "tuiui: DRM uaccess rule for /dev/dri/* access lets logind grant devices to the active local session"
+            echo "tuiui: Create /etc/udev/rules.d/50-tuiui-drm-uaccess.rules with:"
+            echo '  SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"'
             exit 0
             ;;
         --help)
@@ -234,7 +222,8 @@ while [ $# -gt 0 ]; do
             echo "tuiui: Options:"
             echo "tuiui:   --compositor  Install for Wayland compositor mode (requires Linux with DRM)"
             echo "tuiui:   --tui         Install for TUI (terminal) mode only"
-            echo "tuiui:   --help-polkit Show polkit rules for DRM access"
+            echo "tuiui:   --help-drm    Show DRM access rule"
+            echo "tuiui:   --help-polkit Alias for --help-drm"
             echo "tuiui: Environment variables:"
             echo "tuiui:   TUIUI_BIN_DIR     Install directory (default: ~/.local/bin)"
             echo "tuiui:   TUIUI_INSTALL_DEPS Install optional dependencies (default: 0)"
@@ -245,6 +234,16 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+
+case "$MODE" in
+    compositor) TUIUI_COMPOSITOR=1 ;;
+    tui) TUIUI_COMPOSITOR=0 ;;
+esac
+
+if [ "$os" != "Linux" ] && [ "${TUIUI_COMPOSITOR:-0}" = "1" ]; then
+    echo "tuiui: compositor mode is only supported on Linux"
+    exit 1
+fi
 
 echo "tuiui: finding latest release…"
 tag="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
@@ -289,15 +288,17 @@ install_compositor_session
 
 # Check DRM permissions if compositor mode
 if [ "${TUIUI_COMPOSITOR:-0}" = "1" ]; then
-    check_drm_permissions
-    
-    # Offer to install polkit rules if user wants them
-    if [ -t 0 ] 2>/dev/null && [ ! -r /dev/dri/card0 ]; then
-        printf "tuiui: Install polkit rules for DRM access? [y/N] "
-        read -r reply
-        case "$reply" in
-            [Yy]* ) install_polkit_rules ;;
-        esac
+    if ! check_drm_permissions; then
+        # Offer to install the udev uaccess rule if user wants it
+        if [ -t 0 ] 2>/dev/null; then
+            if [ ! -r /dev/dri/card0 ] || [ ! -w /dev/dri/card0 ]; then
+                printf "tuiui: Install udev DRM access rule? [y/N] "
+                read -r reply
+                case "$reply" in
+                    [Yy]* ) install_drm_uaccess_rule ;;
+                esac
+            fi
+        fi
     fi
 fi
 

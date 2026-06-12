@@ -44,7 +44,7 @@ jobs:
           mkdir -p release-assets
           cp assets/tuiui.desktop release-assets/
           cp assets/tuiui-compositor.service release-assets/
-          cp assets/polkit-drm.rules release-assets/
+          cp assets/drm-uaccess.rules release-assets/
           # Linux builds include both binaries; other platforms just tuiui
           if [ "${{ runner.os }}" = "Linux" ]; then
             tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui tuiui-compositor -C release-assets .
