@@ -1,0 +1,8 @@
+# Template used by install.sh; the installer writes a generated file with the actual binary path.
+[Desktop Entry]
+Name=tuiui
+Comment=A tiling terminal-based window manager for Wayland
+Exec=tuiui --compositor
+Type=Application
+DesktopNames=tuiui
+TryExec=tuiui

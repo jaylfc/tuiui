@@ -25,18 +25,29 @@ jobs:
           # on the heavily-backlogged macos-13 (Intel) runner.
           - { os: macos-14, target: aarch64-apple-darwin }
           - { os: macos-14, target: x86_64-apple-darwin }
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, extra_features: "--features wayland-compositor" }
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Wayland deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev libdrm-dev libgbm-dev
 
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
 
       - name: Build
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        run: cargo build --release --locked --target ${{ matrix.target }} ${{ matrix.extra_features }}
 
       - name: Package
-        run: tar -C target/${{ matrix.target }}/release -czf tuiui-${{ matrix.target }}.tar.gz tuiui
+        run: |
+          mkdir -p release-assets
+          cp assets/tuiui.desktop release-assets/
+          # For Linux, include compositor service file
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            cp assets/tuiui-compositor.service release-assets/
+          fi
+          tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui -C release-assets .
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
