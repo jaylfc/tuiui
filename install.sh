@@ -9,12 +9,21 @@ set -eu
 REPO="jaylfc/tuiui"
 BIN_DIR="${TUIUI_BIN_DIR:-$HOME/.local/bin}"
 
+# Stock Debian often has wget but not curl; accept either.
+fetch() {
+  if command -v curl >/dev/null 2>&1; then curl -fsSL "$1"
+  elif command -v wget >/dev/null 2>&1; then wget -qO- "$1"
+  else echo "tuiui: need curl or wget to download" >&2; return 1
+  fi
+}
+
 os="$(uname -s)"
 arch="$(uname -m)"
 case "$os/$arch" in
   Darwin/arm64)        target="aarch64-apple-darwin" ;;
   Darwin/x86_64)       target="x86_64-apple-darwin" ;;
   Linux/x86_64)        target="x86_64-unknown-linux-gnu" ;;
+  Linux/aarch64)       target="aarch64-unknown-linux-gnu" ;;
   *)
     echo "tuiui: no prebuilt binary for $os/$arch."
     echo "Install with Rust instead:  cargo install --git https://github.com/$REPO"
@@ -22,7 +31,7 @@ case "$os/$arch" in
 esac
 
 echo "tuiui: finding latest release…"
-tag="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+tag="$(fetch "https://api.github.com/repos/$REPO/releases/latest" \
         | grep '"tag_name"' | head -1 | cut -d'"' -f4)"
 if [ -z "${tag:-}" ]; then
   echo "tuiui: no published release yet."
@@ -33,7 +42,7 @@ fi
 url="https://github.com/$REPO/releases/download/$tag/tuiui-$target.tar.gz"
 echo "tuiui: downloading $tag ($target)…"
 mkdir -p "$BIN_DIR"
-if ! curl -fsSL "$url" | tar -xz -C "$BIN_DIR" 2>/dev/null || [ ! -f "$BIN_DIR/tuiui" ]; then
+if ! fetch "$url" | tar -xz -C "$BIN_DIR" 2>/dev/null || [ ! -f "$BIN_DIR/tuiui" ]; then
   echo "tuiui: no prebuilt binary for $target in $tag."
   echo "Install with Rust instead:  cargo install --git https://github.com/$REPO"
   exit 1
