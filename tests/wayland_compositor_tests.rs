@@ -5,7 +5,9 @@ mod tests {
         CompositorState, SeatState, OutputInfo,
         InputManager, InputConfig, KeyboardLayout, ModifierState,
     };
-    use tuiui::geometry::Point;
+    use tuiui::geometry::{Point, Rect};
+    use tuiui::input::Action as InputAction;
+    use tuiui::window::{Window, WindowId, WindowState};
 
     #[test]
     fn compositor_creates_successfully() {
@@ -59,6 +61,19 @@ mod tests {
         assert!(!anchor.bottom);
     }
 
+    fn test_window(id: u64, z: i32) -> Window {
+        let rect = Rect::new(0, 0, 20, 10);
+        Window {
+            id: WindowId(id),
+            title: "shell".to_string(),
+            rect,
+            z,
+            state: WindowState::Floating,
+            restore_rect: rect,
+            minimized: false,
+        }
+    }
+
     #[test]
     fn input_manager_creates() {
         let mgr = InputManager::new(InputConfig::default());
@@ -103,6 +118,21 @@ mod tests {
         seat.has_touch = false;
         seat.refresh_capabilities();
         assert_eq!(seat.capabilities, 0b11); // pointer | keyboard
+    }
+
+    #[test]
+    fn pointer_click_sets_keyboard_focus_for_shortcuts() {
+        let mgr = InputManager::new(InputConfig {
+            shortcuts: true,
+            ..Default::default()
+        });
+        let windows = vec![test_window(1, 0), test_window(2, 1)];
+        let action = mgr.handle_pointer_button(Point::new(5, 5), 0x01, &windows);
+        assert!(matches!(action, InputAction::FocusAndForward { id, .. } if id == WindowId(2)));
+
+        let mods = ModifierState { alt: true, ..Default::default() };
+        let action = mgr.handle_key(0x71, 0x01, mods);
+        assert!(matches!(action, Some(InputAction::Close(WindowId(2)))));
     }
 
     #[test]

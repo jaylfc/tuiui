@@ -344,6 +344,20 @@ impl InputManager {
         self.focused_window().map(action)
     }
 
+    fn action_window_id(action: InputAction) -> Option<WindowId> {
+        match action {
+            InputAction::BeginMove(id)
+            | InputAction::BeginResize(id)
+            | InputAction::MoveTo { id, .. }
+            | InputAction::ResizeTo { id, .. }
+            | InputAction::Close(id)
+            | InputAction::Minimize(id)
+            | InputAction::ToggleMaximize(id)
+            | InputAction::FocusAndForward { id, .. } => Some(id),
+            InputAction::None | InputAction::EndDrag | InputAction::BeginFocusCycle => None,
+        }
+    }
+
     /// Handle a key press via evdev keycode; returns compositor-level action
     /// for shortcuts, or `None` to forward the event.
     pub fn handle_key(
@@ -392,7 +406,11 @@ impl InputManager {
         windows: &[Window],
     ) -> InputAction {
         let kind = if state == 0x01 { MouseKind::Down } else { MouseKind::Up };
-        route_mouse(kind, position, windows, None)
+        let action = route_mouse(kind, position, windows, None);
+        if let Some(id) = Self::action_window_id(action) {
+            self.set_keyboard_focus(id.0);
+        }
+        action
     }
 
     /// Set pointer hover focus for hover highlighting.
