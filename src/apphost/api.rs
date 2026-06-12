@@ -68,6 +68,14 @@ pub trait AppHost: Send {
     /// The app's latest OSC-52 clipboard store, if any (drained; default none).
     fn take_clipboard(&mut self, _id: AppId) -> Option<String> { None }
 
+    /// The child process's OS pid, if known. Default returns `None` (the remote
+    /// host doesn't surface this to its in-process callers).
+    fn pid(&self, _id: AppId) -> Option<u32> { None }
+
+    /// The wall-clock instant the app was spawned, if known. Default returns
+    /// `None` (the remote host doesn't surface this to its in-process callers).
+    fn spawn_time(&self, _id: AppId) -> Option<std::time::Instant> { None }
+
     /// The app's current terminal mouse mode (default = no mouse).
     fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse { let _ = id; crate::mouse::AppMouse::default() }
 

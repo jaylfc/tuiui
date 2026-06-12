@@ -253,6 +253,7 @@ fn serve_client(
         core.refresh_app_graphics();
         core.sync_app_meta();
         core.pump_thumbnails();
+        core.refresh_activity();
         let frame = core.build_frame();
         comp.composite(&frame.layers, frame.cursor);
         let changes = comp.diff();
@@ -272,6 +273,8 @@ fn serve_client(
             confirm_close: core.confirm_close_open(),
             power_editing: core.power_form_editing(),
             logs_focused: core.focused_is_logs(),
+            activity_focused: core.focused_is_activity(),
+            activity_confirming: core.activity_confirming(),
             detach: core.quit_requested(),
             reload: core.reload_requested(),
             app_area: core.app_mouse_area(),

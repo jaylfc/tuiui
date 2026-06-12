@@ -17,6 +17,9 @@ pub enum HostReq {
     Scroll { app: u64, lines: i32 },
     SetMeta { app: u64, meta: Vec<u8> },
     Kill { app: u64 },
+    /// Ask the apphost to enumerate its hosted apps. The apphost replies with
+    /// `HostEvt::AppList`. Used by `tuiui ps` / `tuiui kill-app`.
+    ListApps,
     /// Stop the apphost process entirely (full shutdown / `tuiui kill`).
     Shutdown,
 }
@@ -44,6 +47,21 @@ pub const MIN_COMPAT: u32 = 0;
 pub struct RosterEntry {
     pub app: u64,
     pub meta: Vec<u8>,
+}
+
+/// One row in `HostEvt::AppList` — a snapshot of a hosted app's state. Used by
+/// `tuiui ps`. `age_secs` is seconds since the app was spawned (so the client
+/// doesn't need a synchronized clock with the apphost).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AppListEntry {
+    pub app: u64,
+    pub cmd: String,
+    pub args: Vec<String>,
+    pub pid: Option<u32>,
+    pub cols: i32,
+    pub rows: i32,
+    pub age_secs: u64,
+    pub alive: bool,
 }
 
 /// apphost → frontend.
@@ -75,6 +93,8 @@ pub enum HostEvt {
         #[serde(default)]
         proto: u32,
     },
+    /// Reply to `HostReq::ListApps`.
+    AppList { apps: Vec<AppListEntry> },
 }
 
 /// Write a newline-JSON message. Returns `Err` if the peer is gone.
@@ -127,6 +147,7 @@ mod tests {
             HostReq::Resize { app: 3, cols: 100, rows: 40 },
             HostReq::SetMeta { app: 3, meta: vec![9, 9] },
             HostReq::Kill { app: 3 },
+            HostReq::ListApps,
             HostReq::Shutdown,
         ];
         for m in msgs {

@@ -3,7 +3,7 @@
 //! (normally spawned automatically by the frontend daemon). The apps it owns
 //! survive a frontend restart because this process keeps running.
 
-use crate::apphost::proto::{recv, send, HostEvt, HostReq, ImgBlob, RosterEntry};
+use crate::apphost::proto::{recv, send, AppListEntry, HostEvt, HostReq, ImgBlob, RosterEntry};
 use crate::apphost::{AppHost, AppId, LocalAppHost};
 use crate::protocol::{apphost_socket_path, socket_dir};
 use std::collections::{HashMap, HashSet};
@@ -109,6 +109,34 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
                 Ok(HostReq::Scroll { app, lines }) => local.scroll(AppId(app), lines),
                 Ok(HostReq::SetMeta { app, meta }) => local.set_meta(AppId(app), meta),
                 Ok(HostReq::Kill { app }) => local.kill(AppId(app)),
+                Ok(HostReq::ListApps) => {
+                    let now = std::time::Instant::now();
+                    let mut apps = Vec::new();
+                    for id in local.list() {
+                        let (cmd, args) = local
+                            .launch_cmd(id)
+                            .map(|(c, a)| (c.to_string(), a.to_vec()))
+                            .unwrap_or_else(|| (String::new(), Vec::new()));
+                        let (cols, rows) = local.dims(id).unwrap_or((0, 0));
+                        let age_secs = local
+                            .spawn_time(id)
+                            .map(|t| now.duration_since(t).as_secs())
+                            .unwrap_or(0);
+                        apps.push(AppListEntry {
+                            app: id.0,
+                            cmd,
+                            args,
+                            pid: local.pid(id),
+                            cols,
+                            rows,
+                            age_secs,
+                            alive: local.is_alive(id),
+                        });
+                    }
+                    if send(&mut writer, &HostEvt::AppList { apps }).is_err() {
+                        return;
+                    }
+                }
                 Ok(HostReq::Shutdown) => {
                     *shutdown = true;
                     return;

@@ -14,4 +14,5 @@ mod remote;
 
 pub use api::AppHost;
 pub use host::{AppId, LocalAppHost};
+pub use proto::{AppListEntry, HostEvt, HostReq};
 pub use remote::RemoteAppHost;

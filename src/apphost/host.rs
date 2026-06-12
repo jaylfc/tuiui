@@ -17,12 +17,26 @@ pub struct AppId(pub u64);
 pub struct LocalAppHost {
     apps: HashMap<AppId, AppInstance>,
     meta: HashMap<AppId, Vec<u8>>,
+    /// Original `cmd` + `args` for each hosted app, so the activity monitor
+    /// (`tuiui ps`, the in-app panel) can display what was actually launched
+    /// even after the `AppInstance`'s internal state changes.
+    cmds: HashMap<AppId, (String, Vec<String>)>,
     next: u64,
 }
 
 impl LocalAppHost {
     pub fn new() -> Self {
-        LocalAppHost { apps: HashMap::new(), meta: HashMap::new(), next: 1 }
+        LocalAppHost { apps: HashMap::new(), meta: HashMap::new(), cmds: HashMap::new(), next: 1 }
+    }
+
+    /// The original `cmd` + `args` used to spawn the app, if known.
+    pub fn launch_cmd(&self, id: AppId) -> Option<(&str, &[String])> {
+        self.cmds.get(&id).map(|(c, a)| (c.as_str(), a.as_slice()))
+    }
+
+    /// The requested terminal size for the app, if it has a snapshot.
+    pub fn dims(&self, id: AppId) -> Option<(i32, i32)> {
+        self.apps.get(&id).map(|a| (a.snapshot().width(), a.snapshot().height()))
     }
 }
 
@@ -46,6 +60,7 @@ impl AppHost for LocalAppHost {
         let id = AppId(self.next);
         self.next += 1;
         self.apps.insert(id, app);
+        self.cmds.insert(id, (cmd.to_string(), args.to_vec()));
         Ok(id)
     }
 
@@ -115,6 +130,15 @@ impl AppHost for LocalAppHost {
     fn remove(&mut self, id: AppId) {
         self.apps.remove(&id);
         self.meta.remove(&id);
+        self.cmds.remove(&id);
+    }
+
+    fn pid(&self, id: AppId) -> Option<u32> {
+        self.apps.get(&id).and_then(|a| a.process_id())
+    }
+
+    fn spawn_time(&self, id: AppId) -> Option<std::time::Instant> {
+        self.apps.get(&id).map(|a| a.spawned_at())
     }
 
     fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse {

@@ -47,6 +47,7 @@ tuiui uses a **leader key** (`Ctrl+Space`) so its shortcuts never collide with m
 | `Ctrl+Space` then `T` | Toggle auto-tile mode |
 | `Ctrl+Space` then `1`–`9` | Send focused window to grid cell N |
 | `Ctrl+Space` then `s` / `,` | Open the Store / Settings |
+| `Ctrl+Space` then `A` | **Activity Monitor** — see and kill hosted apps |
 | `Ctrl+Space` then `r` | **Rename** the focused window (type a new name, Enter) |
 | `Ctrl+Space` then `?` | **Help** — show this shortcut cheatsheet in-app (any key dismisses) |
 | `Ctrl+Space` then `q` | Detach (apps keep running in the background) |
@@ -111,6 +112,8 @@ and it's all still there.
 tuiui            # ensure the daemon is running, then attach
 tuiui attach     # attach to an already-running daemon
 tuiui reload     # restart the UI only; apps keep running
+tuiui ps         # list every hosted app (id, pid, cmd, age, alive)
+tuiui kill-app <id|all>  # kill one (or every) hosted app
 tuiui kill       # shut the daemon down (closes all windows)
 
 # Control a running desktop from any shell (also how the AI assistant drives it):
