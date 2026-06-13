@@ -6,6 +6,18 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-06-13
+
+### Fixed
+- **In-app update could land in a shadowed binary**: when the fast path
+  (`install.sh`) failed — e.g. a brief network blip or racing a release's
+  asset upload — the updater fell back to `cargo install --git`, which writes to
+  cargo's default `~/.cargo/bin`. If that differs from the dir of the running
+  binary (e.g. a release install in `~/.local/bin`), the rebuilt binary landed
+  in a `$PATH`-shadowed location and the update silently appeared to do nothing.
+  The cargo fallback now targets the running binary's own `bin/` dir via
+  `--root`, so both update paths replace the binary the user actually runs.
+
 ## [0.2.2] — 2026-06-13
 
 ### Changed
