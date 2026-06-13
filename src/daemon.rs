@@ -127,6 +127,8 @@ pub fn run() -> std::io::Result<()> {
     let _ = std::fs::remove_file(&ctl_path);
     if !reloading {
         core.shutdown(); // full stop: kills apps + tells the apphost to exit
+    } else {
+        crate::dbg_log("daemon: reload — exiting to restart, apphost preserved");
     }
     // On reload we just drop `core` (its RemoteAppHost disconnects); the apphost
     // keeps running so the next frontend can restore the apps.

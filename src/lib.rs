@@ -80,19 +80,19 @@ pub fn dbg_log(msg: &str) {
     }
 }
 
-/// Truncate `~/tuiui-debug.log` and write a session-start banner. Called once
-/// at daemon startup so each run starts with a clean, readable log.
+/// Append a session-start banner to `~/tuiui-debug.log` (running version, git
+/// sha, and binary path). Called once at daemon startup.
+///
+/// Deliberately APPENDS rather than truncates: when an in-app update reloads
+/// the daemon, the previous session's trace (the `update:` steps, the reload)
+/// must survive alongside the new banner so the *whole* update is visible in
+/// one log — truncating here is what made update failures invisible (the new
+/// daemon wiped the evidence). `dbg_log`'s size cap keeps the file bounded.
 pub fn dbg_init() {
-    let Some(home) = dirs::home_dir() else { return };
-    use std::io::Write;
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(home.join("tuiui-debug.log"))
-    {
-        let _ = writeln!(f, "=== tuiui debug session start (git {}) ===", GIT_SHA);
-    }
+    let exe = std::env::current_exe()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| "?".into());
+    dbg_log(&format!("=== tuiui session start (v{VERSION}, git {GIT_SHA}, exe {exe}) ==="));
 }
 pub mod protocol;
 pub mod daemon;

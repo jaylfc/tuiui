@@ -128,6 +128,7 @@ fn attach(spawn_if_missing: bool) -> std::io::Result<()> {
             tuiui::client::ClientExit::Reload => {
                 // The daemon is restarting; wait briefly for the old socket to
                 // drop, then loop to spawn/connect the fresh daemon.
+                tuiui::dbg_log("client: daemon reload — waiting for old socket to drop, then respawning");
                 for _ in 0..100 {
                     if UnixStream::connect(socket_path()).is_err() { break; }
                     std::thread::sleep(Duration::from_millis(20));
@@ -193,6 +194,7 @@ fn run_switch(spec: &tuiui::systems::SwitchSpec) {
 /// client exiting (and SSH disconnects).
 fn spawn_daemon() -> std::io::Result<()> {
     let exe = std::env::current_exe()?;
+    tuiui::dbg_log(&format!("daemon: spawning {} --daemon", exe.display()));
     std::process::Command::new(exe)
         .arg("--daemon")
         .stdin(std::process::Stdio::null())

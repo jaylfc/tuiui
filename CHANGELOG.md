@@ -6,6 +6,20 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.9] — 2026-06-13
+
+### Changed
+- **The debug log now survives a reload, and records the version + binary** of
+  every daemon start. `dbg_init` previously *truncated* `~/tuiui-debug.log` on
+  each daemon startup — so an in-app update that reloaded the daemon wiped its
+  own trace, leaving the log useless for diagnosing update failures. It now
+  appends a richer banner (`v<version>, git <sha>, exe <path>`) and the reload
+  → respawn seam is logged on both sides (`daemon: reload — exiting…`,
+  `client: daemon reload — …respawning`, `daemon: spawning <exe> --daemon`).
+  An update attempt now leaves a complete, persistent trace: the install
+  steps, the reload, and the **post-update version** in the next banner — so a
+  "version never changed" failure is finally visible in one log.
+
 ## [0.2.8] — 2026-06-13
 
 ### Added
