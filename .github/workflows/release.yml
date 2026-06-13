@@ -31,23 +31,35 @@ jobs:
           # on the heavily-backlogged macos-13 (Intel) runner.
           - { os: macos-14, target: aarch64-apple-darwin }
           - { os: macos-14, target: x86_64-apple-darwin }
-          # Linux builds run on 22.04 ON PURPOSE: its glibc 2.35 keeps the
-          # binaries runnable on Debian 12 (glibc 2.36) and Ubuntu 22.04+ —
-          # ubuntu-latest (24.04, glibc 2.39) produced binaries that died on
-          # Debian with "GLIBC_2.39 not found".
           - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
           - { os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, extra_features: "--features wayland-compositor" }
+    steps:
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Wayland deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev libdrm-dev libgbm-dev
 
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
 
       - name: Build
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        run: cargo build --release --locked --target ${{ matrix.target }} ${{ matrix.extra_features }}
 
       - name: Package
-        run: tar -C target/${{ matrix.target }}/release -czf tuiui-${{ matrix.target }}.tar.gz tuiui
+        run: |
+          mkdir -p release-assets
+          cp assets/tuiui.desktop release-assets/
+          cp assets/tuiui-compositor.service release-assets/
+          cp assets/drm-uaccess.rules release-assets/
+          # Linux builds include both binaries; other platforms just tuiui
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui tuiui-compositor -C release-assets .
+          else
+            tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui -C release-assets .
+          fi
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
