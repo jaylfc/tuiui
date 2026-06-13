@@ -310,9 +310,17 @@ impl SshFs {
     }
 
     /// Run `cmd` through `sh -c` on the remote; `None` on failure/timeout.
+    ///
+    /// NOTE: these calls currently run synchronously on the daemon's render
+    /// loop (via `FileManager` inside `core.apply`), so an unreachable remote
+    /// briefly freezes the desktop — bounded by `ConnectTimeout` (3s) plus the
+    /// per-op `secs` budget. The frequent navigation ops (list/home) use short
+    /// budgets to keep that hitch small; copy/move keep a generous budget for
+    /// large transfers. The proper fix is to move remote FsOps off the render
+    /// loop (like the scp paste already is) — tracked as a follow-up.
     fn ssh(&self, cmd: &str, secs: u64) -> Option<String> {
         let port = self.port.map(|p| p.to_string());
-        let mut args: Vec<&str> = vec!["-o", "BatchMode=yes", "-o", "ConnectTimeout=4"];
+        let mut args: Vec<&str> = vec!["-o", "BatchMode=yes", "-o", "ConnectTimeout=3"];
         if let Some(p) = port.as_deref() {
             args.extend(["-p", p]);
         }
@@ -328,7 +336,7 @@ impl SshFs {
     /// The remote home directory (the browser's starting point), or `None`
     /// when the system is unreachable / key auth is not set up.
     pub fn remote_home(&self) -> Option<PathBuf> {
-        let home = self.ssh("pwd", 6)?;
+        let home = self.ssh("pwd", 5)?;
         let home = home.trim();
         (!home.is_empty()).then(|| PathBuf::from(home))
     }
@@ -345,7 +353,7 @@ impl SshFs {
 impl FsOps for SshFs {
     fn list(&self, dir: &Path, show_hidden: bool) -> io::Result<Vec<Entry>> {
         let cmd = format!("cd {} && LC_ALL=C ls -lA", Self::q(dir));
-        let out = self.ssh(&cmd, 8).ok_or_else(|| Self::err("list"))?;
+        let out = self.ssh(&cmd, 5).ok_or_else(|| Self::err("list"))?;
         let mut entries = Vec::new();
         for line in out.lines() {
             let Some((kind, size, name)) = parse_ls_line(line) else { continue };

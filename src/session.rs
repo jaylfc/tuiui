@@ -3720,12 +3720,30 @@ fn take_reopen_hint() -> Option<u8> {
     code
 }
 
+/// Accept only well-formed git branch names; anything else falls back to
+/// `main`. The branch comes from `config.update_branch`, which a hand-edited
+/// config (or a typo) could set to junk — and it's interpolated into both a
+/// shell command and a URL below, so a stray quote/space would otherwise
+/// produce a broken updater run rather than a clean fallback.
+fn sanitize_branch(branch: &str) -> String {
+    let ok = !branch.is_empty()
+        && branch.len() <= 100
+        && branch
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '/' | '.'))
+        && !branch.starts_with('-')
+        && !branch.contains("..");
+    if ok { branch.to_string() } else { "main".to_string() }
+}
+
 /// The shell command that updates tuiui and reloads. On `main` it prefers the
 /// prebuilt release binary (a fast download via `install.sh`, jumping straight
 /// to the latest release), falling back to a source build; on any other branch
 /// (the dev channel) it builds that branch from git. On success it reloads and
 /// EXITS so the updater window auto-closes; only a failure drops to a shell.
 fn update_command(branch: &str) -> String {
+    let branch = sanitize_branch(branch);
+    let branch = branch.as_str();
     let repo = crate::REPO_URL;
     let raw = "https://raw.githubusercontent.com/jaylfc/tuiui";
     // Keep the new binary where the running one lives (cargo bin vs ~/.local/bin).
@@ -3808,6 +3826,8 @@ fn compat_dialog_buttons(w: i32, h: i32) -> (Rect, Rect) {
 ///   we compare the installed commit against the branch tip and report short
 ///   commit hashes.
 fn check_for_updates(branch: &str) -> String {
+    let branch = sanitize_branch(branch);
+    let branch = branch.as_str();
     let repo = crate::REPO_URL.trim_start_matches("https://github.com/");
     let get_json = |path: &str| -> Option<serde_json::Value> {
         let url = format!("https://api.github.com/repos/{repo}/{path}");
@@ -3935,6 +3955,22 @@ mod tests {
         assert!(cmd.contains("cargo install --git"), "dev builds from source");
         assert!(cmd.contains("--branch dev"), "on the dev branch: {cmd}");
         assert!(!cmd.contains("install.sh"), "no prebuilt release off main");
+    }
+
+    #[test]
+    fn junk_branch_falls_back_to_main() {
+        // A hand-edited / typo'd config branch must never leak shell syntax or a
+        // broken ref into the updater command or the check URL.
+        for junk in ["x; rm -rf ~", "a b", "evil'", "--force", "..", ""] {
+            assert_eq!(sanitize_branch(junk), "main", "rejected: {junk:?}");
+            let cmd = update_command(junk);
+            assert!(cmd.contains("install.sh"), "junk → the safe main path: {cmd}");
+            assert!(!cmd.contains("rm -rf"), "no injected payload survives: {cmd}");
+        }
+        // Legitimate branch names are preserved.
+        for ok in ["dev", "main", "feature/x", "release-1.2", "v0.2.0"] {
+            assert_eq!(sanitize_branch(ok), ok);
+        }
     }
 
     #[test]

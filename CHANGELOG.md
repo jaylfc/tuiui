@@ -6,6 +6,29 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.4] — 2026-06-13
+
+### Fixed
+Robustness fixes from a code review of the networked seams — these had landed
+on the `dev` branch but never reached `main`, so they were absent from the
+0.2.x releases. Ported to `main`:
+- **Log-copy could crash the daemon**: copying a large (>200 KB) log whose
+  non-ASCII bytes straddled the tail cut sliced a string mid-UTF-8 and panicked.
+  The cut now advances to a char boundary first.
+- **Apphost reader resilience**: a single corrupted/blank protocol line used to
+  tear down the whole apphost connection (dropping every window's frame stream);
+  `recv` now logs-and-skips a bad line while still propagating genuine IO errors.
+- **Updater branch validation**: a hand-edited/typo'd `update_branch` flowed
+  into a shell command and a URL; it's now sanitized to a git-safe charset and
+  falls back to `main`.
+- **Control-socket lock resilience**: `apply_ctl` no longer holds the queue lock
+  across `core.apply` (which could block the control thread), and both lock
+  sites recover a poisoned lock so one panic can't wedge `tuiui launch/tile/
+  theme/msg`.
+- **Remote file-manager freeze bounded**: tightened SSH `ConnectTimeout` (4→3s)
+  and the frequent navigation ops (list/home → 5s) so an unreachable saved
+  system is a brief hitch, not a multi-second freeze.
+
 ## [0.2.3] — 2026-06-13
 
 ### Fixed
