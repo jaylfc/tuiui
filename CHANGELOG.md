@@ -6,6 +6,8 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.6] — 2026-06-13
+
 ### Added
 - **Dock right-click context menu**: right-click a dock pill for Minimise /
   Maximise / Close / Reset size. Grouped pills target the group's focused
