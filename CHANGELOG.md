@@ -6,6 +6,15 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+### Added
+- **Dock right-click context menu**: right-click a dock pill for Minimise /
+  Maximise / Close / Reset size. Grouped pills target the group's focused
+  window (else the first); Close routes through the usual confirm dialog;
+  Reset re-centres the window at half the work area — the rescue hatch for a
+  stranded or mis-sized window. Render and hit-testing share the same geometry
+  fns, and the menu y-clamps so it stays on-screen (and clickable) on very
+  short terminals. Ported from the `dev` branch (#11, hardened in #20).
+
 ## [0.2.5] — 2026-06-13
 
 ### Fixed
