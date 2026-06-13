@@ -398,7 +398,7 @@ impl Settings {
             5 => {
                 // Agent is opencode (overridable via config); show its status.
                 let agent = self.cfg.assistant_command.as_deref().unwrap_or(crate::assistant::DEFAULT_AGENT);
-                let mark = if crate::catalog::is_installed(agent) { "" } else { " (not installed)" };
+                let mark = if crate::assistant::agent_available(agent) { "" } else { " (not installed)" };
                 self.row(&mut buf, cx, 3, 0, "Open as", format!("\u{25C2} {} \u{25B8}", self.cfg.assistant_mode));
                 buf.write_str(cx, 5, &format!("Agent: {agent}{mark}"), DIM, BG);
                 buf.write_str(cx, 6, "The \u{2726} menubar button opens the assistant.", DIM, BG);

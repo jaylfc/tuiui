@@ -38,6 +38,17 @@ pub fn resolve_agent(cfg_command: Option<&str>, cfg_args: &[String]) -> Option<(
     }
 }
 
+/// Whether the configured agent command looks runnable, for the Settings
+/// status marker. An explicit path (`assistant_command` may be a wrapper or an
+/// absolute path) is checked on disk; a bare name is looked up on `$PATH`.
+pub fn agent_available(command: &str) -> bool {
+    if command.contains('/') {
+        std::path::Path::new(command).is_file()
+    } else {
+        crate::catalog::is_installed(command)
+    }
+}
+
 /// The assistant's working directory (`$XDG_DATA_HOME` aware). The instruction
 /// pack lives here and the agent CLI starts here, so its context-file
 /// convention picks the briefing up automatically.
@@ -93,6 +104,12 @@ pub fn write_briefing(
     systems: &[crate::systems::RemoteSystem],
 ) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
+    // Best-effort: clear artifacts from the retired multi-framework stamping so
+    // upgraders don't keep stale context files with outdated placeholders. We
+    // leave `.env` alone — it may hold the user's provider secrets.
+    let _ = std::fs::remove_file(dir.join("CLAUDE.md"));
+    let _ = std::fs::remove_file(dir.join("HERMES.md"));
+    let _ = std::fs::remove_dir_all(dir.join("knowledge"));
     std::fs::write(dir.join("AGENTS.md"), briefing(host, systems))
 }
 
@@ -153,16 +170,38 @@ mod tests {
     }
 
     #[test]
-    fn pack_written_as_agents_md_only() {
+    fn pack_written_as_agents_md_and_cleans_retired_files() {
         let dir = std::env::temp_dir().join(format!("tuiui-assist-test-{}", std::process::id()));
+        // Simulate an upgrade: a workdir left by the old multi-framework stamping.
+        std::fs::create_dir_all(dir.join("knowledge")).unwrap();
+        std::fs::write(dir.join("CLAUDE.md"), "stale").unwrap();
+        std::fs::write(dir.join("HERMES.md"), "stale").unwrap();
+        std::fs::write(dir.join("knowledge/old.md"), "stale").unwrap();
+        std::fs::write(dir.join(".env"), "SECRET=keep").unwrap();
+
         write_briefing(&dir, "host", &sys()).unwrap();
+
         let a = std::fs::read_to_string(dir.join("AGENTS.md")).unwrap();
         assert!(a.contains("desktop assistant"));
         assert!(!a.contains("{{"), "placeholders filled");
-        // The retired multi-framework conventions are no longer stamped.
+        // Retired conventions are cleaned up on write…
         assert!(!dir.join("CLAUDE.md").exists());
         assert!(!dir.join("HERMES.md").exists());
         assert!(!dir.join("knowledge").exists());
+        // …but a user's .env (possible secrets) is left untouched.
+        assert!(dir.join(".env").exists());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn agent_available_handles_paths_and_names() {
+        // A bare name that surely isn't installed reports unavailable.
+        assert!(!agent_available("definitely-not-a-real-binary-xyz"));
+        // An explicit path is checked on disk, not on $PATH.
+        let f = std::env::temp_dir().join(format!("tuiui-agent-{}", std::process::id()));
+        std::fs::write(&f, "#!/bin/sh\n").unwrap();
+        assert!(agent_available(&f.display().to_string()), "an existing path is available");
+        let _ = std::fs::remove_file(&f);
+        assert!(!agent_available("/no/such/path/opencode"), "a missing path is unavailable");
     }
 }
