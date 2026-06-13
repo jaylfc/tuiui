@@ -114,7 +114,7 @@ impl Settings {
             2 => if self.apphost_outdated { 4 } else { 3 }, // check, install, branch [, restart apphost]
             3 => self.cfg.launcher.len() + 1,  // custom apps + "＋ Add app…"
             4 => DEFAULT_APP_ROLES.len(),
-            5 => 1,                            // assistant open-as mode
+            5 => 2,                            // assistant: open-as mode, agent
             _ => 0,                            // About
         }
     }
@@ -243,6 +243,22 @@ impl Settings {
             (5, 0) => {
                 self.cfg.assistant_mode =
                     if self.cfg.assistant_mode == "panel" { "window".into() } else { "panel".into() };
+            }
+            (5, 1) => {
+                // Switch the agent between the supported CLIs (opencode ⇄ hermes),
+                // stored in `assistant_command`.
+                let agents = crate::assistant::AGENTS;
+                let cur = self
+                    .cfg
+                    .assistant_command
+                    .as_deref()
+                    .and_then(|c| agents.iter().position(|&a| a == c))
+                    .unwrap_or(0);
+                let next = match dir {
+                    -1 => (cur + agents.len() - 1) % agents.len(),
+                    _ => (cur + 1) % agents.len(),
+                };
+                self.cfg.assistant_command = Some(agents[next].to_string());
             }
             (4, i) => {
                 if let Some((key, _)) = DEFAULT_APP_ROLES.get(i) {
@@ -396,15 +412,15 @@ impl Settings {
             }
             3 => self.render_apps(&mut buf, cx, w),
             5 => {
-                // Agent is opencode (overridable via config); show its status.
+                // Agent switches between opencode and hermes; a hand-edited
+                // assistant_command may name any binary, shown as-is.
                 let agent = self.cfg.assistant_command.as_deref().unwrap_or(crate::assistant::DEFAULT_AGENT);
                 let mark = if crate::assistant::agent_available(agent) { "" } else { " (not installed)" };
                 self.row(&mut buf, cx, 3, 0, "Open as", format!("\u{25C2} {} \u{25B8}", self.cfg.assistant_mode));
-                buf.write_str(cx, 5, &format!("Agent: {agent}{mark}"), DIM, BG);
+                self.row(&mut buf, cx, 4, 1, "Agent", format!("\u{25C2} {agent} \u{25B8}{mark}"));
                 buf.write_str(cx, 6, "The \u{2726} menubar button opens the assistant.", DIM, BG);
                 buf.write_str(cx, 7, "Its briefing pack: ~/.local/share/tuiui/assistant", DIM, BG);
-                buf.write_str(cx, 8, "Override the binary/args: assistant_command,", DIM, BG);
-                buf.write_str(cx, 9, "assistant_args in config.toml.", DIM, BG);
+                buf.write_str(cx, 8, "Extra args: assistant_args in config.toml.", DIM, BG);
             }
             4 => {
                 for (i, (key, label)) in DEFAULT_APP_ROLES.iter().enumerate() {
@@ -626,5 +642,20 @@ mod tests {
         s.sel = 5; // auto-tile toggle
         s.toggle();
         assert!(s.config().auto_tile);
+    }
+
+    #[test]
+    fn assistant_section_switches_agent_between_opencode_and_hermes() {
+        let mut s = Settings::new(Config::default());
+        s.section = 5; // Assistant
+        assert_eq!(SECTIONS[s.section], "Assistant");
+        s.sel = 1; // the Agent row
+        assert!(s.config().assistant_command.is_none(), "unset defaults to opencode");
+        s.toggle(); // opencode -> hermes
+        assert_eq!(s.config().assistant_command.as_deref(), Some("hermes"));
+        s.toggle(); // hermes -> opencode
+        assert_eq!(s.config().assistant_command.as_deref(), Some("opencode"));
+        s.left(); // wraps backward to hermes
+        assert_eq!(s.config().assistant_command.as_deref(), Some("hermes"));
     }
 }
