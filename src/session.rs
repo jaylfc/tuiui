@@ -3869,25 +3869,23 @@ fn check_for_updates(branch: &str) -> String {
 }
 
 /// Parse a `MAJOR.MINOR.PATCH` version (a leading `v` is tolerated) into a
-/// comparable tuple, or `None` if it doesn't look like one. This is a numeric
+/// comparable tuple, or `None` if it isn't exactly that. This is a numeric
 /// `major.minor.patch` comparison, *not* full semver: any `-pre`/`+build`
 /// suffix is dropped before parsing (tuiui only ever ships plain release
-/// versions, so pre-release precedence never comes up). A component that isn't
-/// a number makes the whole thing `None`, so a malformed release tag surfaces
-/// as a check failure instead of silently comparing as `0.0.0`.
+/// versions, so pre-release precedence never comes up). Anything that isn't
+/// three numeric components — too few, too many, or non-numeric — is `None`, so
+/// a malformed release tag surfaces as a check failure instead of silently
+/// comparing as `0.0.0`.
 fn semver_tuple(v: &str) -> Option<(u64, u64, u64)> {
     let core = v.trim().trim_start_matches('v').split(['-', '+']).next().unwrap_or("");
-    if core.is_empty() {
-        return None;
+    let mut it = core.split('.');
+    let major = it.next()?.trim().parse::<u64>().ok()?;
+    let minor = it.next()?.trim().parse::<u64>().ok()?;
+    let patch = it.next()?.trim().parse::<u64>().ok()?;
+    if it.next().is_some() {
+        return None; // a fourth component → not a MAJOR.MINOR.PATCH version
     }
-    let mut parts = [0u64; 3];
-    for (i, p) in core.split('.').enumerate() {
-        if i >= 3 {
-            break;
-        }
-        parts[i] = p.trim().parse::<u64>().ok()?;
-    }
-    Some((parts[0], parts[1], parts[2]))
+    Some((major, minor, patch))
 }
 
 #[cfg(test)]
@@ -3940,8 +3938,10 @@ mod tests {
         // Leading v and (ignored) pre-release/build suffixes parse to the core.
         assert_eq!(semver_tuple("v0.2.1"), Some((0, 2, 1)));
         assert_eq!(semver_tuple("0.2.1-rc1"), Some((0, 2, 1)));
-        assert_eq!(semver_tuple("0.2"), Some((0, 2, 0)), "missing patch defaults to 0");
-        // Malformed tags are None (→ "couldn't check"), not a silent 0.0.0.
+        // Anything that isn't exactly MAJOR.MINOR.PATCH is None (→ "couldn't
+        // check"), not a silent 0.0.0 / truncation.
+        assert_eq!(semver_tuple("0.2"), None, "too few components");
+        assert_eq!(semver_tuple("0.2.1.4"), None, "too many components");
         assert_eq!(semver_tuple("not-a-version"), None);
         assert_eq!(semver_tuple(""), None);
         assert_eq!(semver_tuple("v"), None);
