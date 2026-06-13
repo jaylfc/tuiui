@@ -238,28 +238,43 @@ fi\n",
 /// (`BatchMode=yes`, short `ConnectTimeout`): it authenticates with the very key
 /// it is revoking, filters that exact full line out of `authorized_keys`
 /// (keeping a `.tuiui.bak`), and leaves any other keys untouched. A missing
-/// local key or an unreachable host is a quiet no-op, never a hang.
+/// local key or an unreachable host is a quiet no-op, never a hang; any real
+/// remote-side failure exits non-zero so the caller can log it truthfully.
 pub fn revoke_script(host: &str, port: Option<u16>) -> String {
     let target = sh_quote(host);
     let pf = port_flag(port);
-    // Remote side: read our piped public keys into a temp file, drop only the
-    // lines that match one of them *exactly* (`grep -vxF`), keeping a backup.
-    // grep rc 0 (some kept) and 1 (none kept → file becomes empty, which is
-    // correct when ours was the only key) are both success; rc >= 2 is a real
-    // error, so we leave authorized_keys untouched.
+    // Remote side: filter our piped public keys out of authorized_keys, dropping
+    // only lines that match one *exactly* (`grep -vxF`). Both the scratch file
+    // and the result live *inside* `~/.ssh`, never `/tmp`: a file `mv`d in from
+    // `/tmp` can carry a `tmp_t` SELinux label (or cross a filesystem) and make
+    // sshd refuse the whole file, silently locking the user out of every key.
+    // We `chmod 600` before the swap (shell redirection would leave it
+    // world-readable) and back up first, aborting if the backup can't be made.
+    // grep rc 0/1 are both success (1 = ours was the only line → file becomes
+    // empty); rc >= 2 is a real error. Every failure exits non-zero so the
+    // caller logs an honest failure instead of a misleading "done".
     let remote = sh_quote(
         "ak=\"$HOME/.ssh/authorized_keys\"; [ -f \"$ak\" ] || exit 0; \
-f=$(mktemp) || exit 0; cat > \"$f\"; cp \"$ak\" \"$ak.tuiui.bak\" 2>/dev/null; \
-grep -vxFf \"$f\" \"$ak\" > \"$f.out\"; rc=$?; \
-if [ \"$rc\" -le 1 ]; then mv \"$f.out\" \"$ak\"; else rm -f \"$f.out\"; fi; rm -f \"$f\"",
+in=\"$ak.tuiui.in\"; out=\"$ak.tuiui.tmp\"; \
+cat > \"$in\" || { rm -f \"$in\"; exit 2; }; \
+cp \"$ak\" \"$ak.tuiui.bak\" || { echo 'tuiui: backup failed'; rm -f \"$in\"; exit 2; }; \
+grep -vxFf \"$in\" \"$ak\" > \"$out\"; rc=$?; \
+if [ \"$rc\" -le 1 ]; then chmod 600 \"$out\"; mv \"$out\" \"$ak\" || { rm -f \"$in\" \"$out\"; exit 2; }; \
+else rm -f \"$in\" \"$out\"; exit \"$rc\"; fi; \
+rm -f \"$in\"; exit 0",
     );
-    // Local side: bail (loudly) when there is no public key to revoke, else cat
-    // the default identities and pipe them to the remote filter above.
+    // Local side: collect every *readable* local public identity — all
+    // `~/.ssh/*.pub` plus any agent-held keys — because `ssh-copy-id` (run
+    // without `-i` at setup) may have installed any of them, not just the
+    // ed25519/rsa defaults. Bail cleanly when there are none, else pipe them to
+    // the remote filter and propagate its exit status.
     format!(
-        "have=0; for p in \"$HOME/.ssh/id_ed25519.pub\" \"$HOME/.ssh/id_rsa.pub\"; do [ -f \"$p\" ] && have=1; done; \
-if [ \"$have\" = 0 ]; then echo 'tuiui: no local SSH public key to revoke'; exit 0; fi; \
-{{ for p in \"$HOME/.ssh/id_ed25519.pub\" \"$HOME/.ssh/id_rsa.pub\"; do [ -f \"$p\" ] && cat \"$p\"; done; }} | \
-ssh -o BatchMode=yes -o ConnectTimeout=8 {pf}{target} {remote}"
+        "kf=$(mktemp) || exit 1; \
+{{ for p in \"$HOME\"/.ssh/*.pub; do [ -r \"$p\" ] && cat \"$p\"; done; \
+command -v ssh-add >/dev/null 2>&1 && ssh-add -L 2>/dev/null; }} \
+| grep -v '^$' | sort -u > \"$kf\"; \
+if [ ! -s \"$kf\" ]; then echo 'tuiui: no local SSH public key to revoke'; rm -f \"$kf\"; exit 0; fi; \
+ssh -o BatchMode=yes -o ConnectTimeout=8 {pf}{target} {remote} < \"$kf\"; rc=$?; rm -f \"$kf\"; exit \"$rc\""
     )
 }
 
@@ -307,7 +322,12 @@ mod tests {
         assert!(s.contains("'pi@10.0.0.2'"), "targets the host: {s}");
         assert!(s.contains("grep -vxFf"), "removes exact full-line key matches: {s}");
         assert!(s.contains(".tuiui.bak"), "keeps a backup: {s}");
-        assert!(s.contains("id_ed25519.pub") && s.contains("id_rsa.pub"), "considers both default keys: {s}");
+        assert!(s.contains("backup failed"), "aborts if the backup can't be made: {s}");
+        assert!(s.contains("chmod 600"), "tightens perms before swapping in: {s}");
+        assert!(s.contains("$ak.tuiui.tmp"), "writes the result inside ~/.ssh, not /tmp: {s}");
+        assert!(s.contains("/.ssh/*.pub"), "considers every local public identity: {s}");
+        assert!(s.contains("ssh-add -L"), "also covers agent-held keys: {s}");
+        assert!(s.contains("[ -r "), "only reads readable key files: {s}");
         assert!(s.contains("no local SSH public key to revoke"), "no-ops cleanly with no key: {s}");
     }
 

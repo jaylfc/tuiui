@@ -1179,7 +1179,8 @@ impl SessionCore {
                     ));
                 }
                 None => crate::dbg_log(&format!(
-                    "systems: revoke on '{}' failed (host unreachable or key already gone)",
+                    "systems: revoke on '{}' did not complete (host unreachable, auth refused, \
+or a remote-side error — its authorized_keys was left untouched)",
                     sys.name
                 )),
             }
