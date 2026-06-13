@@ -232,6 +232,37 @@ fi\n",
     s
 }
 
+/// The local shell script that removes *this* machine's public key(s) from a
+/// remote's `~/.ssh/authorized_keys` — the inverse of the `ssh-copy-id` that
+/// [`switch_script`]'s setup performs. It is best-effort and non-interactive
+/// (`BatchMode=yes`, short `ConnectTimeout`): it authenticates with the very key
+/// it is revoking, filters that exact full line out of `authorized_keys`
+/// (keeping a `.tuiui.bak`), and leaves any other keys untouched. A missing
+/// local key or an unreachable host is a quiet no-op, never a hang.
+pub fn revoke_script(host: &str, port: Option<u16>) -> String {
+    let target = sh_quote(host);
+    let pf = port_flag(port);
+    // Remote side: read our piped public keys into a temp file, drop only the
+    // lines that match one of them *exactly* (`grep -vxF`), keeping a backup.
+    // grep rc 0 (some kept) and 1 (none kept → file becomes empty, which is
+    // correct when ours was the only key) are both success; rc >= 2 is a real
+    // error, so we leave authorized_keys untouched.
+    let remote = sh_quote(
+        "ak=\"$HOME/.ssh/authorized_keys\"; [ -f \"$ak\" ] || exit 0; \
+f=$(mktemp) || exit 0; cat > \"$f\"; cp \"$ak\" \"$ak.tuiui.bak\" 2>/dev/null; \
+grep -vxFf \"$f\" \"$ak\" > \"$f.out\"; rc=$?; \
+if [ \"$rc\" -le 1 ]; then mv \"$f.out\" \"$ak\"; else rm -f \"$f.out\"; fi; rm -f \"$f\"",
+    );
+    // Local side: bail (loudly) when there is no public key to revoke, else cat
+    // the default identities and pipe them to the remote filter above.
+    format!(
+        "have=0; for p in \"$HOME/.ssh/id_ed25519.pub\" \"$HOME/.ssh/id_rsa.pub\"; do [ -f \"$p\" ] && have=1; done; \
+if [ \"$have\" = 0 ]; then echo 'tuiui: no local SSH public key to revoke'; exit 0; fi; \
+{{ for p in \"$HOME/.ssh/id_ed25519.pub\" \"$HOME/.ssh/id_rsa.pub\"; do [ -f \"$p\" ] && cat \"$p\"; done; }} | \
+ssh -o BatchMode=yes -o ConnectTimeout=8 {pf}{target} {remote}"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -265,6 +296,19 @@ mod tests {
         assert!(s.contains("infocmp"), "guards against missing remote terminfo: {s}");
         assert!(s.contains("TERM=xterm-256color"), "falls back to a universal TERM: {s}");
         assert!(!s.contains("ssh-copy-id"), "no setup steps on a plain switch");
+    }
+
+    #[test]
+    fn revoke_script_filters_our_key_best_effort() {
+        let s = revoke_script("pi@10.0.0.2", Some(2222));
+        assert!(s.contains("ssh -o BatchMode=yes"), "non-interactive: {s}");
+        assert!(s.contains("ConnectTimeout=8"), "bounded connect: {s}");
+        assert!(s.contains("-p 2222 "), "carries the custom port: {s}");
+        assert!(s.contains("'pi@10.0.0.2'"), "targets the host: {s}");
+        assert!(s.contains("grep -vxFf"), "removes exact full-line key matches: {s}");
+        assert!(s.contains(".tuiui.bak"), "keeps a backup: {s}");
+        assert!(s.contains("id_ed25519.pub") && s.contains("id_rsa.pub"), "considers both default keys: {s}");
+        assert!(s.contains("no local SSH public key to revoke"), "no-ops cleanly with no key: {s}");
     }
 
     #[test]

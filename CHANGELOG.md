@@ -4,6 +4,17 @@ All notable changes to tuiui are recorded here. The project uses
 [semantic versioning](https://semver.org); while pre-1.0, minor versions may
 carry user-visible feature work and the occasional breaking config change.
 
+## [Unreleased]
+
+### Added
+- **Revoke SSH key when forgetting a system**: the ✕ in the Systems menu now
+  opens a confirm with an opt-in *"Also revoke this PC's key on &lt;host&gt;"*
+  toggle. When checked, removing the system also strips this machine's public
+  key from that remote's `~/.ssh/authorized_keys` (the inverse of the key copy
+  that adding it performed) — exact full-line match only, keeping a `.tuiui.bak`.
+  It runs best-effort on a background thread, so an offline host never blocks the
+  removal or the UI; the local forget always succeeds.
+
 ## [0.2.1] — 2026-06-13
 
 ### Added
