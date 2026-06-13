@@ -26,6 +26,12 @@ const RULES_MD: &str = include_str!("../agent/RULES.md");
 /// in config.toml to point the panel at a different binary.
 pub const DEFAULT_AGENT: &str = "opencode";
 
+/// The agent CLIs the Assistant settings switch cycles between. `opencode` is
+/// the default; `hermes` is the supported alternative. Stored in
+/// `assistant_command`, so a hand-edited config can still point at any binary —
+/// the switch just flips between these two.
+pub const AGENTS: &[&str] = &["opencode", "hermes"];
+
 /// Resolve the agent command + args. An explicit `assistant_command` override
 /// is trusted as-is (with `assistant_args`); otherwise we default to opencode,
 /// returning `None` when it isn't installed so the caller can steer the user to

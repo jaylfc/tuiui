@@ -6,6 +6,13 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+### Added
+- **Switchable assistant agent**: Settings → Assistant now has an **Agent** row
+  that flips the ✦ panel between the two supported CLIs — **opencode** (default)
+  and **hermes**. The choice is stored in `assistant_command`, so an existing
+  config that points at one of them is reflected in the switch (and a
+  hand-edited `assistant_command` can still name any binary).
+
 ## [0.2.7] — 2026-06-13
 
 ### Fixed
