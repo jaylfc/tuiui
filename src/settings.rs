@@ -17,10 +17,6 @@ const GREEN: Rgba = Rgba { r: 126, g: 231, b: 135, a: 255 };
 const SIDEBAR_W: i32 = 18;
 const SECTIONS: &[&str] = &["Windows", "Appearance", "Updates", "Apps", "Default Apps", "Assistant", "About"];
 
-/// Framework choices for the Assistant section: auto-detect, then the
-/// supported agent CLIs (see `assistant::AGENT_CLIS`).
-const ASSISTANT_FRAMEWORKS: &[&str] = &["auto", "claude", "opencode", "smallcode", "kilo", "hermes", "openclaw"];
-
 /// Roles listed in the Default Apps section (config key, label).
 const DEFAULT_APP_ROLES: &[(&str, &str)] = &[
     ("image", "Images"),
@@ -118,7 +114,7 @@ impl Settings {
             2 => if self.apphost_outdated { 4 } else { 3 }, // check, install, branch [, restart apphost]
             3 => self.cfg.launcher.len() + 1,  // custom apps + "＋ Add app…"
             4 => DEFAULT_APP_ROLES.len(),
-            5 => 2,                            // assistant framework, mode
+            5 => 1,                            // assistant open-as mode
             _ => 0,                            // About
         }
     }
@@ -245,17 +241,6 @@ impl Settings {
             // Apps section.
             (3, _) => self.adjust_apps(dir),
             (5, 0) => {
-                // Framework cycler: "auto" ↔ each supported agent CLI.
-                let cur = self.cfg.assistant_command.as_deref().unwrap_or("auto");
-                let idx = ASSISTANT_FRAMEWORKS.iter().position(|f| *f == cur).unwrap_or(0);
-                let n = ASSISTANT_FRAMEWORKS.len();
-                let next = if dir == -1 { (idx + n - 1) % n } else { (idx + 1) % n };
-                self.cfg.assistant_command = match ASSISTANT_FRAMEWORKS[next] {
-                    "auto" => None,
-                    f => Some(f.to_string()),
-                };
-            }
-            (5, 1) => {
                 self.cfg.assistant_mode =
                     if self.cfg.assistant_mode == "panel" { "window".into() } else { "panel".into() };
             }
@@ -411,21 +396,15 @@ impl Settings {
             }
             3 => self.render_apps(&mut buf, cx, w),
             5 => {
-                let cur = self.cfg.assistant_command.as_deref().unwrap_or("auto");
-                let shown = if cur == "auto" {
-                    match crate::assistant::resolve_agent(None, &[]) {
-                        Some((cmd, _)) => format!("auto ({cmd})"),
-                        None => "auto (none found)".into(),
-                    }
-                } else {
-                    let mark = if crate::catalog::is_installed(cur) { "" } else { " (not installed)" };
-                    format!("{cur}{mark}")
-                };
-                self.row(&mut buf, cx, 3, 0, "Framework", format!("\u{25C2} {shown} \u{25B8}"));
-                self.row(&mut buf, cx, 4, 1, "Open as", format!("\u{25C2} {} \u{25B8}", self.cfg.assistant_mode));
+                // Agent is opencode (overridable via config); show its status.
+                let agent = self.cfg.assistant_command.as_deref().unwrap_or(crate::assistant::DEFAULT_AGENT);
+                let mark = if crate::catalog::is_installed(agent) { "" } else { " (not installed)" };
+                self.row(&mut buf, cx, 3, 0, "Open as", format!("\u{25C2} {} \u{25B8}", self.cfg.assistant_mode));
+                buf.write_str(cx, 5, &format!("Agent: {agent}{mark}"), DIM, BG);
                 buf.write_str(cx, 6, "The \u{2726} menubar button opens the assistant.", DIM, BG);
                 buf.write_str(cx, 7, "Its briefing pack: ~/.local/share/tuiui/assistant", DIM, BG);
-                buf.write_str(cx, 8, "Extra CLI args: assistant_args in config.toml", DIM, BG);
+                buf.write_str(cx, 8, "Override the binary/args: assistant_command,", DIM, BG);
+                buf.write_str(cx, 9, "assistant_args in config.toml.", DIM, BG);
             }
             4 => {
                 for (i, (key, label)) in DEFAULT_APP_ROLES.iter().enumerate() {

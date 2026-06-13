@@ -6,6 +6,16 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+### Changed
+- **Assistant standardised on opencode**: the ✦ assistant now runs a single
+  agent CLI — **opencode** (model-agnostic, MCP-extensible) — instead of a
+  six-framework menu. The per-framework machinery is gone (Claude Code / Kilo /
+  Hermes / OpenClaw / smallcode plumbing, the `CLAUDE.md` / `HERMES.md` /
+  `knowledge/*.md` stamping, the smallcode `.env` and OpenClaw workspace pointer,
+  and the Settings framework picker); the briefing is stamped once as `AGENTS.md`.
+  `assistant_command` in config.toml still overrides the binary, and broader
+  OS/computer-use control is added via MCP servers in opencode's own config.
+
 ### Added
 - **Revoke SSH key when forgetting a system**: the ✕ in the Systems menu now
   opens a confirm with an opt-in *"Also revoke this PC's key on &lt;host&gt;"*

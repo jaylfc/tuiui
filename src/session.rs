@@ -1199,15 +1199,6 @@ or a remote-side error — its authorized_keys was left untouched)",
             AppEntry { name: "Logs".into(), command: "@logs".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
             AppEntry { name: "Activity".into(), command: "@activity".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
         ];
-        // Chat shortcuts for the gateway-style assistants when installed
-        // (their chat UI is behind a flag/subcommand, so the bare-binary
-        // entries the catalog auto-detects wouldn't open the right thing).
-        if crate::catalog::is_installed("hermes") {
-            apps.push(AppEntry { name: "Hermes Chat".into(), command: "hermes".into(), args: vec!["--tui".into()], category: Some("AI".into()), requires_cwd: None, cwd: None });
-        }
-        if crate::catalog::is_installed("openclaw") {
-            apps.push(AppEntry { name: "OpenClaw Chat".into(), command: "openclaw".into(), args: vec!["tui".into()], category: Some("AI".into()), requires_cwd: None, cwd: None });
-        }
         // One remote file browser per saved system (Systems category).
         for sys in systems {
             apps.push(AppEntry {
@@ -2047,17 +2038,17 @@ or a remote-side error — its authorized_keys was left untouched)",
         self.open_assistant();
     }
 
-    /// Spawn the assistant agent in a persistent right-side panel. The agent is
-    /// a normal apphost app (survives detach/reload); its briefing is injected
-    /// via CLAUDE.md/AGENTS.md in a dedicated working directory, which the
-    /// major agent CLIs read on startup.
+    /// Spawn the assistant agent (opencode by default) in a persistent
+    /// right-side panel. The agent is a normal apphost app (survives
+    /// detach/reload); its briefing is stamped as `AGENTS.md` in a dedicated
+    /// working directory, which opencode reads on startup.
     fn open_assistant(&mut self) {
         let Some((command, args)) =
             crate::assistant::resolve_agent(self.cfg.assistant_command.as_deref(), &self.cfg.assistant_args)
         else {
             crate::dbg_log(&format!(
-                "assistant: no agent CLI found (looked for {:?}; set assistant_command in config.toml)",
-                crate::assistant::AGENT_CLIS
+                "assistant: '{}' not found (install it, or set assistant_command in config.toml)",
+                crate::assistant::DEFAULT_AGENT
             ));
             // Point the user at the AI category instead of failing silently.
             self.open_store();
@@ -2067,21 +2058,6 @@ or a remote-side error — its authorized_keys was left untouched)",
         let host = self.power_label.trim().trim_end_matches('\u{25be}').trim().to_string();
         if let Err(e) = crate::assistant::write_briefing(&dir, &host, &self.systems) {
             crate::dbg_log(&format!("assistant: briefing write failed: {e}"));
-        }
-        // OpenClaw assembles its prompt from its own workspace, not our cwd:
-        // leave a marked pointer there so it finds the pack too.
-        match command.rsplit('/').next() {
-            Some("openclaw") => {
-                if let Err(e) = crate::assistant::inject_openclaw_pointer(&dir) {
-                    crate::dbg_log(&format!("assistant: openclaw pointer failed: {e}"));
-                }
-            }
-            Some("smallcode") | Some("smolv2") => {
-                if let Err(e) = crate::assistant::seed_smallcode_env(&dir) {
-                    crate::dbg_log(&format!("assistant: smallcode .env seed failed: {e}"));
-                }
-            }
-            _ => {}
         }
         crate::dbg_log(&format!(
             "assistant: starting '{command}' ({}) in {}",
@@ -3933,8 +3909,8 @@ mod tests {
         assert!(semver_tuple("0.3.0") > semver_tuple("0.2.9"));
         assert!(semver_tuple("1.0.0") > semver_tuple("0.9.9"));
         // Installed >= latest release → no downgrade prompt.
-        assert!(!(semver_tuple("0.2.0") > semver_tuple("0.2.1")), "local ahead of release");
-        assert!(!(semver_tuple("0.2.1") > semver_tuple("0.2.1")), "equal = up to date");
+        assert!(semver_tuple("0.2.0") <= semver_tuple("0.2.1"), "local ahead of release");
+        assert!(semver_tuple("0.2.1") <= semver_tuple("0.2.1"), "equal = up to date");
         // Leading v and (ignored) pre-release/build suffixes parse to the core.
         assert_eq!(semver_tuple("v0.2.1"), Some((0, 2, 1)));
         assert_eq!(semver_tuple("0.2.1-rc1"), Some((0, 2, 1)));

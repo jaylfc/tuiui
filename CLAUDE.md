@@ -82,12 +82,13 @@ real terminal              composites frames, routes input    survives UI reload
 
 `src/assistant.rs` + the `agent/` folder. `agent/*.md` is the single source
 of truth for everything the in-app agent is told — embedded via
-`include_str!`, stamped into `~/.local/share/tuiui/assistant/` at launch in
-every convention the six supported CLIs read (CLAUDE.md / AGENTS.md /
-HERMES.md / knowledge/*.md; OpenClaw gets a workspace pointer; smallcode a
-`.env` template). Framework launch facts (e.g. `openclaw tui` is a
-subcommand, `hermes --tui` is a flag) are documented in `default_args` —
-verify against current docs before changing, these tools move fast.
+`include_str!`, stamped into `~/.local/share/tuiui/assistant/` at launch as
+`AGENTS.md`, the context file the assistant reads on startup. tuiui
+standardises on the **opencode** CLI (`DEFAULT_AGENT`); `assistant_command`
+in config.toml can point the panel at a different binary, but there is no
+per-framework branching — opencode is model-agnostic and MCP-extensible, so
+broader OS/computer-use control is added via MCP servers in opencode's own
+config rather than by adding frameworks here.
 
 ## Tests
 
