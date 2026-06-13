@@ -6,6 +6,8 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-06-13
+
 ### Changed
 - **Assistant standardised on opencode**: the ✦ assistant now runs a single
   agent CLI — **opencode** (model-agnostic, MCP-extensible) — instead of a
