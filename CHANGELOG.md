@@ -18,6 +18,17 @@ carry user-visible feature work and the occasional breaking config change.
   the removal or the UI, the local forget always succeeds, and any remote-side
   failure is logged rather than silently assumed done.
 
+### Fixed
+- **Activity Monitor refresh while hidden**: the per-frame app snapshot was
+  still running when the Activity panel was open but **minimized** (or hidden in
+  simple mode), so the window-drag stutter could persist in those states. The
+  refresh now also requires the panel to be visible.
+- **Update check no longer offers downgrades**: the main-channel version
+  comparison was a plain string compare, so a local build *newer* than the
+  latest release (mid-release-cut, or a dev/source build) showed a bogus
+  "update available → older version". It is now semver-aware and only offers a
+  strictly-newer release.
+
 ## [0.2.1] — 2026-06-13
 
 ### Added

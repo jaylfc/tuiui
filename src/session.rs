@@ -2390,14 +2390,23 @@ or a remote-side error — its authorized_keys was left untouched)",
 
     /// Rebuild the activity monitor's row list from the current `AppHost`.
     /// Called every frame so the table stays live — but only does any work when
-    /// the panel is actually open. Probing every hosted app each frame is costly
-    /// (`apphost_dims` clones a whole app grid via `snapshot`), so when the
-    /// window is closed we must not pay it: otherwise every render — including
-    /// each step of a window drag — stalls behind N full grid copies, which is
-    /// what makes dragging feel sticky/jerky.
+    /// the panel is actually *visible*. Probing every hosted app each frame is
+    /// costly (`apphost_dims` clones a whole app grid via `snapshot`), so we must
+    /// not pay it when the rows aren't on screen: otherwise every render —
+    /// including each step of a window drag — stalls behind N full grid copies,
+    /// which is what makes dragging feel sticky/jerky. A minimized panel (skipped
+    /// by `build_frame`), or a non-focused one in simple mode (hidden by
+    /// `build_frame_simple`), counts as not visible.
     pub fn refresh_activity(&mut self) {
         let win = match self.activity_win {
-            Some(id) if matches!(self.contents.get(&id), Some(WinContent::Activity(_))) => id,
+            Some(id)
+                if matches!(self.contents.get(&id), Some(WinContent::Activity(_)))
+                    && self.wm.get(id).is_some_and(|w| {
+                        !w.minimized && (!self.simple || self.wm.focused() == Some(id))
+                    }) =>
+            {
+                id
+            }
             _ => return,
         };
         let entries: Vec<crate::apphost::AppListEntry> = self
@@ -3825,13 +3834,16 @@ fn check_for_updates(branch: &str) -> String {
             Some(t) => t,
             None => return "Couldn't check (offline?)".to_string(),
         };
-        let norm = |s: &str| s.trim_start_matches('v').to_string();
-        let latest = norm(&tag);
+        let latest = tag.trim_start_matches('v');
         let cur = crate::VERSION; // CARGO_PKG_VERSION, e.g. "0.2.1"
-        if norm(cur) == latest {
-            format!("Up to date (v{cur})")
-        } else {
+        // Only offer the update when the release is *strictly newer* (semver):
+        // a plain string compare would prompt a downgrade when the local build
+        // is ahead of the latest tag — e.g. mid-release-cut, or a dev/source
+        // build whose version outruns the published release.
+        if semver_tuple(latest) > semver_tuple(cur) {
             format!("Update available: v{cur} → v{latest}")
+        } else {
+            format!("Up to date (v{cur})")
         }
     } else {
         // Dev channel: compare commits, show short hashes.
@@ -3851,6 +3863,16 @@ fn check_for_updates(branch: &str) -> String {
             None => "Couldn't check (offline?)".to_string(),
         }
     }
+}
+
+/// Parse a dotted version (`"0.2.1"`, with an optional leading `v` already
+/// stripped and any `-pre`/`+build` suffix ignored) into a comparable
+/// `(major, minor, patch)` tuple. Unparseable parts read as 0, so two odd tags
+/// just compare equal rather than panicking.
+fn semver_tuple(v: &str) -> (u64, u64, u64) {
+    let core = v.trim_start_matches('v').split(['-', '+']).next().unwrap_or(v);
+    let mut it = core.split('.').map(|p| p.trim().parse::<u64>().unwrap_or(0));
+    (it.next().unwrap_or(0), it.next().unwrap_or(0), it.next().unwrap_or(0))
 }
 
 #[cfg(test)]
@@ -3889,6 +3911,20 @@ mod tests {
         assert!(cmd.contains("cargo install --git"), "dev builds from source");
         assert!(cmd.contains("--branch dev"), "on the dev branch: {cmd}");
         assert!(!cmd.contains("install.sh"), "no prebuilt release off main");
+    }
+
+    #[test]
+    fn semver_tuple_orders_versions_and_never_downgrades() {
+        // Newer release than installed → an update is offered.
+        assert!(semver_tuple("0.2.2") > semver_tuple("0.2.1"));
+        assert!(semver_tuple("0.3.0") > semver_tuple("0.2.9"));
+        assert!(semver_tuple("1.0.0") > semver_tuple("0.9.9"));
+        // Installed >= latest release → no downgrade prompt.
+        assert!(!(semver_tuple("0.2.0") > semver_tuple("0.2.1")), "local ahead of release");
+        assert!(!(semver_tuple("0.2.1") > semver_tuple("0.2.1")), "equal = up to date");
+        // Leading v and pre-release/build suffixes are ignored for ordering.
+        assert_eq!(semver_tuple("v0.2.1"), semver_tuple("0.2.1"));
+        assert_eq!(semver_tuple("0.2.1-rc1"), semver_tuple("0.2.1"));
     }
 
     fn placement(x: i32, y: i32) -> crate::protocol::ImagePlacement {
