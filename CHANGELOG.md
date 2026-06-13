@@ -12,6 +12,13 @@ carry user-visible feature work and the occasional breaking config change.
   the rescue hatch for a mis-placed window).
 
 ### Fixed
+- **Log copy could crash the daemon**: copying a large (>200 KB) log that
+  contained non-ASCII near the 200 KB cut sliced a string mid-UTF-8 and
+  panicked; the cut now snaps to a character boundary.
+- **Apphost connection resilience**: a single corrupted/blank line on the
+  apphost socket no longer tears down the whole connection (which dropped the
+  frame stream for every window) — bad lines are logged and skipped, real IO
+  errors still end the loop.
 - **Updater robustness** (from a code review): an invalid or typo'd
   `update_branch` in `config.toml` now falls back to `main` instead of
   producing a malformed update command or check URL.

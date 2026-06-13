@@ -92,8 +92,15 @@ impl LogsView {
         let joined = self.lines.join("\n");
         let bytes = joined.as_bytes();
         let payload = if bytes.len() > MAX_COPY_BYTES {
-            // Cut on a line boundary inside the tail window.
-            let tail = &joined[joined.len() - MAX_COPY_BYTES..];
+            // Move the cut to a UTF-8 char boundary at/after the target offset —
+            // slicing at a raw byte index would PANIC mid-character, and log
+            // lines routinely hold non-ASCII (paths, app names, glyphs). Then
+            // trim the partial first line so we start on a whole line.
+            let mut cut = bytes.len() - MAX_COPY_BYTES;
+            while !joined.is_char_boundary(cut) {
+                cut += 1;
+            }
+            let tail = &joined[cut..];
             let start = tail.find('\n').map(|i| i + 1).unwrap_or(0);
             tail[start..].to_string()
         } else {
@@ -180,6 +187,23 @@ mod tests {
         assert!(s.len() <= super::MAX_COPY_BYTES);
         assert!(s.starts_with("line "), "starts on a whole line: {:?}", &s[..20]);
         assert!(v.status().contains("copied"));
+    }
+
+    #[test]
+    fn copy_payload_does_not_panic_on_multibyte_at_the_cut() {
+        // Lines full of multi-byte UTF-8 ('✦' is 3 bytes) so the ~200KB-from-end
+        // cut is overwhelmingly likely to land mid-character — must not panic.
+        let line = "✦".repeat(200); // 600 bytes/line
+        let mut v = LogsView {
+            lines: (0..2000).map(|i| format!("{i} {line}")).collect(),
+            scroll: 0,
+            follow: true,
+            status: String::new(),
+            page: std::cell::Cell::new(10),
+        };
+        let s = v.copy_payload(); // would panic on a non-boundary byte slice
+        assert!(s.len() <= super::MAX_COPY_BYTES);
+        assert!(std::str::from_utf8(s.as_bytes()).is_ok(), "valid UTF-8 out");
     }
 
     #[test]
