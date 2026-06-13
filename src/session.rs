@@ -1739,8 +1739,21 @@ or a remote-side error — its authorized_keys was left untouched)",
                 self.cursor = p;
                 // Right-clicking a dock pill opens its context menu (minimise /
                 // maximise / close / reset size). Groups target the focused
-                // window of the group, else the first.
-                if p.y == self.h - 1 {
+                // window of the group, else the first. Only when no other
+                // menu/modal is already showing: its click-capture block runs
+                // before the other modal routing, so opening it underneath a
+                // higher-z overlay would let a hidden menu silently eat the
+                // next click. Same overlay set as `app_mouse_area`.
+                let overlay_open = self.launcher.is_open()
+                    || self.help_open
+                    || self.dirpicker.is_some()
+                    || self.power_menu.is_open()
+                    || self.confirm_close.is_open()
+                    || self.compat_dialog
+                    || self.rename.is_some()
+                    || self.tray.open().is_some()
+                    || self.desktop.overlay_rect().is_some();
+                if !overlay_open && p.y == self.h - 1 {
                     let items = self.dock_items();
                     let hit = crate::chrome::dock_hit_regions(self.w, self.h, &items)
                         .into_iter()

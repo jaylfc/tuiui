@@ -489,6 +489,28 @@ fn closing_filemanager_does_not_confirm() {
 }
 
 #[test]
+fn dock_right_click_ignored_while_another_overlay_is_open() {
+    use tuiui::session::dock_ctx_row_rect;
+    // With the launcher open, right-clicking a dock pill must NOT open the dock
+    // context menu underneath it: its click-capture runs before the launcher's,
+    // so a hidden menu would silently eat the next click.
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::Launch { name: "shell".into(), command: "sh".into(), args: vec!["-c".into(), "sleep 5".into()] });
+    let before = core.focused_window_rect_for_test().unwrap();
+    let items = core.dock_items_for_test();
+    let (_, pill) = tuiui::chrome::dock_hit_regions(120, 40, &items)[0];
+    core.apply(ClientMsg::ToggleMenu); // open the launcher (a blocking overlay)
+    assert!(core.launcher_open());
+    core.apply(ClientMsg::MouseRightDown(Point::new(pill.x, 39)));
+    // The menu never opened, so clicking its Reset row does nothing — the click
+    // routes to the launcher instead, and the window is untouched.
+    let row = dock_ctx_row_rect(pill.x, 120, 40, 3);
+    core.apply(ClientMsg::MouseDown(Point::new(row.x + 1, row.y)));
+    assert_eq!(core.focused_window_rect_for_test().unwrap(), before);
+    core.shutdown();
+}
+
+#[test]
 fn dock_ctx_menu_stays_on_screen_on_tiny_terminal() {
     use tuiui::session::dock_ctx_rect;
     // On a terminal shorter than the menu box, y must clamp to 0 (never
