@@ -4,7 +4,14 @@ All notable changes to tuiui are recorded here. The project uses
 [semantic versioning](https://semver.org); while pre-1.0, minor versions may
 carry user-visible feature work and the occasional breaking config change.
 
-## [Unreleased]
+## [0.2.1] — 2026-06-13
+
+### Added
+- **Activity Monitor** (Ctrl+Space → A, or `@activity` in the launcher): a
+  live, auto-refreshing table of every app the apphost is hosting (id, pid,
+  command, age, dimensions, state) with kill-app controls and an Enter/y vs
+  Esc/n confirm for live apps. Also `tuiui ps` and `tuiui kill-app <id|all>`
+  CLI subcommands that work from any terminal or SSH session.
 
 ### Fixed
 - **Window dragging stutter**: moving (or resizing) a floating window felt
@@ -13,6 +20,14 @@ carry user-visible feature work and the occasional breaking config change.
   pass cloned every hosted app's full terminal grid just to read its size —
   stalling the render loop mid-drag. The refresh now does nothing unless the
   Activity Monitor window is actually open.
+- **Update loop on the main channel**: "Check for updates" compared the
+  installed build against the tip of the `main` branch, but the main channel
+  installs the latest prebuilt *release*. Any commit landed on `main` after the
+  last release showed a permanent "update available" that re-installing the
+  same release could never clear. The check now compares the installed version
+  against the latest release tag — matching what `install.sh` installs — and
+  reports it as versions (`v0.2.0 → v0.2.1`) instead of commit hashes. The dev
+  channel still tracks the branch tip and shows short commit hashes.
 
 ## [0.2.0] — 2026-06-10
 
