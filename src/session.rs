@@ -2357,8 +2357,17 @@ impl SessionCore {
     }
 
     /// Rebuild the activity monitor's row list from the current `AppHost`.
-    /// Called every frame so the table stays live.
+    /// Called every frame so the table stays live — but only does any work when
+    /// the panel is actually open. Probing every hosted app each frame is costly
+    /// (`apphost_dims` clones a whole app grid via `snapshot`), so when the
+    /// window is closed we must not pay it: otherwise every render — including
+    /// each step of a window drag — stalls behind N full grid copies, which is
+    /// what makes dragging feel sticky/jerky.
     pub fn refresh_activity(&mut self) {
+        let win = match self.activity_win {
+            Some(id) if matches!(self.contents.get(&id), Some(WinContent::Activity(_))) => id,
+            _ => return,
+        };
         let entries: Vec<crate::apphost::AppListEntry> = self
             .apphost
             .list()
@@ -2385,10 +2394,8 @@ impl SessionCore {
                 }
             })
             .collect();
-        if let Some(id) = self.activity_win {
-            if let Some(WinContent::Activity(a)) = self.contents.get_mut(&id) {
-                a.set_rows(entries);
-            }
+        if let Some(WinContent::Activity(a)) = self.contents.get_mut(&win) {
+            a.set_rows(entries);
         }
     }
 

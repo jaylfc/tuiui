@@ -4,6 +4,16 @@ All notable changes to tuiui are recorded here. The project uses
 [semantic versioning](https://semver.org); while pre-1.0, minor versions may
 carry user-visible feature work and the occasional breaking config change.
 
+## [Unreleased]
+
+### Fixed
+- **Window dragging stutter**: moving (or resizing) a floating window felt
+  sticky and jerky once a few apps were open. The activity monitor's row
+  refresh was running every frame even while its panel was closed, and each
+  pass cloned every hosted app's full terminal grid just to read its size —
+  stalling the render loop mid-drag. The refresh now does nothing unless the
+  Activity Monitor window is actually open.
+
 ## [0.2.0] — 2026-06-10
 
 The "desktop, networked" release: switch between machines, an AI copilot, and
