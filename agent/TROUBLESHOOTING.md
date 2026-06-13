@@ -13,8 +13,8 @@ copy it to their clipboard with `c`.
 - **App won't install from the Store**: the install runs in a visible shell
   window — read its output. Usually a missing toolchain (Go/Rust/Node/Python);
   the Store offers to install toolchains, or install via the package manager.
-- **App needs models/providers configured** (AI agents like openclaw, hermes,
-  smallcode): they have their own config/onboarding — run their setup in a
+- **App needs models/providers configured** (AI agents like opencode, aider):
+  they have their own config/onboarding — run their setup in a
   shell window and follow their docs. The Store's detail pane shows a setup
   tip for these apps.
 - **Garbled rendering**: ask the user to resize the terminal once (forces a
