@@ -62,8 +62,10 @@ pub enum PowerOutcome {
     /// Save a new system and switch to it with first-time setup (key transfer +
     /// remote install). The password is for setup only and is never persisted.
     AddAndConnect { system: RemoteSystem, password: Option<String> },
-    /// Remove a saved system (by name).
-    Forget(String),
+    /// Remove a saved system (by name). When `revoke` is `Some`, also strip this
+    /// machine's SSH key from that system's remote `authorized_keys` (best-effort
+    /// — the inverse of the key copy that adding it performed).
+    Forget { name: String, revoke: Option<RemoteSystem> },
 }
 
 /// Result of routing a click into an open power menu. While the menu is open it
@@ -89,6 +91,14 @@ pub struct AddForm {
 }
 
 const FORM_FIELDS: usize = 4;
+
+/// The "forget a system" confirmation, with an opt-in to also revoke this
+/// machine's SSH key on that remote.
+struct ForgetConfirm {
+    sys: RemoteSystem,
+    /// Whether to also strip our key from the remote's `authorized_keys`.
+    revoke: bool,
+}
 
 impl AddForm {
     /// Build the system + setup password from the form, if it is valid (the SSH
@@ -119,6 +129,8 @@ impl AddForm {
 pub struct PowerMenu {
     open: bool,
     confirm: Option<PowerAction>,
+    /// The "forget this system?" dialog (with the optional key-revoke toggle).
+    forget: Option<ForgetConfirm>,
     systems_open: bool,
     form: Option<AddForm>,
 }
@@ -206,6 +218,30 @@ fn dialog_buttons(w: i32, h: i32) -> (Rect, Rect) {
     (cancel, confirm)
 }
 
+/// The centered "forget a system" dialog — a touch taller than the power
+/// confirm to fit the revoke-key checkbox row.
+fn forget_dialog_rect(w: i32, h: i32) -> Rect {
+    let box_w = 56.min((w - 2).max(24));
+    let box_h = 9.min((h - 1).max(7));
+    Rect::new((w - box_w) / 2, ((h - box_h) / 2).max(0), box_w, box_h)
+}
+
+/// The clickable `[ ] Also revoke …` checkbox row inside the forget dialog.
+fn forget_checkbox_rect(w: i32, h: i32) -> Rect {
+    let d = forget_dialog_rect(w, h);
+    Rect::new(d.x + 2, d.y + 3, d.w - 4, 1)
+}
+
+/// Screen rects of the forget dialog's `(Cancel, Remove)` buttons.
+fn forget_buttons(w: i32, h: i32) -> (Rect, Rect) {
+    let d = forget_dialog_rect(w, h);
+    let by = d.y + d.h - 2;
+    let cancel = Rect::new(d.x + 2, by, 10, 1);
+    let remove_w = 14;
+    let remove = Rect::new(d.x + d.w - 2 - remove_w, by, remove_w, 1);
+    (cancel, remove)
+}
+
 impl PowerMenu {
     pub fn new() -> Self {
         Self::default()
@@ -214,7 +250,7 @@ impl PowerMenu {
     /// Whether the menu is showing anything (dropdown, submenu, form, or confirm
     /// dialog). When true the menu is modal and the session routes clicks to it.
     pub fn is_open(&self) -> bool {
-        self.open || self.confirm.is_some() || self.form.is_some()
+        self.open || self.confirm.is_some() || self.forget.is_some() || self.form.is_some()
     }
 
     /// Whether the Add Remote form is open (the client forwards typed chars).
@@ -235,6 +271,7 @@ impl PowerMenu {
     pub fn close(&mut self) {
         self.open = false;
         self.confirm = None;
+        self.forget = None;
         self.systems_open = false;
         self.form = None;
     }
@@ -350,6 +387,32 @@ impl PowerMenu {
             return PowerClick::Consumed;
         }
 
+        // The forget dialog is modal on top of the Systems submenu.
+        if let Some(fc) = self.forget.as_mut() {
+            let (cancel, remove) = forget_buttons(w, h);
+            if forget_checkbox_rect(w, h).contains(p) {
+                fc.revoke = !fc.revoke;
+                return PowerClick::Consumed;
+            }
+            if remove.contains(p) {
+                let name = fc.sys.name.clone();
+                let revoke = fc.revoke.then(|| fc.sys.clone());
+                self.close();
+                return PowerClick::Act(PowerOutcome::Forget { name, revoke });
+            }
+            if cancel.contains(p) {
+                // Back to the Systems submenu so a mis-click isn't a dead end.
+                self.forget = None;
+                self.open = true;
+                self.systems_open = true;
+                return PowerClick::Consumed;
+            }
+            if !forget_dialog_rect(w, h).contains(p) {
+                self.close();
+            }
+            return PowerClick::Consumed;
+        }
+
         // The confirm dialog is modal on top of the dropdown.
         if let Some(action) = self.confirm {
             let (cancel, confirm) = dialog_buttons(w, h);
@@ -385,8 +448,12 @@ impl PowerMenu {
             for (i, sys) in systems.iter().enumerate() {
                 let row = i + 1;
                 if forget_rect(w, n, row).contains(p) {
-                    let name = sys.name.clone();
-                    return PowerClick::Act(PowerOutcome::Forget(name));
+                    // The ✕ no longer removes instantly: open a confirm with the
+                    // optional "also revoke my key on the remote" toggle.
+                    self.forget = Some(ForgetConfirm { sys: sys.clone(), revoke: false });
+                    self.open = false;
+                    self.systems_open = false;
+                    return PowerClick::Consumed;
                 }
                 if systems_row_rect(w, n, row).contains(p) {
                     self.close();
@@ -572,6 +639,50 @@ impl PowerMenu {
             layers.push(Layer { z: 6000, origin: Point::new(d.x, d.y), buf, opacity: 1.0, scissor: None });
         }
 
+        if let Some(fc) = &self.forget {
+            let d = forget_dialog_rect(w, h);
+            let mut buf = CellBuffer::new(d.w, d.h);
+            buf.fill(Cell { ch: ' ', fg: t.text, bg: t.window_bg, attrs: Default::default() });
+            // Title bar.
+            for x in 0..d.w {
+                buf.set(x, 0, Cell { ch: ' ', fg: t.title_fg, bg: t.title_focus, attrs: Default::default() });
+            }
+            buf.write_str(2, 0, " tuiui ", t.title_fg, t.title_focus);
+            // Border.
+            let b = |ch: char| Cell { ch, fg: t.border, bg: t.window_bg, attrs: Default::default() };
+            for y in 1..d.h {
+                buf.set(0, y, b('│'));
+                buf.set(d.w - 1, y, b('│'));
+            }
+            for x in 0..d.w {
+                buf.set(x, d.h - 1, b('─'));
+            }
+            buf.set(0, d.h - 1, b('╰'));
+            buf.set(d.w - 1, d.h - 1, b('╯'));
+            // Message.
+            let msg: String = format!("Remove “{}”?", fc.sys.name)
+                .chars()
+                .take((d.w - 4) as usize)
+                .collect();
+            buf.write_str(2, 2, &msg, t.text, t.window_bg);
+            // Revoke-key checkbox (opt-in; off by default).
+            let cb = forget_checkbox_rect(w, h);
+            let mark = if fc.revoke { "▣" } else { "☐" };
+            let cb_fg = if fc.revoke { t.accent } else { t.dim };
+            let label: String = format!("{mark} Also revoke this PC's key on {}", fc.sys.host)
+                .chars()
+                .take(cb.w as usize)
+                .collect();
+            buf.write_str(cb.x - d.x, cb.y - d.y, &label, cb_fg, t.window_bg);
+            // Buttons.
+            let (cancel, remove) = forget_buttons(w, h);
+            let cancel_s = format!("{:^width$}", "Cancel", width = cancel.w as usize);
+            buf.write_str(cancel.x - d.x, cancel.y - d.y, &cancel_s, t.text, t.active_bg);
+            let remove_s = format!("{:^width$}", "Remove", width = remove.w as usize);
+            buf.write_str(remove.x - d.x, remove.y - d.y, &remove_s, t.close_fg, t.accent);
+            layers.push(Layer { z: 6000, origin: Point::new(d.x, d.y), buf, opacity: 1.0, scissor: None });
+        }
+
         layers
     }
 }
@@ -714,17 +825,59 @@ mod tests {
     }
 
     #[test]
-    fn forget_x_removes_a_system() {
+    fn forget_x_confirms_then_removes_without_revoke_by_default() {
         let (w, h) = (120, 40);
         let s = one_system();
         let mut m = PowerMenu::new();
         m.toggle();
         m.on_click(center(item_rect(w, SYSTEMS_ROW)), w, h, &s);
+        // The ✕ now opens a confirm, not an instant removal.
         let x = forget_rect(w, 1, 1);
+        assert_eq!(m.on_click(center(x), w, h, &s), PowerClick::Consumed);
+        assert!(m.forget.is_some(), "✕ opens the forget dialog");
+        // Removing with the (default-off) revoke toggle untouched.
+        let (_, remove) = forget_buttons(w, h);
         assert_eq!(
-            m.on_click(center(x), w, h, &s),
-            PowerClick::Act(PowerOutcome::Forget("pi".into()))
+            m.on_click(center(remove), w, h, &s),
+            PowerClick::Act(PowerOutcome::Forget { name: "pi".into(), revoke: None }),
+            "revoke is opt-in: off by default"
         );
+        assert!(!m.is_open());
+    }
+
+    #[test]
+    fn forget_with_revoke_checkbox_carries_the_system() {
+        let (w, h) = (120, 40);
+        let s = one_system();
+        let mut m = PowerMenu::new();
+        m.toggle();
+        m.on_click(center(item_rect(w, SYSTEMS_ROW)), w, h, &s);
+        m.on_click(center(forget_rect(w, 1, 1)), w, h, &s);
+        // Tick the revoke checkbox, then Remove.
+        assert_eq!(m.on_click(center(forget_checkbox_rect(w, h)), w, h, &s), PowerClick::Consumed);
+        let (_, remove) = forget_buttons(w, h);
+        match m.on_click(center(remove), w, h, &s) {
+            PowerClick::Act(PowerOutcome::Forget { name, revoke }) => {
+                assert_eq!(name, "pi");
+                let sys = revoke.expect("revoke carries the system to clean up");
+                assert_eq!(sys.host, "pi@10.0.0.2");
+            }
+            other => panic!("expected a Forget with revoke, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn forget_cancel_returns_to_systems_submenu() {
+        let (w, h) = (120, 40);
+        let s = one_system();
+        let mut m = PowerMenu::new();
+        m.toggle();
+        m.on_click(center(item_rect(w, SYSTEMS_ROW)), w, h, &s);
+        m.on_click(center(forget_rect(w, 1, 1)), w, h, &s);
+        let (cancel, _) = forget_buttons(w, h);
+        assert_eq!(m.on_click(center(cancel), w, h, &s), PowerClick::Consumed);
+        assert!(m.forget.is_none());
+        assert!(m.systems_open, "cancel drops back to the Systems list");
     }
 
     #[test]

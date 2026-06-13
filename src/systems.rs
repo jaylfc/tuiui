@@ -232,6 +232,52 @@ fi\n",
     s
 }
 
+/// The local shell script that removes *this* machine's public key(s) from a
+/// remote's `~/.ssh/authorized_keys` — the inverse of the `ssh-copy-id` that
+/// [`switch_script`]'s setup performs. It is best-effort and non-interactive
+/// (`BatchMode=yes`, short `ConnectTimeout`): it authenticates with the very key
+/// it is revoking, filters that exact full line out of `authorized_keys`
+/// (keeping a `.tuiui.bak`), and leaves any other keys untouched. A missing
+/// local key or an unreachable host is a quiet no-op, never a hang; any real
+/// remote-side failure exits non-zero so the caller can log it truthfully.
+pub fn revoke_script(host: &str, port: Option<u16>) -> String {
+    let target = sh_quote(host);
+    let pf = port_flag(port);
+    // Remote side: filter our piped public keys out of authorized_keys, dropping
+    // only lines that match one *exactly* (`grep -vxF`). Both the scratch file
+    // and the result live *inside* `~/.ssh`, never `/tmp`: a file `mv`d in from
+    // `/tmp` can carry a `tmp_t` SELinux label (or cross a filesystem) and make
+    // sshd refuse the whole file, silently locking the user out of every key.
+    // We `chmod 600` before the swap (shell redirection would leave it
+    // world-readable) and back up first, aborting if the backup can't be made.
+    // grep rc 0/1 are both success (1 = ours was the only line → file becomes
+    // empty); rc >= 2 is a real error. Every failure exits non-zero so the
+    // caller logs an honest failure instead of a misleading "done".
+    let remote = sh_quote(
+        "ak=\"$HOME/.ssh/authorized_keys\"; [ -f \"$ak\" ] || exit 0; \
+in=\"$ak.tuiui.in\"; out=\"$ak.tuiui.tmp\"; \
+cat > \"$in\" || { rm -f \"$in\"; exit 2; }; \
+cp \"$ak\" \"$ak.tuiui.bak\" || { echo 'tuiui: backup failed'; rm -f \"$in\"; exit 2; }; \
+grep -vxFf \"$in\" \"$ak\" > \"$out\"; rc=$?; \
+if [ \"$rc\" -le 1 ]; then chmod 600 \"$out\"; mv \"$out\" \"$ak\" || { rm -f \"$in\" \"$out\"; exit 2; }; \
+else rm -f \"$in\" \"$out\"; exit \"$rc\"; fi; \
+rm -f \"$in\"; exit 0",
+    );
+    // Local side: collect every *readable* local public identity — all
+    // `~/.ssh/*.pub` plus any agent-held keys — because `ssh-copy-id` (run
+    // without `-i` at setup) may have installed any of them, not just the
+    // ed25519/rsa defaults. Bail cleanly when there are none, else pipe them to
+    // the remote filter and propagate its exit status.
+    format!(
+        "kf=$(mktemp) || exit 1; \
+{{ for p in \"$HOME\"/.ssh/*.pub; do [ -r \"$p\" ] && cat \"$p\"; done; \
+command -v ssh-add >/dev/null 2>&1 && ssh-add -L 2>/dev/null; }} \
+| grep -v '^$' | sort -u > \"$kf\"; \
+if [ ! -s \"$kf\" ]; then echo 'tuiui: no local SSH public key to revoke'; rm -f \"$kf\"; exit 0; fi; \
+ssh -o BatchMode=yes -o ConnectTimeout=8 {pf}{target} {remote} < \"$kf\"; rc=$?; rm -f \"$kf\"; exit \"$rc\""
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -265,6 +311,24 @@ mod tests {
         assert!(s.contains("infocmp"), "guards against missing remote terminfo: {s}");
         assert!(s.contains("TERM=xterm-256color"), "falls back to a universal TERM: {s}");
         assert!(!s.contains("ssh-copy-id"), "no setup steps on a plain switch");
+    }
+
+    #[test]
+    fn revoke_script_filters_our_key_best_effort() {
+        let s = revoke_script("pi@10.0.0.2", Some(2222));
+        assert!(s.contains("ssh -o BatchMode=yes"), "non-interactive: {s}");
+        assert!(s.contains("ConnectTimeout=8"), "bounded connect: {s}");
+        assert!(s.contains("-p 2222 "), "carries the custom port: {s}");
+        assert!(s.contains("'pi@10.0.0.2'"), "targets the host: {s}");
+        assert!(s.contains("grep -vxFf"), "removes exact full-line key matches: {s}");
+        assert!(s.contains(".tuiui.bak"), "keeps a backup: {s}");
+        assert!(s.contains("backup failed"), "aborts if the backup can't be made: {s}");
+        assert!(s.contains("chmod 600"), "tightens perms before swapping in: {s}");
+        assert!(s.contains("$ak.tuiui.tmp"), "writes the result inside ~/.ssh, not /tmp: {s}");
+        assert!(s.contains("/.ssh/*.pub"), "considers every local public identity: {s}");
+        assert!(s.contains("ssh-add -L"), "also covers agent-held keys: {s}");
+        assert!(s.contains("[ -r "), "only reads readable key files: {s}");
+        assert!(s.contains("no local SSH public key to revoke"), "no-ops cleanly with no key: {s}");
     }
 
     #[test]

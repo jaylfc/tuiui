@@ -1145,14 +1145,46 @@ impl SessionCore {
                 self.switch_to = Some(spec);
                 self.quit = true;
             }
-            PowerOutcome::Forget(name) => {
-                crate::dbg_log(&format!("systems: forget '{name}'"));
+            PowerOutcome::Forget { name, revoke } => {
+                crate::dbg_log(&format!("systems: forget '{name}' (revoke={})", revoke.is_some()));
                 self.systems.retain(|s| s.name != name);
                 if let Err(e) = crate::systems::save(&self.systems) {
                     crate::dbg_log(&format!("systems: save failed: {e}"));
                 }
+                // Optionally strip our key from the remote — best-effort, on a
+                // background thread so an unreachable host can't stall the UI.
+                if let Some(sys) = revoke {
+                    Self::revoke_remote_key(sys);
+                }
             }
         }
+    }
+
+    /// Strip this machine's SSH key from a forgotten system's remote
+    /// `authorized_keys` (the inverse of the key copy that adding it performed).
+    /// Runs on a detached thread: ssh can take seconds or hang on an unreachable
+    /// host, and the render loop must never wait on the network. Best-effort —
+    /// every outcome is logged for the in-app Logs viewer, nothing is surfaced.
+    fn revoke_remote_key(sys: crate::systems::RemoteSystem) {
+        std::thread::spawn(move || {
+            crate::dbg_log(&format!("systems: revoking key on '{}' ({})", sys.name, sys.host));
+            let script = crate::systems::revoke_script(&sys.host, sys.port);
+            match crate::system::run_capped("sh", &["-c", &script], 15) {
+                Some(out) => {
+                    let tail = out.trim();
+                    crate::dbg_log(&format!(
+                        "systems: revoke on '{}' done{}",
+                        sys.name,
+                        if tail.is_empty() { String::new() } else { format!(" — {tail}") }
+                    ));
+                }
+                None => crate::dbg_log(&format!(
+                    "systems: revoke on '{}' did not complete (host unreachable, auth refused, \
+or a remote-side error — its authorized_keys was left untouched)",
+                    sys.name
+                )),
+            }
+        });
     }
 
     /// Build the launcher's app list: the configured apps (with categories filled
