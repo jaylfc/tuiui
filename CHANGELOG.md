@@ -6,6 +6,8 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.8] — 2026-06-13
+
 ### Added
 - **Switchable assistant agent**: Settings → Assistant now has an **Agent** row
   that flips the ✦ panel between the two supported CLIs — **opencode** (default)
