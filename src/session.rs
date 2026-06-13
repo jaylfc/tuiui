@@ -2390,14 +2390,23 @@ or a remote-side error — its authorized_keys was left untouched)",
 
     /// Rebuild the activity monitor's row list from the current `AppHost`.
     /// Called every frame so the table stays live — but only does any work when
-    /// the panel is actually open. Probing every hosted app each frame is costly
-    /// (`apphost_dims` clones a whole app grid via `snapshot`), so when the
-    /// window is closed we must not pay it: otherwise every render — including
-    /// each step of a window drag — stalls behind N full grid copies, which is
-    /// what makes dragging feel sticky/jerky.
+    /// the panel is actually *visible*. Probing every hosted app each frame is
+    /// costly (`apphost_dims` clones a whole app grid via `snapshot`), so we must
+    /// not pay it when the rows aren't on screen: otherwise every render —
+    /// including each step of a window drag — stalls behind N full grid copies,
+    /// which is what makes dragging feel sticky/jerky. A minimized panel (skipped
+    /// by `build_frame`), or a non-focused one in simple mode (hidden by
+    /// `build_frame_simple`), counts as not visible.
     pub fn refresh_activity(&mut self) {
         let win = match self.activity_win {
-            Some(id) if matches!(self.contents.get(&id), Some(WinContent::Activity(_))) => id,
+            Some(id)
+                if matches!(self.contents.get(&id), Some(WinContent::Activity(_)))
+                    && self.wm.get(id).is_some_and(|w| {
+                        !w.minimized && (!self.simple || self.wm.focused() == Some(id))
+                    }) =>
+            {
+                id
+            }
             _ => return,
         };
         let entries: Vec<crate::apphost::AppListEntry> = self
@@ -3825,13 +3834,19 @@ fn check_for_updates(branch: &str) -> String {
             Some(t) => t,
             None => return "Couldn't check (offline?)".to_string(),
         };
-        let norm = |s: &str| s.trim_start_matches('v').to_string();
-        let latest = norm(&tag);
+        let latest = tag.trim_start_matches('v');
         let cur = crate::VERSION; // CARGO_PKG_VERSION, e.g. "0.2.1"
-        if norm(cur) == latest {
-            format!("Up to date (v{cur})")
-        } else {
-            format!("Update available: v{cur} → v{latest}")
+        // Only offer the update when the release is *strictly newer*: a plain
+        // string compare would prompt a downgrade when the local build is ahead
+        // of the latest tag — e.g. mid-release-cut, or a dev/source build whose
+        // version outruns the published release. A release tag we can't parse is
+        // reported as a check failure rather than silently treated as 0.0.0.
+        match semver_tuple(latest) {
+            Some(l) if Some(l) > semver_tuple(cur) => {
+                format!("Update available: v{cur} → v{latest}")
+            }
+            Some(_) => format!("Up to date (v{cur})"),
+            None => format!("Couldn't check (unexpected release tag '{tag}')"),
         }
     } else {
         // Dev channel: compare commits, show short hashes.
@@ -3851,6 +3866,26 @@ fn check_for_updates(branch: &str) -> String {
             None => "Couldn't check (offline?)".to_string(),
         }
     }
+}
+
+/// Parse a `MAJOR.MINOR.PATCH` version (a leading `v` is tolerated) into a
+/// comparable tuple, or `None` if it isn't exactly that. This is a numeric
+/// `major.minor.patch` comparison, *not* full semver: any `-pre`/`+build`
+/// suffix is dropped before parsing (tuiui only ever ships plain release
+/// versions, so pre-release precedence never comes up). Anything that isn't
+/// three numeric components — too few, too many, or non-numeric — is `None`, so
+/// a malformed release tag surfaces as a check failure instead of silently
+/// comparing as `0.0.0`.
+fn semver_tuple(v: &str) -> Option<(u64, u64, u64)> {
+    let core = v.trim().trim_start_matches('v').split(['-', '+']).next().unwrap_or("");
+    let mut it = core.split('.');
+    let major = it.next()?.trim().parse::<u64>().ok()?;
+    let minor = it.next()?.trim().parse::<u64>().ok()?;
+    let patch = it.next()?.trim().parse::<u64>().ok()?;
+    if it.next().is_some() {
+        return None; // a fourth component → not a MAJOR.MINOR.PATCH version
+    }
+    Some((major, minor, patch))
 }
 
 #[cfg(test)]
@@ -3889,6 +3924,27 @@ mod tests {
         assert!(cmd.contains("cargo install --git"), "dev builds from source");
         assert!(cmd.contains("--branch dev"), "on the dev branch: {cmd}");
         assert!(!cmd.contains("install.sh"), "no prebuilt release off main");
+    }
+
+    #[test]
+    fn semver_tuple_orders_versions_and_never_downgrades() {
+        // Newer release than installed → an update is offered.
+        assert!(semver_tuple("0.2.2") > semver_tuple("0.2.1"));
+        assert!(semver_tuple("0.3.0") > semver_tuple("0.2.9"));
+        assert!(semver_tuple("1.0.0") > semver_tuple("0.9.9"));
+        // Installed >= latest release → no downgrade prompt.
+        assert!(!(semver_tuple("0.2.0") > semver_tuple("0.2.1")), "local ahead of release");
+        assert!(!(semver_tuple("0.2.1") > semver_tuple("0.2.1")), "equal = up to date");
+        // Leading v and (ignored) pre-release/build suffixes parse to the core.
+        assert_eq!(semver_tuple("v0.2.1"), Some((0, 2, 1)));
+        assert_eq!(semver_tuple("0.2.1-rc1"), Some((0, 2, 1)));
+        // Anything that isn't exactly MAJOR.MINOR.PATCH is None (→ "couldn't
+        // check"), not a silent 0.0.0 / truncation.
+        assert_eq!(semver_tuple("0.2"), None, "too few components");
+        assert_eq!(semver_tuple("0.2.1.4"), None, "too many components");
+        assert_eq!(semver_tuple("not-a-version"), None);
+        assert_eq!(semver_tuple(""), None);
+        assert_eq!(semver_tuple("v"), None);
     }
 
     fn placement(x: i32, y: i32) -> crate::protocol::ImagePlacement {
