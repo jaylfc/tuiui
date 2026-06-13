@@ -12,6 +12,16 @@ carry user-visible feature work and the occasional breaking config change.
   the rescue hatch for a mis-placed window).
 
 ### Fixed
+- **Updater robustness** (from a code review): an invalid or typo'd
+  `update_branch` in `config.toml` now falls back to `main` instead of
+  producing a malformed update command or check URL.
+- **Control-socket resilience**: the daemon no longer holds the control-message
+  lock across `apply` (which could block `tuiui launch/tile/theme/msg` from the
+  CLI/assistant), and recovers a poisoned lock so one panic can't wedge the
+  control path.
+- **Remote file browser**: tighter navigation timeouts (ssh ConnectTimeout 3s,
+  directory list/home 5s) so an unreachable saved system is a brief hitch
+  rather than a multi-second freeze (a full off-render-loop fix is tracked).
 - **Add Remote on Debian**: three failure modes fixed — Linux release
   binaries are now built on Ubuntu 22.04 (glibc 2.35) so they run on
   Debian 12 instead of dying with "GLIBC_2.39 not found"; the installer and

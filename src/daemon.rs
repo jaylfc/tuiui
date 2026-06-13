@@ -324,7 +324,15 @@ fn serve_client(
 /// If a control message has arrived, apply it to `core` (setting its
 /// shutdown/reload flag, which the loops already act on) and return `true`.
 fn apply_ctl(ctl: &Arc<AtomicU8>, queue: &CtlQueue, core: &mut SessionCore) -> bool {
-    for msg in queue.lock().unwrap().drain(..) {
+    // Drain under the lock into a local batch, then release it before applying:
+    // `core.apply` can be slow (spawns, theme reload), and holding the lock
+    // across it would block the control thread's push. `into_inner` recovers a
+    // poisoned lock so one panic can't wedge the control path forever.
+    let batch: Vec<ClientMsg> = {
+        let mut q = queue.lock().unwrap_or_else(|e| e.into_inner());
+        q.drain(..).collect()
+    };
+    for msg in batch {
         core.apply(msg);
     }
     match ctl.swap(CTL_NONE, Ordering::SeqCst) {
@@ -356,7 +364,7 @@ fn serve_control(listener: UnixListener, ctl: Arc<AtomicU8>, queue: CtlQueue) {
                 // CLI or the desktop assistant) queues for the render loop.
                 Ok(msg) => {
                     crate::dbg_log(&format!("ctl: queued {msg:?}"));
-                    queue.lock().unwrap().push(msg);
+                    queue.lock().unwrap_or_else(|e| e.into_inner()).push(msg);
                 }
                 Err(_) => {}
             }
