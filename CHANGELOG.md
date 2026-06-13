@@ -4,7 +4,14 @@ All notable changes to tuiui are recorded here. The project uses
 [semantic versioning](https://semver.org); while pre-1.0, minor versions may
 carry user-visible feature work and the occasional breaking config change.
 
-## [Unreleased]
+## [0.2.1] — 2026-06-13
+
+### Added
+- **Activity Monitor** (Ctrl+Space → A, or `@activity` in the launcher): a
+  live, auto-refreshing table of every app the apphost is hosting (id, pid,
+  command, age, dimensions, state) with kill-app controls and an Enter/y vs
+  Esc/n confirm for live apps. Also `tuiui ps` and `tuiui kill-app <id|all>`
+  CLI subcommands that work from any terminal or SSH session.
 
 ### Fixed
 - **Window dragging stutter**: moving (or resizing) a floating window felt
