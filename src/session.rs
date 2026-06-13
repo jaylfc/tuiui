@@ -3734,22 +3734,40 @@ fn update_command(branch: &str) -> String {
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
         .map(|d| d.display().to_string())
         .unwrap_or_else(|| "$HOME/.local/bin".into());
+    let root_flag = std::env::current_exe().map(|p| cargo_root_flag(&p)).unwrap_or_default();
     if branch == "main" {
         format!(
             "clear; echo 'Updating tuiui (latest release)…'; echo; \
 if TUIUI_BIN_DIR={dir} sh -c 'curl -fsSL {raw}/main/install.sh | sh'; then \
 echo; echo 'Reloading…'; tuiui reload; exit 0; \
-elif cargo install --git {repo} --force; then echo; echo 'Reloading…'; tuiui reload; exit 0; \
+elif cargo install --git {repo}{root_flag} --force; then echo; echo 'Reloading…'; tuiui reload; exit 0; \
 else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
             dir = crate::systems::sh_quote(&exe_dir),
         )
     } else {
         format!(
             "clear; echo 'Updating tuiui (branch {branch})…'; echo; \
-if cargo install --git {repo} --branch {branch} --force; then \
+if cargo install --git {repo} --branch {branch}{root_flag} --force; then \
 echo; echo 'Reloading…'; tuiui reload; exit 0; \
 else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
         )
+    }
+}
+
+/// The ` --root <dir>` flag that steers `cargo install` to the running
+/// binary's own `bin/` dir (its parent's parent — cargo appends `/bin` to the
+/// root), or an empty string when the binary isn't in a `bin/` dir (leaving
+/// cargo's default `~/.cargo/bin`). Co-locating the source build with the
+/// binary the user actually runs avoids landing a shadowed copy in a different
+/// dir, which would make the in-app update silently appear to do nothing.
+fn cargo_root_flag(exe: &std::path::Path) -> String {
+    match exe
+        .parent()
+        .filter(|d| d.file_name() == Some(std::ffi::OsStr::new("bin")))
+        .and_then(|d| d.parent())
+    {
+        Some(root) => format!(" --root {}", crate::systems::sh_quote(&root.display().to_string())),
+        None => String::new(),
     }
 }
 
@@ -3897,6 +3915,18 @@ mod tests {
         assert!(cmd.contains("tuiui reload"), "reloads on success");
         assert!(cmd.contains("exit 0"), "exits so the updater window auto-closes");
         assert!(!cmd.contains("--branch"), "main needs no branch flag");
+    }
+
+    #[test]
+    fn cargo_root_targets_the_running_bin_dir() {
+        use std::path::Path;
+        // A binary in a `bin/` dir → cargo is steered to the parent (it appends
+        // `/bin`), so the source build lands next to the running binary.
+        assert_eq!(cargo_root_flag(Path::new("/home/jay/.local/bin/tuiui")), " --root '/home/jay/.local'");
+        assert_eq!(cargo_root_flag(Path::new("/home/jay/.cargo/bin/tuiui")), " --root '/home/jay/.cargo'");
+        // Not in a `bin/` dir → no `--root` (leave cargo's default).
+        assert_eq!(cargo_root_flag(Path::new("/opt/tuiui/tuiui")), "");
+        assert_eq!(cargo_root_flag(Path::new("tuiui")), "");
     }
 
     #[test]
