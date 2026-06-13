@@ -6,23 +6,18 @@ into the assistant's working directory (`~/.local/share/tuiui/assistant/`) on
 every launch, with live placeholders (host name, saved systems, version)
 filled in.
 
-The assistant's working directory is forced regardless of which agent CLI runs
-(Claude Code, opencode, smallcode, kilo, hermes, openclaw), and the pack is
-written in every context-file convention they read:
+tuiui standardises on the **opencode** CLI. Its working directory is forced as
+the agent's cwd, and the pack is written there as `AGENTS.md` — the context file
+opencode reads on startup:
 
-| File written at launch          | Read by                          |
-|---------------------------------|----------------------------------|
-| `CLAUDE.md`                     | Claude Code (and hermes, fallback) |
-| `AGENTS.md`                     | opencode, kilo, codex-style CLIs |
-| `HERMES.md`                     | hermes (its highest-priority file) |
-| `knowledge/*.md`                | smallcode                        |
-| `.env` (template, written once) | smallcode model/endpoint config  |
+| File written at launch | Read by                  |
+|------------------------|--------------------------|
+| `AGENTS.md`            | opencode (the assistant) |
 
-OpenClaw is the exception: it assembles its prompt from its own workspace
-(`~/.openclaw/workspace/`), so launch also appends a marked, idempotent
-pointer to this pack in that workspace's `AGENTS.md`.
+(`assistant_command` in config.toml can point the panel at a different binary,
+but the briefing is always stamped as `AGENTS.md`.)
 
-Editing a file here changes what every agent is told, after a rebuild.
+Editing a file here changes what the agent is told, after a rebuild.
 
 ## Files
 

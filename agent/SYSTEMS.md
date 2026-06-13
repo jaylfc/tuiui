@@ -44,6 +44,6 @@ flow copies the key and installs tuiui).
 This instruction pack is generated on every machine by its tuiui binary, and
 tuiui syncs the saved-systems list to a remote when the user sets it up — so
 you (or a sibling agent) get the same briefing and the same machine list on
-any system the user switches to. Your agent framework's own credentials
-(API keys) are per-machine; if asked to set yourself up on another system,
-copy your framework's config there over scp after confirming with the user.
+any system the user switches to. opencode's own credentials (API keys /
+provider config) are per-machine; if asked to set yourself up on another
+system, copy that config there over scp after confirming with the user.

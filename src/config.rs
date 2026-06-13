@@ -85,8 +85,8 @@ pub struct Config {
     /// Saved grid positions: key (abs path or pin command) → (col, row).
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub desktop_positions: std::collections::BTreeMap<String, (u16, u16)>,
-    /// Agent CLI for the ✦ assistant panel (default: first of claude, opencode,
-    /// kilo, hermes, openclaw found on $PATH).
+    /// Agent CLI for the ✦ assistant panel (default: `opencode`). Set this to
+    /// point the panel at a different binary or wrapper.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assistant_command: Option<String>,
     /// Extra arguments passed to the assistant CLI.
