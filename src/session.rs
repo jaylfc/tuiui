@@ -3760,22 +3760,42 @@ fn compat_dialog_buttons(w: i32, h: i32) -> (Rect, Rect) {
     (keep, restart)
 }
 
-/// Compare the installed commit against the tip of `branch` on GitHub.
+/// Check whether a newer build is available, comparing against whatever the
+/// update channel would actually install:
+/// - **main** installs the latest prebuilt *release* (via `install.sh`), so we
+///   compare against the release tag's commit — NOT the `main` branch tip.
+///   Comparing against the branch tip is a bug: any commit landed on `main`
+///   after the last release shows a permanent "update available" that
+///   re-installing the same release can never clear, i.e. an update loop.
+/// - **dev** builds the branch tip from source, so the branch tip is correct.
 fn check_for_updates(branch: &str) -> String {
     let short = |s: &str| s.chars().take(7).collect::<String>();
-    let api = format!(
-        "https://api.github.com/repos/{}/commits/{branch}",
-        crate::REPO_URL.trim_start_matches("https://github.com/")
-    );
-    let out = std::process::Command::new("curl")
-        .args(["-fsS", "--max-time", "6", "-H", "User-Agent: tuiui", &api])
-        .output();
-    let latest = out
-        .ok()
-        .filter(|o| o.status.success())
-        .and_then(|o| serde_json::from_slice::<serde_json::Value>(&o.stdout).ok())
-        .and_then(|v| v.get("sha").and_then(|s| s.as_str()).map(str::to_string));
-    let on = if branch == "main" { String::new() } else { format!(" on {branch}") };
+    let repo = crate::REPO_URL.trim_start_matches("https://github.com/");
+    let get_json = |path: &str| -> Option<serde_json::Value> {
+        let url = format!("https://api.github.com/repos/{repo}/{path}");
+        std::process::Command::new("curl")
+            .args(["-fsS", "--max-time", "6", "-H", "User-Agent: tuiui", &url])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| serde_json::from_slice::<serde_json::Value>(&o.stdout).ok())
+    };
+    let str_field = |v: &serde_json::Value, k: &str| {
+        v.get(k).and_then(|s| s.as_str()).map(str::to_string)
+    };
+    // The commit the channel would install (the release tag's commit on main,
+    // the branch tip on dev), and the label shown to the user.
+    let (latest, on) = if branch == "main" {
+        // Resolve the latest release's tag, then that tag to a commit sha.
+        let sha = get_json("releases/latest")
+            .and_then(|v| str_field(&v, "tag_name"))
+            .and_then(|tag| get_json(&format!("commits/{tag}")))
+            .and_then(|v| str_field(&v, "sha"));
+        (sha, String::new())
+    } else {
+        let sha = get_json(&format!("commits/{branch}")).and_then(|v| str_field(&v, "sha"));
+        (sha, format!(" on {branch}"))
+    };
     match latest {
         Some(sha) => {
             let cur = crate::GIT_SHA;

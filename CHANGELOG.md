@@ -13,6 +13,12 @@ carry user-visible feature work and the occasional breaking config change.
   pass cloned every hosted app's full terminal grid just to read its size —
   stalling the render loop mid-drag. The refresh now does nothing unless the
   Activity Monitor window is actually open.
+- **Update loop on the main channel**: "Check for updates" compared the
+  installed build against the tip of the `main` branch, but the main channel
+  installs the latest prebuilt *release*. Any commit landed on `main` after the
+  last release showed a permanent "update available" that re-installing the
+  same release could never clear. The check now compares against the latest
+  release's commit, matching what `install.sh` actually installs.
 
 ## [0.2.0] — 2026-06-10
 
