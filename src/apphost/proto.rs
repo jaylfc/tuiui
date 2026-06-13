@@ -33,7 +33,14 @@ pub struct ImgBlob {
 
 /// The apphost wire-protocol version this binary speaks. Bump on ANY change
 /// to `HostReq`/`HostEvt`.
-pub const PROTO_VERSION: u32 = 1;
+///
+/// v2 — added an optional `pid` field to `HostEvt::Spawned` so the daemon
+/// (via `RemoteAppHost`) can populate the activity monitor's `pid` column.
+/// `#[serde(default)]` keeps it backward-compatible: a v1 apphost omits the
+/// field and the v2 frontend fills `None`; a v1 frontend ignores the unknown
+/// field on a v2 wire payload (serde default is permissive). Do NOT bump
+/// `MIN_COMPAT`.
+pub const PROTO_VERSION: u32 = 2;
 
 /// The OLDEST apphost protocol this frontend can safely talk to. Apphosts
 /// predating the `proto` roster field report 0. Bump this to `PROTO_VERSION`
@@ -67,8 +74,6 @@ pub struct AppListEntry {
 /// apphost → frontend.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum HostEvt {
-    Spawned { req_id: u64, app: u64 },
-    SpawnFailed { req_id: u64, error: String },
     /// The app's current grid + placements, plus any not-yet-sent image blobs.
     Frame {
         app: u64,
@@ -92,6 +97,17 @@ pub enum HostEvt {
         /// The apphost's [`PROTO_VERSION`] (0 = an apphost too old to say).
         #[serde(default)]
         proto: u32,
+    },
+    SpawnFailed { req_id: u64, error: String },
+    /// Reply to `HostReq::Spawn`. The apphost now also reports the child's
+    /// OS pid (v2+; v1 apphosts omit the field, the frontend fills `None`).
+    /// The daemon's activity monitor uses this to fill the panel's `pid`
+    /// column in normal daemon mode.
+    Spawned {
+        req_id: u64,
+        app: u64,
+        #[serde(default)]
+        pid: Option<u32>,
     },
     /// Reply to `HostReq::ListApps`.
     AppList { apps: Vec<AppListEntry> },
@@ -163,6 +179,35 @@ mod tests {
         let mut r = std::io::BufReader::new(&legacy[..]);
         match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
             HostEvt::Roster { proto, .. } => assert_eq!(proto, 0),
+            _ => panic!("wrong variant"),
+        }
+    }
+    #[test]
+    fn spawned_with_pid_round_trips_and_legacy_omits_pid() {
+        // Modern v2 wire: Spawned carries the child pid.
+        let evt = HostEvt::Spawned { req_id: 42, app: 7, pid: Some(12345) };
+        let mut buf: Vec<u8> = Vec::new();
+        send(&mut buf, &evt).unwrap();
+        let mut r = std::io::BufReader::new(&buf[..]);
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Spawned { req_id, app, pid } => {
+                assert_eq!(req_id, 42);
+                assert_eq!(app, 7);
+                assert_eq!(pid, Some(12345));
+            }
+            _ => panic!("wrong variant"),
+        }
+        // A v1 apphost that predates the pid field still parses fine on a
+        // v2 frontend (#[serde(default)] on `pid`).
+        let legacy = br#"{"Spawned":{"req_id":1,"app":2}}
+"#;
+        let mut r = std::io::BufReader::new(&legacy[..]);
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Spawned { req_id, app, pid } => {
+                assert_eq!(req_id, 1);
+                assert_eq!(app, 2);
+                assert_eq!(pid, None);
+            }
             _ => panic!("wrong variant"),
         }
     }
