@@ -3761,15 +3761,18 @@ fn compat_dialog_buttons(w: i32, h: i32) -> (Rect, Rect) {
 }
 
 /// Check whether a newer build is available, comparing against whatever the
-/// update channel would actually install:
+/// update channel would actually install, and reporting it in that channel's
+/// own terms:
 /// - **main** installs the latest prebuilt *release* (via `install.sh`), so we
-///   compare against the release tag's commit — NOT the `main` branch tip.
-///   Comparing against the branch tip is a bug: any commit landed on `main`
-///   after the last release shows a permanent "update available" that
-///   re-installing the same release can never clear, i.e. an update loop.
-/// - **dev** builds the branch tip from source, so the branch tip is correct.
+///   compare the installed semver against the latest release tag and report
+///   versions (`v0.2.0 → v0.2.1`). Comparing against the `main` branch tip is a
+///   bug: any commit landed on `main` after the last release shows a permanent
+///   "update available" that re-installing the same release can never clear,
+///   i.e. an update loop.
+/// - **dev** builds the branch tip from source — there is no version there, so
+///   we compare the installed commit against the branch tip and report short
+///   commit hashes.
 fn check_for_updates(branch: &str) -> String {
-    let short = |s: &str| s.chars().take(7).collect::<String>();
     let repo = crate::REPO_URL.trim_start_matches("https://github.com/");
     let get_json = |path: &str| -> Option<serde_json::Value> {
         let url = format!("https://api.github.com/repos/{repo}/{path}");
@@ -3783,31 +3786,38 @@ fn check_for_updates(branch: &str) -> String {
     let str_field = |v: &serde_json::Value, k: &str| {
         v.get(k).and_then(|s| s.as_str()).map(str::to_string)
     };
-    // The commit the channel would install (the release tag's commit on main,
-    // the branch tip on dev), and the label shown to the user.
-    let (latest, on) = if branch == "main" {
-        // Resolve the latest release's tag, then that tag to a commit sha.
-        let sha = get_json("releases/latest")
-            .and_then(|v| str_field(&v, "tag_name"))
-            .and_then(|tag| get_json(&format!("commits/{tag}")))
-            .and_then(|v| str_field(&v, "sha"));
-        (sha, String::new())
-    } else {
-        let sha = get_json(&format!("commits/{branch}")).and_then(|v| str_field(&v, "sha"));
-        (sha, format!(" on {branch}"))
-    };
-    match latest {
-        Some(sha) => {
-            let cur = crate::GIT_SHA;
-            if cur == "unknown" {
-                format!("Latest is {}{on} — reinstall to update", short(&sha))
-            } else if sha.starts_with(cur) || cur.starts_with(&short(&sha)) {
-                format!("Up to date ({}){on}", short(cur))
-            } else {
-                format!("Update available{on}: {} → {}", short(cur), short(&sha))
-            }
+
+    if branch == "main" {
+        // Release channel: compare versions, show versions.
+        let tag = match get_json("releases/latest").and_then(|v| str_field(&v, "tag_name")) {
+            Some(t) => t,
+            None => return "Couldn't check (offline?)".to_string(),
+        };
+        let norm = |s: &str| s.trim_start_matches('v').to_string();
+        let latest = norm(&tag);
+        let cur = crate::VERSION; // CARGO_PKG_VERSION, e.g. "0.2.1"
+        if norm(cur) == latest {
+            format!("Up to date (v{cur})")
+        } else {
+            format!("Update available: v{cur} → v{latest}")
         }
-        None => "Couldn't check (offline?)".to_string(),
+    } else {
+        // Dev channel: compare commits, show short hashes.
+        let short = |s: &str| s.chars().take(7).collect::<String>();
+        let latest = get_json(&format!("commits/{branch}")).and_then(|v| str_field(&v, "sha"));
+        match latest {
+            Some(sha) => {
+                let cur = crate::GIT_SHA;
+                if cur == "unknown" {
+                    format!("Latest is {} on {branch} — reinstall to update", short(&sha))
+                } else if sha.starts_with(cur) || cur.starts_with(&short(&sha)) {
+                    format!("Up to date ({}) on {branch}", short(cur))
+                } else {
+                    format!("Update available on {branch}: {} → {}", short(cur), short(&sha))
+                }
+            }
+            None => "Couldn't check (offline?)".to_string(),
+        }
     }
 }
 
