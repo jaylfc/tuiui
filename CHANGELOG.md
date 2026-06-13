@@ -15,6 +15,9 @@ carry user-visible feature work and the occasional breaking config change.
   and the Settings framework picker); the briefing is stamped once as `AGENTS.md`.
   `assistant_command` in config.toml still overrides the binary, and broader
   OS/computer-use control is added via MCP servers in opencode's own config.
+  Migration: if you had `assistant_command` pinned to `hermes` or `openclaw`,
+  add their TUI launch arg to `assistant_args` (`["--tui"]` / `["tui"]`) — the
+  per-framework default arguments are no longer applied.
 
 ### Added
 - **Revoke SSH key when forgetting a system**: the ✕ in the Systems menu now
