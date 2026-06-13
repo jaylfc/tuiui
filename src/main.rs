@@ -305,35 +305,85 @@ fn format_cmdline(cmd: &str, args: &[String]) -> String {
     }
 }
 
-/// Connect to the apphost socket, send one `ListApps` request, and print the
-/// result as a fixed-width table. Errors with a clean message if the apphost
-/// isn't running.
-fn ps() -> std::io::Result<()> {
-    let path = tuiui::protocol::apphost_socket_path();
-    let mut s = match UnixStream::connect(&path) {
-        Ok(s) => s,
-        Err(_) => {
-            eprintln!("tuiui ps: no apphost running (start it with `tuiui`)");
-            std::process::exit(1);
-        }
-    };
+/// Connect to the apphost, send one `ListApps` request, and return the
+/// resulting row set.
+///
+/// Drains the `Roster` that the apphost sends on every connection (before it
+/// will answer commands), inspects the apphost's declared protocol version,
+/// and drains any non-AppList events that arrive between the request and
+/// reply. Bounded to a small event count so a pre-v2 apphost (which silently
+/// ignores `ListApps`) cannot hang the CLI indefinitely.
+fn fetch_app_list() -> std::io::Result<Vec<tuiui::apphost::AppListEntry>> {
     use tuiui::apphost::proto::{send, HostEvt, HostReq};
-    send(&mut s, &HostReq::ListApps)?;
-    let mut r = std::io::BufReader::new(s);
-    let evt: HostEvt = match tuiui::apphost::proto::recv(&mut r)? {
-        Some(e) => e,
+    // The on-wire variant that introduced ListApps. Kept inline (instead of
+    // imported from `PROTO_VERSION`) so the CLI's behavior against a pre-v2
+    // apphost is independent of the running binary's PROTO_VERSION (which
+    // changes as the apphost grows new fields).
+    const LIST_APPS_MIN_PROTO: u32 = 2;
+    let path = tuiui::protocol::apphost_socket_path();
+    let s = UnixStream::connect(&path).unwrap_or_else(|_| {
+        eprintln!("tuiui: no apphost running (start it with `tuiui`)");
+        std::process::exit(1);
+    });
+    // The apphost sends a Roster on every accepted connection before it
+    // processes any commands. Read it first so we can:
+    //   1. Bail out cleanly against a pre-v2 apphost (one that doesn't
+    //      understand ListApps and would otherwise hang the drain loop).
+    //   2. Get an honest proto version to report.
+    // A pre-v2 apphost that predates the `proto` field reports `0`.
+    let mut r = std::io::BufReader::new(s.try_clone().unwrap());
+    let proto: u32 = match tuiui::apphost::proto::recv::<HostEvt, _>(&mut r)? {
+        Some(HostEvt::Roster { proto, .. }) => proto,
+        Some(_) => {
+            // First event isn't a Roster? Unexpected but the apphost might
+            // still be a newer version that just reorders. Continue with
+            // the request and see what happens.
+            0
+        }
         None => {
-            eprintln!("tuiui ps: apphost closed before replying");
+            eprintln!("tuiui: apphost closed before sending roster");
             std::process::exit(1);
         }
     };
-    let apps = match evt {
-        HostEvt::AppList { apps } => apps,
-        other => {
-            eprintln!("tuiui ps: unexpected reply: {other:?}");
-            std::process::exit(1);
+    if proto < LIST_APPS_MIN_PROTO && proto != 0 {
+        // A peer that explicitly declared proto=1 doesn't speak ListApps.
+        // (proto=0 means the field is missing, i.e. the apphost predates
+        // the `proto` field — likely the very first apphost release; we
+        // still attempt the request and let the bound save us.)
+        eprintln!(
+            "tuiui: apphost speaks protocol v{proto}; 'ps' / 'kill-app' require v{LIST_APPS_MIN_PROTO}+ \
+             (update the apphost binary to enable)"
+        );
+        std::process::exit(1);
+    }
+    send(&mut r.get_mut(), &HostReq::ListApps)?;
+    // Bound the drain: a v3 apphost returns AppList within 1-2 non-AppList
+    // events (Roster already consumed + a Frame or two). 64 is a generous
+    // ceiling that still aborts in well under a second on a misbehaving peer.
+    const MAX_DRAIN: usize = 64;
+    for _ in 0..MAX_DRAIN {
+        let evt: HostEvt = match tuiui::apphost::proto::recv(&mut r)? {
+            Some(e) => e,
+            None => {
+                eprintln!("tuiui: apphost closed before replying");
+                std::process::exit(1);
+            }
+        };
+        if let HostEvt::AppList { apps } = evt {
+            return Ok(apps);
         }
-    };
+        // Drop any other event (Frame events for live apps, Gone for exited
+        // ones) and keep reading until the AppList arrives.
+    }
+    eprintln!(
+        "tuiui: apphost did not reply with an AppList after {MAX_DRAIN} events \
+         (pre-v2 apphost? update the apphost binary to enable 'ps' / 'kill-app')"
+    );
+    std::process::exit(1);
+}
+
+fn ps() -> std::io::Result<()> {
+    let apps = fetch_app_list()?;
     if apps.is_empty() {
         println!("(no apps running)");
         return Ok(());
@@ -368,10 +418,12 @@ fn ps() -> std::io::Result<()> {
 }
 
 /// `tuiui kill-app <id|all>` — send `HostReq::Kill` for one (or all dead)
-/// hosted apps. `<id>` may be the apphost's numeric AppId. `all` kills every
-/// currently-known app. Errors clearly when the apphost isn't running.
+/// hosted apps. `<id>` may be the apphost's numeric AppId. `all` is a safe
+/// cleanup target: it kills only apps in the `dead` state (already exited);
+/// live apps need an explicit id. Errors clearly when the apphost isn't
+/// running.
 fn kill_app(args: &[String]) -> std::io::Result<()> {
-    use tuiui::apphost::proto::{send, HostEvt, HostReq};
+    use tuiui::apphost::proto::{send, HostReq};
     let target = match args.first().map(String::as_str) {
         Some(t) => t,
         None => {
@@ -379,32 +431,13 @@ fn kill_app(args: &[String]) -> std::io::Result<()> {
             std::process::exit(2);
         }
     };
-    let path = tuiui::protocol::apphost_socket_path();
-    let mut s = match UnixStream::connect(&path) {
-        Ok(s) => s,
-        Err(_) => {
-            eprintln!("tuiui kill-app: no apphost running (start it with `tuiui`)");
-            std::process::exit(1);
-        }
-    };
-    send(&mut s, &HostReq::ListApps)?;
-    let mut r = std::io::BufReader::new(s);
-    let evt: HostEvt = match tuiui::apphost::proto::recv(&mut r)? {
-        Some(e) => e,
-        None => {
-            eprintln!("tuiui kill-app: apphost closed before replying");
-            std::process::exit(1);
-        }
-    };
-    let apps = match evt {
-        HostEvt::AppList { apps } => apps,
-        _ => {
-            eprintln!("tuiui kill-app: unexpected reply");
-            std::process::exit(1);
-        }
-    };
+    let apps = fetch_app_list()?;
     let to_kill: Vec<u64> = if target == "all" {
-        apps.iter().map(|a| a.app).collect()
+        // `all` is a safe-by-default cleanup: it only reaps apps that have
+        // already exited (the apphost still holds the bookkeeping entry until
+        // `HostReq::Kill` removes it). Killing a live app needs its id, so a
+        // user can't blow away their session with a single typo.
+        apps.iter().filter(|a| !a.alive).map(|a| a.app).collect()
     } else {
         let id: u64 = match target.parse() {
             Ok(n) => n,
@@ -424,12 +457,13 @@ fn kill_app(args: &[String]) -> std::io::Result<()> {
         vec![id]
     };
     if to_kill.is_empty() {
-        println!("tuiui kill-app: no apps to kill");
+        println!("tuiui kill-app: no dead apps to reap");
         return Ok(());
     }
     // Reconnect for each Kill — the previous connection's reader consumed
-    // the ListApps reply and would also consume any further reply we don't
-    // expect, so the cleanest path is one short-lived connection per Kill.
+    // the ListApps reply (and the side-reader can't share a socket safely),
+    // so the cleanest path is one short-lived connection per Kill.
+    let path = tuiui::protocol::apphost_socket_path();
     for id in &to_kill {
         let mut s = match UnixStream::connect(&path) {
             Ok(s) => s,

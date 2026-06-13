@@ -15,6 +15,18 @@ carry user-visible feature work and the occasional breaking config change.
   fns, and the menu y-clamps so it stays on-screen (and clickable) on very
   short terminals. Ported from the `dev` branch (#11, hardened in #20).
 
+### Changed
+- **Activity-monitor / apphost follow-ups**: `tuiui ps` and `tuiui kill-app`
+  now drain the on-connect roster (and any queued events) before matching the
+  `AppList` reply, via a shared `fetch_app_list()` helper; `kill-app all` is
+  safe-by-default (only reaps already-dead apps — live apps need an explicit
+  id). The apphost protocol gains an optional `pid` field on
+  `HostEvt::Spawned` (PROTO_VERSION → 2, additive, `MIN_COMPAT` unchanged) so
+  the daemon's `RemoteAppHost` can fill the activity panel's `pid` column, and
+  it now stashes each spawn's command + args so the panel shows real data in
+  normal daemon mode. Re-landed from the stale `#16` branch onto current
+  `main` (keeping main's newer visibility-gated `refresh_activity`).
+
 ## [0.2.5] — 2026-06-13
 
 ### Fixed

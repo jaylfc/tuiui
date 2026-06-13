@@ -97,7 +97,7 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
                 Ok(HostReq::Spawn { req_id, cmd, args, cwd, cols, rows }) => {
                     let cwd_path = cwd.as_deref().map(std::path::Path::new);
                     let evt = match local.spawn(&cmd, &args, cwd_path, cols, rows) {
-                        Ok(id) => HostEvt::Spawned { req_id, app: id.0 },
+                        Ok(id) => HostEvt::Spawned { req_id, app: id.0, pid: local.pid(id) },
                         Err(e) => HostEvt::SpawnFailed { req_id, error: e.to_string() },
                     };
                     if send(&mut writer, &evt).is_err() {

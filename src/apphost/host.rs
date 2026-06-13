@@ -141,6 +141,10 @@ impl AppHost for LocalAppHost {
         self.apps.get(&id).map(|a| a.spawned_at())
     }
 
+    fn launch_cmd(&self, id: AppId) -> Option<(String, Vec<String>)> {
+        self.launch_cmd(id).map(|(c, a)| (c.to_string(), a.to_vec()))
+    }
+
     fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse {
         self.apps.get(&id).map(|a| a.mouse_mode()).unwrap_or_default()
     }
