@@ -26,8 +26,9 @@ carry user-visible feature work and the occasional breaking config change.
 - **Update check no longer offers downgrades**: the main-channel version
   comparison was a plain string compare, so a local build *newer* than the
   latest release (mid-release-cut, or a dev/source build) showed a bogus
-  "update available → older version". It is now semver-aware and only offers a
-  strictly-newer release.
+  "update available → older version". It now compares release version numbers
+  (`major.minor.patch`) and only offers a strictly-newer release; an
+  unparseable release tag reports "couldn't check" instead of guessing.
 
 ## [0.2.1] — 2026-06-13
 

@@ -3836,14 +3836,17 @@ fn check_for_updates(branch: &str) -> String {
         };
         let latest = tag.trim_start_matches('v');
         let cur = crate::VERSION; // CARGO_PKG_VERSION, e.g. "0.2.1"
-        // Only offer the update when the release is *strictly newer* (semver):
-        // a plain string compare would prompt a downgrade when the local build
-        // is ahead of the latest tag — e.g. mid-release-cut, or a dev/source
-        // build whose version outruns the published release.
-        if semver_tuple(latest) > semver_tuple(cur) {
-            format!("Update available: v{cur} → v{latest}")
-        } else {
-            format!("Up to date (v{cur})")
+        // Only offer the update when the release is *strictly newer*: a plain
+        // string compare would prompt a downgrade when the local build is ahead
+        // of the latest tag — e.g. mid-release-cut, or a dev/source build whose
+        // version outruns the published release. A release tag we can't parse is
+        // reported as a check failure rather than silently treated as 0.0.0.
+        match semver_tuple(latest) {
+            Some(l) if Some(l) > semver_tuple(cur) => {
+                format!("Update available: v{cur} → v{latest}")
+            }
+            Some(_) => format!("Up to date (v{cur})"),
+            None => format!("Couldn't check (unexpected release tag '{tag}')"),
         }
     } else {
         // Dev channel: compare commits, show short hashes.
@@ -3865,14 +3868,26 @@ fn check_for_updates(branch: &str) -> String {
     }
 }
 
-/// Parse a dotted version (`"0.2.1"`, with an optional leading `v` already
-/// stripped and any `-pre`/`+build` suffix ignored) into a comparable
-/// `(major, minor, patch)` tuple. Unparseable parts read as 0, so two odd tags
-/// just compare equal rather than panicking.
-fn semver_tuple(v: &str) -> (u64, u64, u64) {
-    let core = v.trim_start_matches('v').split(['-', '+']).next().unwrap_or(v);
-    let mut it = core.split('.').map(|p| p.trim().parse::<u64>().unwrap_or(0));
-    (it.next().unwrap_or(0), it.next().unwrap_or(0), it.next().unwrap_or(0))
+/// Parse a `MAJOR.MINOR.PATCH` version (a leading `v` is tolerated) into a
+/// comparable tuple, or `None` if it doesn't look like one. This is a numeric
+/// `major.minor.patch` comparison, *not* full semver: any `-pre`/`+build`
+/// suffix is dropped before parsing (tuiui only ever ships plain release
+/// versions, so pre-release precedence never comes up). A component that isn't
+/// a number makes the whole thing `None`, so a malformed release tag surfaces
+/// as a check failure instead of silently comparing as `0.0.0`.
+fn semver_tuple(v: &str) -> Option<(u64, u64, u64)> {
+    let core = v.trim().trim_start_matches('v').split(['-', '+']).next().unwrap_or("");
+    if core.is_empty() {
+        return None;
+    }
+    let mut parts = [0u64; 3];
+    for (i, p) in core.split('.').enumerate() {
+        if i >= 3 {
+            break;
+        }
+        parts[i] = p.trim().parse::<u64>().ok()?;
+    }
+    Some((parts[0], parts[1], parts[2]))
 }
 
 #[cfg(test)]
@@ -3922,9 +3937,14 @@ mod tests {
         // Installed >= latest release → no downgrade prompt.
         assert!(!(semver_tuple("0.2.0") > semver_tuple("0.2.1")), "local ahead of release");
         assert!(!(semver_tuple("0.2.1") > semver_tuple("0.2.1")), "equal = up to date");
-        // Leading v and pre-release/build suffixes are ignored for ordering.
-        assert_eq!(semver_tuple("v0.2.1"), semver_tuple("0.2.1"));
-        assert_eq!(semver_tuple("0.2.1-rc1"), semver_tuple("0.2.1"));
+        // Leading v and (ignored) pre-release/build suffixes parse to the core.
+        assert_eq!(semver_tuple("v0.2.1"), Some((0, 2, 1)));
+        assert_eq!(semver_tuple("0.2.1-rc1"), Some((0, 2, 1)));
+        assert_eq!(semver_tuple("0.2"), Some((0, 2, 0)), "missing patch defaults to 0");
+        // Malformed tags are None (→ "couldn't check"), not a silent 0.0.0.
+        assert_eq!(semver_tuple("not-a-version"), None);
+        assert_eq!(semver_tuple(""), None);
+        assert_eq!(semver_tuple("v"), None);
     }
 
     fn placement(x: i32, y: i32) -> crate::protocol::ImagePlacement {
