@@ -703,6 +703,10 @@ impl SessionCore {
             Some(crate::settings::SettingsAction::CheckUpdates) => {
                 let branch = self.cfg.update_branch.clone();
                 let msg = check_for_updates(&branch);
+                crate::dbg_log(&format!(
+                    "update: check (branch {branch}, running v{}) -> {msg}",
+                    crate::VERSION
+                ));
                 if let Some(s) = self.focused_settings_mut() {
                     s.set_update_status(msg);
                 }
@@ -715,6 +719,12 @@ impl SessionCore {
                 // reload, so the user isn't dumped back on the bare desktop.
                 write_reopen_hint(Ui_SETTINGS_UPDATES);
                 let cmd = update_command(&self.cfg.update_branch);
+                crate::dbg_log(&format!(
+                    "update: install requested (branch {}, running v{}, exe {:?}); running in a window",
+                    self.cfg.update_branch,
+                    crate::VERSION,
+                    std::env::current_exe().ok()
+                ));
                 self.launch("update tuiui".into(), "sh".into(), vec!["-lc".into(), cmd]);
             }
             None => {}
@@ -3856,21 +3866,38 @@ fn update_command(branch: &str) -> String {
         .map(|d| d.display().to_string())
         .unwrap_or_else(|| "$HOME/.local/bin".into());
     let root_flag = std::env::current_exe().map(|p| cargo_root_flag(&p)).unwrap_or_default();
+    let dir = crate::systems::sh_quote(&exe_dir);
+    // Reload via the freshly-installed binary's ABSOLUTE path, not a bare
+    // `tuiui`. The updater runs in a non-interactive `sh -lc`, whose PATH may
+    // not include the install dir (~/.local/bin is added by interactive zsh
+    // config, not a login `sh`). If `tuiui reload` isn't found, the install
+    // still succeeds but the daemon never restarts onto the new binary — so
+    // the running version never changes and the update appears to "keep
+    // failing". install.sh lands the binary in `exe_dir` (TUIUI_BIN_DIR), and
+    // the cargo `--root` fallback targets the same dir, so `{exe_dir}/tuiui` is
+    // the new binary in both paths.
+    let reload = crate::systems::sh_quote(&format!("{exe_dir}/tuiui"));
+    // Append each step to ~/tuiui-debug.log (same file as dbg_log) so a failed
+    // update is visible in the log the user pastes — the install runs in a
+    // window whose output is otherwise lost.
+    let log = "\"$HOME/tuiui-debug.log\"";
     if branch == "main" {
         format!(
             "clear; echo 'Updating tuiui (latest release)…'; echo; \
+echo \"update: install -> {dir}\" >> {log}; \
 if TUIUI_BIN_DIR={dir} sh -c 'curl -fsSL {raw}/main/install.sh | sh'; then \
-echo; echo 'Reloading…'; tuiui reload; exit 0; \
-elif cargo install --git {repo}{root_flag} --force; then echo; echo 'Reloading…'; tuiui reload; exit 0; \
-else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
-            dir = crate::systems::sh_quote(&exe_dir),
+echo \"update: install.sh ok; reloading via {reload}\" >> {log}; echo; echo 'Reloading…'; {reload} reload; exit 0; \
+elif cargo install --git {repo}{root_flag} --force; then \
+echo \"update: cargo fallback ok; reloading via {reload}\" >> {log}; echo; echo 'Reloading…'; {reload} reload; exit 0; \
+else echo \"update: FAILED (install.sh and cargo both failed)\" >> {log}; echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
         )
     } else {
         format!(
             "clear; echo 'Updating tuiui (branch {branch})…'; echo; \
+echo \"update: cargo install (branch {branch})\" >> {log}; \
 if cargo install --git {repo} --branch {branch}{root_flag} --force; then \
-echo; echo 'Reloading…'; tuiui reload; exit 0; \
-else echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
+echo \"update: cargo ok; reloading via {reload}\" >> {log}; echo; echo 'Reloading…'; {reload} reload; exit 0; \
+else echo \"update: FAILED (cargo branch {branch})\" >> {log}; echo 'Update failed — tuiui not reloaded.'; exec \"$SHELL\"; fi",
         )
     }
 }
@@ -4060,7 +4087,9 @@ mod tests {
         let cmd = update_command("main");
         assert!(cmd.contains("install.sh"), "fast path is the prebuilt release: {cmd}");
         assert!(cmd.contains("cargo install --git"), "with a source fallback");
-        assert!(cmd.contains("tuiui reload"), "reloads on success");
+        assert!(cmd.contains("/tuiui' reload"), "reloads via the installed binary's absolute path: {cmd}");
+        assert!(!cmd.contains("; tuiui reload"), "must not rely on PATH-resolving a bare `tuiui`: {cmd}");
+        assert!(cmd.contains("tuiui-debug.log"), "logs each step to the debug log");
         assert!(cmd.contains("exit 0"), "exits so the updater window auto-closes");
         assert!(!cmd.contains("--branch"), "main needs no branch flag");
     }

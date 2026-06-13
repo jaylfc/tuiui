@@ -6,6 +6,26 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.7] — 2026-06-13
+
+### Fixed
+- **In-app update could "succeed" without changing the running version**: the
+  updater reloads by running a bare `tuiui reload`, but it runs in a
+  non-interactive `sh -lc` whose PATH may not include the install dir
+  (`~/.local/bin` is added by interactive shell config, not a login `sh`). When
+  `tuiui` wasn't found, `install.sh` still wrote the new binary but the daemon
+  never restarted onto it — so the version never moved and the update appeared
+  to fail every time. The updater now reloads via the **absolute path** of the
+  freshly-installed binary (`{install_dir}/tuiui reload`), removing the PATH
+  dependency.
+
+### Changed
+- **The updater now logs to `~/tuiui-debug.log`**: the in-app update runs in a
+  window whose output was otherwise lost. Update checks, the install request,
+  and each install step (install.sh / cargo fallback / reload / failure) now
+  leave breadcrumbs in the debug log, so a failed update is visible in the log
+  users paste.
+
 ## [0.2.6] — 2026-06-13
 
 ### Added
