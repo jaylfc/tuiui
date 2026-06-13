@@ -1,14 +1,19 @@
 name: Release
 
-# Builds standalone tuiui binaries and attaches them to the GitHub Release for a
-# pushed tag (e.g. v0.1.0), so users can install with the curl | sh installer
-# without a Rust toolchain.
+# Builds standalone tuiui binaries and attaches them to the GitHub Release, so
+# users can install with the curl | sh installer without a Rust toolchain.
+#
+# Three ways to cut a release, all converging on the same build+publish job:
+#   * push a tag  v*            — the classic manual tag.
+#   * merge a Cargo.toml bump   — a push to main whose version is new auto-tags
+#                                 and releases. No tag push needed, so an agent
+#                                 that can only open/merge PRs can still ship.
+#   * workflow_dispatch         — type a tag by hand from the Actions tab.
 
 on:
   push:
     tags: ["v*"]
-  # Manual runs create the tag + release themselves (used by environments that
-  # can build PRs but cannot push tags). The version must match Cargo.toml.
+    branches: ["main"]
   workflow_dispatch:
     inputs:
       tag:
@@ -19,7 +24,49 @@ permissions:
   contents: write
 
 jobs:
+  # Decide whether this event should cut a release, and under which tag. A push
+  # to main releases only when Cargo.toml's version changed to a tag that does
+  # not yet exist — so ordinary merges are free and a version bump is the single
+  # release trigger. Tag pushes and manual dispatches always release.
+  decide:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.d.outputs.release }}
+      tag: ${{ steps.d.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          fetch-tags: true
+      - id: d
+        run: |
+          ver="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >>"$GITHUB_OUTPUT"
+            echo "release=true" >>"$GITHUB_OUTPUT"
+          elif [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
+            echo "tag=${{ github.ref_name }}" >>"$GITHUB_OUTPUT"
+            echo "release=true" >>"$GITHUB_OUTPUT"
+          else
+            # push to main: release only when the version is new.
+            tag="v$ver"
+            prev="$(git show HEAD~1:Cargo.toml 2>/dev/null | grep -m1 '^version' | sed -E 's/.*"(.*)".*/\1/' || true)"
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              echo "release=false" >>"$GITHUB_OUTPUT"
+              echo "Tag $tag already exists — nothing to release."
+            elif [ "$ver" = "$prev" ]; then
+              echo "release=false" >>"$GITHUB_OUTPUT"
+              echo "Version unchanged ($ver) — nothing to release."
+            else
+              echo "tag=$tag" >>"$GITHUB_OUTPUT"
+              echo "release=true" >>"$GITHUB_OUTPUT"
+              echo "New version $ver — will cut $tag."
+            fi
+          fi
+
   build:
+    needs: decide
+    if: needs.decide.outputs.release == 'true'
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -40,6 +87,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Guard against the release-engineering bug that once shipped 0.2.3
+      # binaries under a v0.2.4 tag (the tag was cut on the pre-bump commit):
+      # the prebuilt binary reported an older version than the tag, so the
+      # in-app updater saw a perpetual "update available" and looped forever.
+      # Fail the build when the tag and the source version disagree, rather
+      # than publishing binaries that can never satisfy the version check.
+      - name: Verify tag matches Cargo.toml version
+        run: |
+          want="${{ needs.decide.outputs.tag }}"; want="${want#v}"
+          have="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          echo "release tag: $want | Cargo.toml: $have"
+          if [ "$want" != "$have" ]; then
+            echo "::error::Release tag v$want does not match Cargo.toml version $have — bump Cargo.toml or re-tag the right commit."
+            exit 1
+          fi
+
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
 
@@ -50,11 +113,10 @@ jobs:
         run: tar -C target/${{ matrix.target }}/release -czf tuiui-${{ matrix.target }}.tar.gz tuiui
 
       - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          # On dispatch this creates the tag (at the run's commit) and the
-          # release; on a tag push it attaches to the existing tag's release.
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          # Creates the tag (at this run's commit) and the release if missing,
+          # else attaches to the existing tag's release.
+          tag_name: ${{ needs.decide.outputs.tag }}
           body: "See CHANGELOG.md for the full release notes."
           files: tuiui-${{ matrix.target }}.tar.gz
