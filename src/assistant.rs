@@ -40,10 +40,23 @@ pub fn resolve_agent(cfg_command: Option<&str>, cfg_args: &[String]) -> Option<(
 
 /// Whether the configured agent command looks runnable, for the Settings
 /// status marker. An explicit path (`assistant_command` may be a wrapper or an
-/// absolute path) is checked on disk; a bare name is looked up on `$PATH`.
+/// absolute path) must be an existing file — and, on Unix, carry the executable
+/// bit so the marker reflects actual launchability; a bare name is looked up on
+/// `$PATH`.
 pub fn agent_available(command: &str) -> bool {
     if command.contains('/') {
-        std::path::Path::new(command).is_file()
+        let p = std::path::Path::new(command);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::metadata(p)
+                .map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+                .unwrap_or(false)
+        }
+        #[cfg(not(unix))]
+        {
+            p.is_file()
+        }
     } else {
         crate::catalog::is_installed(command)
     }
@@ -197,10 +210,18 @@ mod tests {
     fn agent_available_handles_paths_and_names() {
         // A bare name that surely isn't installed reports unavailable.
         assert!(!agent_available("definitely-not-a-real-binary-xyz"));
-        // An explicit path is checked on disk, not on $PATH.
+        // An explicit path is checked on disk (and, on Unix, must be executable).
         let f = std::env::temp_dir().join(format!("tuiui-agent-{}", std::process::id()));
         std::fs::write(&f, "#!/bin/sh\n").unwrap();
-        assert!(agent_available(&f.display().to_string()), "an existing path is available");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            // A regular file without the exec bit is NOT runnable…
+            assert!(!agent_available(&f.display().to_string()), "non-executable path is unavailable");
+            std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        // …once executable (or on non-Unix), an existing path is available.
+        assert!(agent_available(&f.display().to_string()), "an executable path is available");
         let _ = std::fs::remove_file(&f);
         assert!(!agent_available("/no/such/path/opencode"), "a missing path is unavailable");
     }
