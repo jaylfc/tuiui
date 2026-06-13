@@ -3701,7 +3701,11 @@ pub fn dock_ctx_rect(anchor_x: i32, w: i32, h: i32) -> Rect {
     let box_w = 14;
     let box_h = DOCK_CTX_ROWS.len() as i32 + 2; // border rows
     let x = anchor_x.clamp(0, (w - box_w).max(0));
-    Rect::new(x, h - 1 - box_h, box_w, box_h)
+    // Sits just above the dock row, but never off the top: on a very short
+    // terminal a negative y would push the rows off-screen (unclickable) — and
+    // since render and hit-test share this fn, the clamp keeps them aligned.
+    let y = (h - 1 - box_h).max(0);
+    Rect::new(x, y, box_w, box_h)
 }
 
 /// Screen rect of dock context-menu row `i` (the clickable row).
