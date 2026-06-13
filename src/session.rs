@@ -3880,7 +3880,12 @@ mod tests {
         // The current binary pair is always compatible with itself (a const
         // block so a bad MIN_COMPAT bump fails the BUILD, not just this test).
         const {
-            assert!(crate::apphost::proto::PROTO_VERSION >= crate::apphost::proto::MIN_COMPAT);
+            // MIN_COMPAT is 0 today, so this reads as "always true" to clippy —
+            // but it's a deliberate build-time guard for future bumps.
+            #[allow(clippy::absurd_extreme_comparisons)]
+            {
+                assert!(crate::apphost::proto::PROTO_VERSION >= crate::apphost::proto::MIN_COMPAT);
+            }
         }
     }
 
