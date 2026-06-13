@@ -105,18 +105,47 @@ pub fn send<T: Serialize, W: Write>(w: &mut W, msg: &T) -> std::io::Result<()> {
 }
 
 /// Read one newline-JSON message into `T`. `Ok(None)` on EOF.
+///
+/// A single unparseable (or blank) line is logged and SKIPPED rather than
+/// returned as an error: the reader loops break on `Err`, so without this a
+/// lone corrupted/truncated frame would tear down the whole apphost connection
+/// — dropping the frame stream for every window at once. Genuine IO errors
+/// from the socket still propagate (via `?`), so a dead peer breaks the loop
+/// instead of busy-spinning.
 pub fn recv<T: for<'de> Deserialize<'de>, R: BufRead>(r: &mut R) -> std::io::Result<Option<T>> {
-    let mut line = String::new();
-    if r.read_line(&mut line)? == 0 {
-        return Ok(None);
+    loop {
+        let mut line = String::new();
+        if r.read_line(&mut line)? == 0 {
+            return Ok(None); // EOF
+        }
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue; // tolerate blank/keepalive lines
+        }
+        match serde_json::from_str(trimmed) {
+            Ok(msg) => return Ok(Some(msg)),
+            Err(e) => crate::dbg_log(&format!("proto: skipping unparseable line ({e})")),
+        }
     }
-    let msg = serde_json::from_str(line.trim()).map_err(std::io::Error::other)?;
-    Ok(Some(msg))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recv_skips_a_bad_line_and_keeps_the_stream_alive() {
+        // A corrupted/blank line between two valid frames must NOT end the
+        // stream (which would drop every window's frames at once).
+        let stream = b"not json at all\n\n{\"Gone\":{\"app\":7}}\n";
+        let mut r = std::io::BufReader::new(&stream[..]);
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Gone { app } => assert_eq!(app, 7, "recovered the next valid frame"),
+            other => panic!("expected Gone after skipping junk, got {other:?}"),
+        }
+        // Then clean EOF.
+        assert!(recv::<HostEvt, _>(&mut r).unwrap().is_none());
+    }
 
     #[test]
     fn roster_proto_round_trips_and_legacy_defaults_to_zero() {
