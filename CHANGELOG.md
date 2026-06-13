@@ -6,6 +6,22 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.5] — 2026-06-13
+
+### Fixed
+- **Update loop on the `main` channel**: the v0.2.4 release binaries were built
+  from the pre-bump commit and reported their version as `0.2.3`, so the in-app
+  updater saw a perpetual "update available" (`0.2.3 → 0.2.4`) that installing
+  could never settle. Re-released as 0.2.5 (identical code) built from the
+  correct commit. The release workflow now fails if the release tag and the
+  `Cargo.toml` version disagree, so a version-skewed release can't ship again.
+
+### Changed
+- **Releases cut themselves on a version bump**: merging a `Cargo.toml` version
+  change to `main` now auto-tags and publishes the release (no tag push
+  required), alongside the existing tag-push and manual `workflow_dispatch`
+  paths.
+
 ## [0.2.4] — 2026-06-13
 
 ### Fixed
