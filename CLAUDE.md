@@ -18,14 +18,34 @@ Clippy is currently warning-clean — keep it that way.
 
 ## Versioning & release channels
 
-`Cargo.toml` carries the semver version (currently 0.2.0); update `CHANGELOG.md`
-in the same commit as user-visible changes. The in-app updater (`update_command`
-in `session.rs`) has two channels, chosen by `config.update_branch`:
+`Cargo.toml` carries the semver version (currently 0.2.9); update `CHANGELOG.md`
+in the same commit as user-visible changes (roll `[Unreleased]` into a new
+`[x.y.z]` heading).
+
+**Releases are automated — cut one by merging a version bump.** Bump
+`Cargo.toml` + `Cargo.lock`, roll the CHANGELOG, open a PR, merge it.
+`.github/workflows/release.yml` triggers on push to `main`; when the version is
+new it tags `vX.Y.Z`, builds the four platform binaries, and publishes the
+GitHub Release — no manual tag push or `workflow_dispatch` needed (this matters
+because the session's automation can open/merge PRs but **cannot push tags or
+dispatch workflows** — both return 403). Tag-push and manual dispatch still
+work. A guard step **fails the build if the release tag and `Cargo.toml`
+version disagree**, so a version-skewed release (which once shipped 0.2.3
+binaries under a `v0.2.4` tag → an in-app update loop) can't ship again.
+
+The in-app updater (`update_command` in `session.rs`) has two channels, chosen
+by `config.update_branch`:
 - **main** — downloads the latest prebuilt release via `install.sh` (fast),
   falling back to `cargo install --git`.
 - **dev** — `cargo install --git --branch dev` (source build, for testing).
-When the feature set is verified, cut a `dev` branch so testers can track it
-from Settings → Updates without touching `main`.
+
+The updater reloads via the freshly-installed binary's **absolute path** (a
+bare `tuiui reload` can miss `$PATH` in the non-interactive `sh -lc` it runs
+in) and logs each step (`update: …`) to `~/tuiui-debug.log`. The debug log now
+**appends across reloads** — `dbg_init` used to truncate on every daemon start,
+wiping the very update trace needed to debug it. **⚠ An in-app "update from
+Settings" still gets stuck — investigation IN PROGRESS, awaiting a user log;
+see `docs/superpowers/plans/2026-06-14-update-stuck-investigation.md`.**
 
 ## Architecture (the three processes)
 
