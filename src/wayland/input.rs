@@ -10,7 +10,7 @@
 //! - TTY/VT switch handling (releases DRM so others can use VT)
 
 use crate::geometry::Point;
-use crate::input::{route_mouse, Action as InputAction, Hit, MouseKind};
+use crate::input::{route_mouse, Action as InputAction, MouseKind};
 use crate::window::{Window, WindowId};
 use std::collections::HashMap;
 

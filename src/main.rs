@@ -28,7 +28,6 @@ fn main() -> std::io::Result<()> {
     match cmd.as_deref() {
         Some("--compositor") => tuiui::run_compositor(),
         Some("--daemon") => tuiui::daemon::run(),
-        Some("--daemon") => tuiui::daemon::run(),
         Some("--apphost") => tuiui::apphost::server::run(),
         Some("kill") => kill(),
         Some("kill-app") => kill_app(&rest),

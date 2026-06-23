@@ -3,8 +3,6 @@
 //! This module handles direct kernel mode setting, page-flipping, and buffer allocation
 //! for the Wayland compositor. Provides graceful fallback if KMS/DRM initialization fails.
 
-use std::sync::Arc;
-
 /// DRM buffer info for sharing with Wayland clients.
 #[derive(Clone, Debug)]
 pub struct DrmBuffer {

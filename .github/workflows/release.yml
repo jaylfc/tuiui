@@ -35,7 +35,6 @@ jobs:
           - { os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, extra_features: "--features wayland-compositor" }
     steps:
-    steps:
       - uses: actions/checkout@v4
 
       - name: Install Wayland deps
@@ -55,8 +54,9 @@ jobs:
           cp assets/tuiui-compositor.service release-assets/
           cp assets/drm-uaccess.rules release-assets/
           # Linux builds include both binaries; other platforms just tuiui
+          # Only include tuiui-compositor if it exists (built only with wayland-compositor feature)
           if [ "${{ runner.os }}" = "Linux" ]; then
-            tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui tuiui-compositor -C release-assets .
+            tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui $(test -f target/${{ matrix.target }}/release/tuiui-compositor && echo "tuiui-compositor") -C release-assets .
           else
             tar -czf tuiui-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release tuiui -C release-assets .
           fi
