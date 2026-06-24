@@ -141,6 +141,9 @@ pub fn enumerate_input_devices() -> Vec<DeviceInfo> {
 }
 
 /// Read sysfs capabilities bits for a given device node.
+/// The /sys/class/input/*/device/capabilities/ev file contains a hex bitmask
+/// where bit 1 (EV_KEY) indicates keyboard, bit 2 (EV_REL) indicates relative
+/// pointer (mouse), and bit 3 (EV_ABS) indicates absolute axes (touchscreen).
 fn read_device_capabilities(path: &std::path::Path) -> (bool, bool, bool) {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let sys_path = format!("/sys/class/input/{name}/device/capabilities/ev");
@@ -148,34 +151,27 @@ fn read_device_capabilities(path: &std::path::Path) -> (bool, bool, bool) {
         return (false, true, false);
     };
 
-    let mut is_keyboard = false;
-    let mut is_pointer = false;
-    let mut is_touch = false;
-
-    for byte in data.bytes().take(24) {
-        match byte {
-            b'k' => is_keyboard = true,
-            b'r' | b'm' => is_pointer = true,
-            b't' => is_touch = true,
-            _ => {}
-        }
-    }
+    // Parse hex bitmask: bit 1 = EV_KEY (keyboard), bit 2 = EV_REL (mouse),
+    // bit 3 = EV_ABS (touchscreen).
+    let bits = u32::from_str_radix(data.trim(), 16).unwrap_or(0);
+    let has_key =    (bits & (1 << 1)) != 0;  // EV_KEY
+    let has_rel =    (bits & (1 << 2)) != 0;  // EV_REL
+    let has_abs =    (bits & (1 << 3)) != 0;  // EV_ABS
 
     // Cross-validate with friendly device name.
     let sys_name_path = format!("/sys/class/input/{name}/device/name");
     if let Ok(friendly) = std::fs::read_to_string(&sys_name_path) {
         let f = friendly.trim().to_lowercase();
         if f.contains("keyboard") || f.contains("kbd") {
-            is_keyboard = true;
+            return (true, has_rel, has_abs);
         } else if f.contains("touchpad") {
-            is_pointer = true;
+            return (has_key, true, false);
         } else if f.contains("touchscreen") || f.contains("touch") {
-            is_touch = true;
-            is_pointer = true;
+            return (has_key, true, true);
         }
     }
 
-    (is_keyboard, is_pointer, is_touch)
+    (has_key, has_rel, has_abs)
 }
 
 // ── Seat state ───────────────────────────────────────────────────────────────
@@ -270,7 +266,7 @@ impl InputManager {
             s.has_touch = has_touch;
             s.keyboard_layout = config.keyboard_layout;
             s.refresh_capabilities();
-            seats.lock().unwrap_or_else(|e| e.into_inner()).insert(primary, s);
+            seats.lock().unwrap().insert(primary, s);
         }
 
         Self {

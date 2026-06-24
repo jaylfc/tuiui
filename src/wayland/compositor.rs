@@ -1,7 +1,7 @@
-//! Smithay compositor loop and seat/output management.
+//! Wayland compositor loop and seat/output management stubs.
 //!
-//! This module implements the core Wayland compositor using smithay's APIs,
-//! managing multiple seats and outputs, with graceful fallback if KMS fails.
+//! This module provides the core compositor state management for the Wayland
+//! backend, with stubs ready for integration with smithay's APIs.
 
 use crate::geometry::Point;
 use std::collections::HashMap;

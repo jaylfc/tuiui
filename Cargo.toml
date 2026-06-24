@@ -22,12 +22,6 @@ mime_guess = "2"
 base64 = "0.22"
 flate2 = "1"
 libc = "0.2"
-smithay = { version = "0.6", optional = true }
-
-[features]
-default = ["tui"]
-tui = []
-wayland-compositor = ["smithay"]
 
 [lib]
 name = "tuiui"
@@ -37,8 +31,7 @@ path = "src/lib.rs"
 name = "tuiui"
 path = "src/main.rs"
 
-# Separate compositor binary built with --features wayland-compositor
+# Separate compositor binary (stub implementation)
 [[bin]]
 name = "tuiui-compositor"
 path = "src/compositor_main.rs"
-required-features = ["wayland-compositor"]

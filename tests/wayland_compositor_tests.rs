@@ -1,4 +1,3 @@
-#[cfg(feature = "wayland-compositor")]
 mod tests {
     use tuiui::wayland::{
         WaylandCompositor, LayerType, Anchor, OutputId, SeatId,

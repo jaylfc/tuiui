@@ -1,7 +1,7 @@
-//! KMS/DRM backend for rendering.
+//! KMS/DRM backend stubs for rendering.
 //!
-//! This module handles direct kernel mode setting, page-flipping, and buffer allocation
-//! for the Wayland compositor. Provides graceful fallback if KMS/DRM initialization fails.
+//! This module provides stub types for DRM buffer management, ready for
+//! integration with actual KMS/DRM implementation.
 
 /// DRM buffer info for sharing with Wayland clients.
 #[derive(Clone, Debug)]

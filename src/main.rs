@@ -3,7 +3,7 @@
 //! - `tuiui`            ensure the daemon is running, then attach a client.
 //! - `tuiui attach`     attach to an already-running daemon.
 //! - `tuiui --daemon`   run the daemon (normally spawned automatically).
-//! - `tuiui --compositor` run the Wayland compositor backend (requires --features wayland-compositor).
+//! - `tuiui --compositor` run the Wayland compositor backend (stub - not yet implemented).
 //! - `tuiui kill`       shut the daemon down (closing all windows).
 //! - `tuiui reload`     restart the frontend only; apps keep running.
 //! - `tuiui service …`  install|uninstall|status the per-user apphost service.
