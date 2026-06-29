@@ -4898,6 +4898,16 @@
   ],
   "verified": true
  },
+ "torlink": {
+  "install": "npm install -g torlnk",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "tortuise": {
   "install": "cargo install tortuise",
   "method": "cargo",

@@ -4130,6 +4130,13 @@
   "homepage": "https://github.com/Textualize/textual-web"
  },
  {
+  "name": "torlink",
+  "bin": "torlnk",
+  "category": "Web",
+  "description": "A zero-setup terminal torrent finder and downloader that searches a curated list of sources and saves straight to your downloads folder.",
+  "homepage": "https://github.com/baairon/torlink"
+ },
+ {
   "name": "twterm",
   "bin": "twterm",
   "category": "Web",
