@@ -70,6 +70,13 @@
   "homepage": "https://github.com/superagent-ai/grok-cli"
  },
  {
+  "name": "herdr",
+  "bin": "herdr",
+  "category": "AI",
+  "description": "An agent multiplexer for your terminal: run every coding agent in one place with persistent sessions and at-a-glance blocked/working/done state, like tmux rebuilt for agents.",
+  "homepage": "https://herdr.dev"
+ },
+ {
   "name": "Kilo Code",
   "bin": "kilo",
   "category": "AI",

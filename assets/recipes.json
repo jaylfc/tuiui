@@ -2520,6 +2520,15 @@
   ],
   "verified": true
  },
+ "herdr": {
+  "install": "brew install herdr",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "heretek": {
   "install": "cargo install heretek --locked",
   "method": "cargo",
