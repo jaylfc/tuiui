@@ -1,5 +1,9 @@
 # tuiui
 
+<p align="center">
+  <img src="assets/tuiui.png" alt="tuiui — a desktop environment running inside a terminal: floating windows, a dock, a menubar tray, and a mouse cursor" width="900">
+</p>
+
 **A desktop environment for the terminal.** tuiui is a windowing shell that runs *inside* a terminal: floating, overlapping windows — each hosting a real terminal application — with a mouse cursor, a top menubar + status tray, a bottom dock, configurable grid tiling, an app launcher, and an app store backed by the [awesome-tuis](https://github.com/rothgar/awesome-tuis) catalog.
 
 It's a multiplexer at heart — like tmux, but with windows and a mouse: apps run as real child processes in PTYs, composited into windows, and **kept alive by a background daemon**. Detach and reattach from any terminal — or over SSH from another machine — and your whole desktop is exactly where you left it. Built from scratch in Rust.
