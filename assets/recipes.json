@@ -2288,6 +2288,15 @@
   ],
   "verified": true
  },
+ "ghui": {
+  "install": "brew install kitlangton/tap/ghui",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "git-crecord": {
   "install": "pipx install git-crecord",
   "method": "pipx",
@@ -2573,6 +2582,16 @@
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "hunk": {
+  "install": "brew install modem-dev/tap/hunk",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },

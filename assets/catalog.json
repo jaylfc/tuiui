@@ -861,6 +861,13 @@
   "homepage": "https://github.com/bmf-san/ggc"
  },
  {
+  "name": "ghui",
+  "bin": "ghui",
+  "category": "Development",
+  "description": "A keyboard-driven terminal UI for your open GitHub pull requests across repositories: review diffs, leave comments, manage labels, toggle draft state, and merge without leaving the terminal.",
+  "homepage": "https://github.com/kitlangton/ghui"
+ },
+ {
   "name": "git-crecord",
   "bin": "git-crecord",
   "category": "Development",
@@ -908,6 +915,13 @@
   "category": "Development",
   "description": "GDB TUI Dashboard",
   "homepage": "https://github.com/wcampbell0x2a/heretek"
+ },
+ {
+  "name": "hunk",
+  "bin": "hunk",
+  "category": "Development",
+  "description": "A review-first terminal diff viewer for agent-authored changesets: a multi-file review stream with sidebar navigation, inline AI annotations, split/stack/auto layouts, watch mode, and Git difftool support.",
+  "homepage": "https://github.com/modem-dev/hunk"
  },
  {
   "name": "jqp",
