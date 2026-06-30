@@ -3555,6 +3555,15 @@
   ],
   "verified": true
  },
+ "oh-my-pi": {
+  "install": "brew install can1357/tap/omp",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "oha": {
   "install": "brew install oha",
   "method": "brew",

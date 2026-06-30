@@ -91,6 +91,13 @@
   "homepage": "https://llm.datasette.io"
  },
  {
+  "name": "oh-my-pi",
+  "bin": "omp",
+  "category": "AI",
+  "description": "A coding agent with the IDE wired in (the omp CLI): 40+ model providers, dozens of built-in tools, and LSP/DAP integration for read/edit/run workflows in the terminal.",
+  "homepage": "https://omp.sh"
+ },
+ {
   "name": "opencode",
   "bin": "opencode",
   "category": "AI",
@@ -864,7 +871,7 @@
   "name": "ghui",
   "bin": "ghui",
   "category": "Development",
-  "description": "A keyboard-driven terminal UI for your open GitHub pull requests across repositories: review diffs, leave comments, manage labels, toggle draft state, and merge without leaving the terminal.",
+  "description": "A keyboard-driven terminal UI for your open GitHub pull requests across repositories: review diffs, leave comments, manage labels, toggle draft state, and merge without leaving the terminal. Requires the GitHub CLI (gh) installed and authenticated (gh auth login).",
   "homepage": "https://github.com/kitlangton/ghui"
  },
  {
