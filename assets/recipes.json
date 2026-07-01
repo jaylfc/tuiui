@@ -2279,6 +2279,16 @@
   ],
   "verified": true
  },
+ "ghgrab": {
+  "install": "cargo install ghgrab",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "gif-for-cli": {
   "install": "pipx install gif-for-cli",
   "method": "pipx",
