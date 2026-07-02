@@ -6,16 +6,18 @@ into the assistant's working directory (`~/.local/share/tuiui/assistant/`) on
 every launch, with live placeholders (host name, saved systems, version)
 filled in.
 
-tuiui standardises on the **opencode** CLI. Its working directory is forced as
-the agent's cwd, and the pack is written there as `AGENTS.md` — the context file
-opencode reads on startup:
+tuiui standardises on the **opencode** CLI, with **hermes** as a supported
+alternative (switch between them in **Settings → Assistant**). Its working
+directory is forced as the agent's cwd, and the pack is written there as
+`AGENTS.md` — the context file opencode (or hermes) reads on startup:
 
 | File written at launch | Read by                  |
 |------------------------|--------------------------|
-| `AGENTS.md`            | opencode (the assistant) |
+| `AGENTS.md`            | opencode / hermes (the assistant) |
 
-(`assistant_command` in config.toml can point the panel at a different binary,
-but the briefing is always stamped as `AGENTS.md`.)
+(`assistant_command` in config.toml stores the switch and can also point the
+panel at any other binary by hand, but the briefing is always stamped as
+`AGENTS.md`.)
 
 Editing a file here changes what the agent is told, after a rebuild.
 
