@@ -9,11 +9,13 @@ filled in.
 tuiui standardises on the **opencode** CLI, with **hermes** as a supported
 alternative (switch between them in **Settings → Assistant**). Its working
 directory is forced as the agent's cwd, and the pack is written there as
-`AGENTS.md` — the context file opencode (or hermes) reads on startup:
+`AGENTS.md` — the context file opencode reads on startup (hermes is assumed
+compatible with the same convention, but that isn't verified against its own
+docs):
 
 | File written at launch | Read by                  |
 |------------------------|--------------------------|
-| `AGENTS.md`            | opencode / hermes (the assistant) |
+| `AGENTS.md`            | opencode (confirmed); hermes (assumed) |
 
 (`assistant_command` in config.toml stores the switch and can also point the
 panel at any other binary by hand, but the briefing is always stamped as
