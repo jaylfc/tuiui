@@ -283,7 +283,7 @@ Design docs and the slice-by-slice plan live in [`docs/superpowers/`](docs/super
 - **✅ Logs viewer:** launcher → tuiui → Logs; `c` copies the log to the host clipboard via OSC 52.
 - **✅ Scrollback:** the mouse wheel pages back through any app window's history.
 - **✅ Versioned releases + update channels:** semver in `Cargo.toml`, a `CHANGELOG`, and a main/dev channel switcher in Settings → Updates (main installs prebuilt releases fast; dev builds from source).
-- **✅ AI assistant:** the ✦ chat panel/window — the opencode CLI (model-agnostic, MCP-extensible), the repo `agent/` briefing pack, desktop control via the `tuiui` CLI, cross-machine awareness.
+- **✅ AI assistant:** the ✦ chat panel/window — switchable between the opencode CLI (model-agnostic, MCP-extensible) and hermes (Settings → Assistant), the repo `agent/` briefing pack, desktop control via the `tuiui` CLI, cross-machine awareness.
 - **Slice 6 — GUI/Wayland mode** (host real GUI apps; audio/video streaming to the client) — plus a parked idea: a fullscreen **browser PWA** of tuiui (multiple simultaneous frontends on one apphost).
 - **Slice 7 — Standalone "TUI-OS" app** (bundle a GPU terminal + tuiui into a fullscreen app).
 
