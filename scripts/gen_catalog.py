@@ -17,6 +17,16 @@ from pathlib import Path
 # "Libraries" are TUI frameworks, not runnable apps — excluded from the store.
 EXCLUDE = {"Libraries"}
 
+# Individual entries excluded from the store (lowercased names): either not
+# installable apps, or already curated in the catalog under another name.
+EXCLUDE_APPS = {
+    "termui",         # Go widget library, not a runnable app
+    "iconicfonts",    # patched-font collection, not a runnable app
+    "learnbyexample", # collection of separate tutorial apps, no single binary
+    "codex",          # already curated as "Codex" (AI category)
+    "crush",          # already curated as "Crush" (AI category)
+}
+
 # Binary names that differ from the project name (improves detection).
 BIN_OVERRIDES = {
     "bottom": "btm",
@@ -27,6 +37,8 @@ BIN_OVERRIDES = {
     "trippy": "trip",
     "superfile": "spf",
     "tig": "tig",
+    "flow-control": "flow",
+    "ytreenova": "ytnova",
 }
 
 
@@ -53,6 +65,8 @@ def main() -> int:
         if not m or not category or category in EXCLUDE:
             continue
         name = m.group(1).strip()
+        if name.lower() in EXCLUDE_APPS:
+            continue
         if name.lower() in seen:
             continue
         seen.add(name.lower())

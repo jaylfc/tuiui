@@ -77,6 +77,13 @@
   "homepage": "https://herdr.dev"
  },
  {
+  "name": "Hermes",
+  "bin": "hermes",
+  "category": "AI",
+  "description": "Nous Research's self-improving AI agent: creates skills from experience and builds a persistent model of its user. Chat TUI via hermes --tui.",
+  "homepage": "https://hermes-agent.nousresearch.com"
+ },
+ {
   "name": "Kilo Code",
   "bin": "kilo",
   "category": "AI",
@@ -96,6 +103,13 @@
   "category": "AI",
   "description": "A coding agent with the IDE wired in (the omp CLI): 40+ model providers, dozens of built-in tools, and LSP/DAP integration for read/edit/run workflows in the terminal.",
   "homepage": "https://omp.sh"
+ },
+ {
+  "name": "OpenClaw",
+  "bin": "openclaw",
+  "category": "AI",
+  "description": "Your own personal AI assistant — self-hosted gateway answering on WhatsApp/Telegram/Slack/Discord and more; terminal chat via openclaw tui.",
+  "homepage": "https://openclaw.ai"
  },
  {
   "name": "opencode",
@@ -124,6 +138,13 @@
   "category": "AI",
   "description": "Open-source AI coding agent that runs in your terminal, optimized for Qwen series models.",
   "homepage": "https://github.com/QwenLM/qwen-code"
+ },
+ {
+  "name": "smallcode",
+  "bin": "smallcode",
+  "category": "AI",
+  "description": "AI coding agent optimized for small local LLMs (8B-35B) via Ollama/LM Studio/llama.cpp, with optional escalation to cloud models.",
+  "homepage": "https://github.com/Doorman11991/smallcode"
  },
  {
   "name": "AdGuardian-Term",
@@ -362,6 +383,13 @@
   "category": "Dashboards",
   "description": "Heroku Terminal User Interface",
   "homepage": "https://github.com/PierreKieffer/htui"
+ },
+ {
+  "name": "hwatch",
+  "bin": "hwatch",
+  "category": "Dashboards",
+  "description": "A modern alternative to watch that records command output history and provides interactive diff views, scrolling, filtering, JSON logging, and hooks.",
+  "homepage": "https://github.com/blacknon/hwatch"
  },
  {
   "name": "hwinfo-tui",
@@ -735,18 +763,18 @@
   "homepage": "https://github.com/bfly123/claude_code_bridge"
  },
  {
+  "name": "Claude Code Usage Monitor",
+  "bin": "claude-monitor",
+  "category": "Development",
+  "description": "Monitor Claude token usage",
+  "homepage": "https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor"
+ },
+ {
   "name": "Close Mongo Ops Manager",
   "bin": "close-mongo-ops-manager",
   "category": "Development",
   "description": "Monitor and kill MongoDB operations",
   "homepage": "https://github.com/closeio/close-mongo-ops-manager"
- },
- {
-  "name": "Cloud Code Usage Monitor",
-  "bin": "claude-monitor",
-  "category": "Development",
-  "description": "Monitor Claude token usage",
-  "homepage": "https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor"
  },
  {
   "name": "cnTUI",
@@ -847,6 +875,13 @@
   "homepage": "https://github.com/anistark/feluda"
  },
  {
+  "name": "freeze",
+  "bin": "freeze",
+  "category": "Development",
+  "description": "Generate images of code and terminal output.",
+  "homepage": "https://github.com/charmbracelet/freeze"
+ },
+ {
   "name": "Froggit",
   "bin": "froggit",
   "category": "Development",
@@ -915,6 +950,13 @@
   "category": "Development",
   "description": "Terminal interface for viewing git repositories",
   "homepage": "https://github.com/rgburke/grv"
+ },
+ {
+  "name": "gum",
+  "bin": "gum",
+  "category": "Development",
+  "description": "A tool for glamorous shell scripts (prompts, menus, spinners).",
+  "homepage": "https://github.com/charmbracelet/gum"
  },
  {
   "name": "harlequin",
@@ -987,6 +1029,13 @@
   "homepage": "https://codeberg.org/wvhulle/lean-tui"
  },
  {
+  "name": "litecli",
+  "bin": "litecli",
+  "category": "Development",
+  "description": "SQLite CLI with auto-completion and syntax highlighting.",
+  "homepage": "https://github.com/dbcli/litecli"
+ },
+ {
   "name": "LogLens",
   "bin": "loglens",
   "category": "Development",
@@ -1022,6 +1071,13 @@
   "homepage": "https://github.com/arimxyer/models"
  },
  {
+  "name": "mycli",
+  "bin": "mycli",
+  "category": "Development",
+  "description": "MySQL/MariaDB CLI with auto-completion and syntax highlighting.",
+  "homepage": "https://github.com/dbcli/mycli"
+ },
+ {
   "name": "nap",
   "bin": "nap",
   "category": "Development",
@@ -1041,6 +1097,13 @@
   "category": "Development",
   "description": "OPC UA client TUI with real-time oscilloscope view for industrial automation",
   "homepage": "https://github.com/SquareWaveSystems/opcilloscope"
+ },
+ {
+  "name": "pgcli",
+  "bin": "pgcli",
+  "category": "Development",
+  "description": "Postgres CLI with auto-completion and syntax highlighting.",
+  "homepage": "https://github.com/dbcli/pgcli"
  },
  {
   "name": "play",
@@ -1158,7 +1221,7 @@
   "name": "snips.sh",
   "bin": "snips.sh",
   "category": "Development",
-  "description": "\u2702\ufe0f passwordless, anonymous SSH-powered pastebin with a human-friendly TUI and web UI",
+  "description": "✂️ passwordless, anonymous SSH-powered pastebin with a human-friendly TUI and web UI",
   "homepage": "https://github.com/robherley/snips.sh"
  },
  {
@@ -1477,11 +1540,25 @@
   "homepage": "https://github.com/TomasTomecek/sen"
  },
  {
+  "name": "SwarmCLI",
+  "bin": "swarmcli",
+  "category": "Docker/LXC/K8s",
+  "description": "Swarm Management at the speed of thought — with real-time log streaming, instant shell access to containers, seamless port forwarding, and on-demand secret reveal capabilities, giving you full control over your Docker Swarm without breaking your flow.",
+  "homepage": "https://github.com/Eldara-Tech/swarmcli"
+ },
+ {
   "name": "talos-pilot",
   "bin": "talos-pilot",
   "category": "Docker/LXC/K8s",
   "description": "TUI for Talos Linux providing real-time node monitoring, log streaming, and various diagnostics",
   "homepage": "https://github.com/handfish/talos-pilot"
+ },
+ {
+  "name": "amp",
+  "bin": "amp",
+  "category": "Editors",
+  "description": "A complete text editor for your terminal",
+  "homepage": "https://github.com/jmacdonald/amp"
  },
  {
   "name": "C-Edit",
@@ -1503,6 +1580,13 @@
   "category": "Editors",
   "description": "A simple text editor. Pays homage to the classic MS-DOS Editor.",
   "homepage": "https://github.com/microsoft/edit"
+ },
+ {
+  "name": "flow-control",
+  "bin": "flow",
+  "category": "Editors",
+  "description": "A lightning-fast, feature-rich text editor written in Zig",
+  "homepage": "https://github.com/neurocyte/flow"
  },
  {
   "name": "Fresh",
@@ -1559,6 +1643,13 @@
   "category": "Editors",
   "description": "A modern and intuitive terminal-based text editor",
   "homepage": "https://github.com/zyedidia/micro"
+ },
+ {
+  "name": "microNeo",
+  "bin": "microneo",
+  "category": "Editors",
+  "description": "A fork of Micro with in-place Markdown rendering — view and edit in the same window",
+  "homepage": "https://github.com/sollawen/microNeo"
  },
  {
   "name": "nino",
@@ -1683,7 +1774,7 @@
   "name": "nnn",
   "bin": "nnn",
   "category": "File Managers",
-  "description": "n\u00b3 The unorthodox terminal file manager.",
+  "description": "n³ The unorthodox terminal file manager.",
   "homepage": "https://github.com/jarun/nnn"
  },
  {
@@ -1748,6 +1839,13 @@
   "category": "File Managers",
   "description": "Blazing fast terminal file manager written in Rust, based on async I/O.",
   "homepage": "https://github.com/sxyazi/yazi"
+ },
+ {
+  "name": "ytreenova",
+  "bin": "ytnova",
+  "category": "File Managers",
+  "description": "The XTree style file manager Unix should have had all along.",
+  "homepage": "https://github.com/robkam/ytreenova"
  },
  {
   "name": "awkaster",
@@ -2149,6 +2247,13 @@
   "homepage": "https://github.com/erikjuhani/basalt"
  },
  {
+  "name": "concord",
+  "bin": "concord",
+  "category": "Messaging",
+  "description": "A feature-rich TUI client for Discord",
+  "homepage": "https://github.com/chojs23/concord"
+ },
+ {
   "name": "Devzat",
   "bin": "devzat",
   "category": "Messaging",
@@ -2189,6 +2294,13 @@
   "category": "Messaging",
   "description": "Signal Messenger client for terminal",
   "homepage": "https://github.com/boxdot/gurk-rs"
+ },
+ {
+  "name": "himalaya",
+  "bin": "himalaya",
+  "category": "Messaging",
+  "description": "CLI/TUI to manage emails (IMAP/SMTP, multi-account).",
+  "homepage": "https://github.com/pimalaya/himalaya"
  },
  {
   "name": "iamb",
@@ -2497,6 +2609,20 @@
   "category": "Miscellaneous",
   "description": "TUI for managing distrobox containers",
   "homepage": "https://github.com/phanirithvij/distrobox-tui"
+ },
+ {
+  "name": "dua",
+  "bin": "dua",
+  "category": "Miscellaneous",
+  "description": "Fast interactive disk-usage analyzer and cleaner.",
+  "homepage": "https://github.com/Byron/dua-cli"
+ },
+ {
+  "name": "dust",
+  "bin": "dust",
+  "category": "Miscellaneous",
+  "description": "A more intuitive, visual version of du (disk usage).",
+  "homepage": "https://github.com/bootandy/dust"
  },
  {
   "name": "ec2-instance-selector",
@@ -3290,6 +3416,13 @@
   "homepage": "https://github.com/zorig/valvefm"
  },
  {
+  "name": "vhs",
+  "bin": "vhs",
+  "category": "Multimedia",
+  "description": "Write terminal GIFs as code — scriptable session recorder.",
+  "homepage": "https://github.com/charmbracelet/vhs"
+ },
+ {
   "name": "viu",
   "bin": "viu",
   "category": "Multimedia",
@@ -3531,7 +3664,7 @@
   "name": "hygg",
   "bin": "hygg",
   "category": "Productivity",
-  "description": "\ud83d\udcda Simplifying the way you read. Minimalistic Vim-like TUI document reader.",
+  "description": "📚 Simplifying the way you read. Minimalistic Vim-like TUI document reader.",
   "homepage": "https://github.com/kruserr/hygg"
  },
  {
@@ -3584,6 +3717,13 @@
   "homepage": "https://github.com/pimutils/khal"
  },
  {
+  "name": "khard",
+  "bin": "khard",
+  "category": "Productivity",
+  "description": "Console CardDAV address book and contact manager.",
+  "homepage": "https://github.com/lucc/khard"
+ },
+ {
   "name": "LazySSH",
   "bin": "lazyssh",
   "category": "Productivity",
@@ -3605,6 +3745,13 @@
   "homepage": "https://github.com/longbridge/longbridge-terminal"
  },
  {
+  "name": "lssh",
+  "bin": "lssh",
+  "category": "Productivity",
+  "description": "A terminal-native remote access suite for SSH workflows, including interactive host selection, parallel commands, mux workspaces, file transfer, sync, diff, forwarding, and multi-host monitoring.",
+  "homepage": "https://github.com/blacknon/lssh"
+ },
+ {
   "name": "mcfly",
   "bin": "mcfly",
   "category": "Productivity",
@@ -3624,6 +3771,13 @@
   "category": "Productivity",
   "description": "Workspace and session management for terminal environments",
   "homepage": "https://github.com/GianlucaP106/mynav"
+ },
+ {
+  "name": "nb",
+  "bin": "nb",
+  "category": "Productivity",
+  "description": "Plain-text note-taking, bookmarking, and knowledge base.",
+  "homepage": "https://github.com/xwmx/nb"
  },
  {
   "name": "nless",
@@ -3724,18 +3878,18 @@
   "homepage": "https://github.com/andmarti1424/sc-im"
  },
  {
-  "name": "SheetsUI",
-  "bin": "sheetsui",
-  "category": "Productivity",
-  "description": "A console based spreadsheet application",
-  "homepage": "https://github.com/zaphar/sheetsui"
- },
- {
   "name": "sheets",
   "bin": "sheets",
   "category": "Productivity",
   "description": "Terminal-based spreadsheet tool backed by CSV files.",
   "homepage": "https://github.com/maaslalani/sheets"
+ },
+ {
+  "name": "SheetsUI",
+  "bin": "sheetsui",
+  "category": "Productivity",
+  "description": "A console based spreadsheet application",
+  "homepage": "https://github.com/zaphar/sheetsui"
  },
  {
   "name": "slides",
@@ -3850,6 +4004,20 @@
   "homepage": "https://github.com/topydo/topydo"
  },
  {
+  "name": "trx",
+  "bin": "trx",
+  "category": "Productivity",
+  "description": "Terminal package manager with fuzzy search and keyboard-driven package discovery.",
+  "homepage": "https://github.com/pie-314/trx"
+ },
+ {
+  "name": "ttm",
+  "bin": "ttm",
+  "category": "Productivity",
+  "description": "SSH bookmark manager with Bubble Tea TUI — connect, manage and sync via Gist",
+  "homepage": "https://github.com/vst93/ttm"
+ },
+ {
   "name": "ttyplot",
   "bin": "ttyplot",
   "category": "Productivity",
@@ -3906,11 +4074,25 @@
   "homepage": "https://github.com/magiblot/tvterm"
  },
  {
+  "name": "vdirsyncer",
+  "bin": "vdirsyncer",
+  "category": "Productivity",
+  "description": "Synchronize calendars and contacts (CalDAV/CardDAV).",
+  "homepage": "https://github.com/pimutils/vdirsyncer"
+ },
+ {
   "name": "Visidata",
   "bin": "visidata",
   "category": "Productivity",
   "description": "A terminal spreadsheet multitool for discovering and arranging data",
   "homepage": "https://github.com/saulpw/visidata"
+ },
+ {
+  "name": "wordgrinder",
+  "bin": "wordgrinder",
+  "category": "Productivity",
+  "description": "Distraction-free Unicode word processor for the terminal.",
+  "homepage": "https://github.com/davidgiven/wordgrinder"
  },
  {
   "name": "zeit",
@@ -4184,117 +4366,5 @@
   "category": "Web",
   "description": "A text-mode WWW browser",
   "homepage": "https://github.com/tats/w3m"
- },
- {
-  "name": "wordgrinder",
-  "bin": "wordgrinder",
-  "category": "Productivity",
-  "description": "Distraction-free Unicode word processor for the terminal.",
-  "homepage": "https://github.com/davidgiven/wordgrinder"
- },
- {
-  "name": "himalaya",
-  "bin": "himalaya",
-  "category": "Messaging",
-  "description": "CLI/TUI to manage emails (IMAP/SMTP, multi-account).",
-  "homepage": "https://github.com/pimalaya/himalaya"
- },
- {
-  "name": "khard",
-  "bin": "khard",
-  "category": "Productivity",
-  "description": "Console CardDAV address book and contact manager.",
-  "homepage": "https://github.com/lucc/khard"
- },
- {
-  "name": "vdirsyncer",
-  "bin": "vdirsyncer",
-  "category": "Productivity",
-  "description": "Synchronize calendars and contacts (CalDAV/CardDAV).",
-  "homepage": "https://github.com/pimutils/vdirsyncer"
- },
- {
-  "name": "nb",
-  "bin": "nb",
-  "category": "Productivity",
-  "description": "Plain-text note-taking, bookmarking, and knowledge base.",
-  "homepage": "https://github.com/xwmx/nb"
- },
- {
-  "name": "gum",
-  "bin": "gum",
-  "category": "Development",
-  "description": "A tool for glamorous shell scripts (prompts, menus, spinners).",
-  "homepage": "https://github.com/charmbracelet/gum"
- },
- {
-  "name": "vhs",
-  "bin": "vhs",
-  "category": "Multimedia",
-  "description": "Write terminal GIFs as code \u2014 scriptable session recorder.",
-  "homepage": "https://github.com/charmbracelet/vhs"
- },
- {
-  "name": "freeze",
-  "bin": "freeze",
-  "category": "Development",
-  "description": "Generate images of code and terminal output.",
-  "homepage": "https://github.com/charmbracelet/freeze"
- },
- {
-  "name": "dust",
-  "bin": "dust",
-  "category": "Miscellaneous",
-  "description": "A more intuitive, visual version of du (disk usage).",
-  "homepage": "https://github.com/bootandy/dust"
- },
- {
-  "name": "dua",
-  "bin": "dua",
-  "category": "Miscellaneous",
-  "description": "Fast interactive disk-usage analyzer and cleaner.",
-  "homepage": "https://github.com/Byron/dua-cli"
- },
- {
-  "name": "pgcli",
-  "bin": "pgcli",
-  "category": "Development",
-  "description": "Postgres CLI with auto-completion and syntax highlighting.",
-  "homepage": "https://github.com/dbcli/pgcli"
- },
- {
-  "name": "mycli",
-  "bin": "mycli",
-  "category": "Development",
-  "description": "MySQL/MariaDB CLI with auto-completion and syntax highlighting.",
-  "homepage": "https://github.com/dbcli/mycli"
- },
- {
-  "name": "litecli",
-  "bin": "litecli",
-  "category": "Development",
-  "description": "SQLite CLI with auto-completion and syntax highlighting.",
-  "homepage": "https://github.com/dbcli/litecli"
- },
- {
-  "name": "smallcode",
-  "bin": "smallcode",
-  "category": "AI",
-  "description": "AI coding agent optimized for small local LLMs (8B-35B) via Ollama/LM Studio/llama.cpp, with optional escalation to cloud models.",
-  "homepage": "https://github.com/Doorman11991/smallcode"
- },
- {
-  "name": "Hermes",
-  "bin": "hermes",
-  "category": "AI",
-  "description": "Nous Research's self-improving AI agent: creates skills from experience and builds a persistent model of its user. Chat TUI via hermes --tui.",
-  "homepage": "https://hermes-agent.nousresearch.com"
- },
- {
-  "name": "OpenClaw",
-  "bin": "openclaw",
-  "category": "AI",
-  "description": "Your own personal AI assistant \u2014 self-hosted gateway answering on WhatsApp/Telegram/Slack/Discord and more; terminal chat via openclaw tui.",
-  "homepage": "https://openclaw.ai"
  }
 ]

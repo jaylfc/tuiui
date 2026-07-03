@@ -169,8 +169,8 @@
    "windows"
   ],
   "requires_cwd": true,
-  "verified": true,
-  "tip": "First run: `claude` walks you through logging in with your Anthropic account (or set ANTHROPIC_API_KEY)."
+  "tip": "First run: `claude` walks you through logging in with your Anthropic account (or set ANTHROPIC_API_KEY).",
+  "verified": true
  },
  "Claude Code Bridge": {
   "install": "pip install claude-code-bridge",
@@ -182,6 +182,15 @@
   ],
   "verified": true
  },
+ "Claude Code Usage Monitor": {
+  "install": "pipx install claude-monitor",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "Close Mongo Ops Manager": {
   "install": "pipx install close-mongo-ops-manager",
   "method": "pipx",
@@ -189,15 +198,6 @@
    "macos",
    "linux",
    "windows"
-  ],
-  "verified": true
- },
- "Cloud Code Usage Monitor": {
-  "install": "pipx install claude-monitor",
-  "method": "pipx",
-  "os": [
-   "macos",
-   "linux"
   ],
   "verified": true
  },
@@ -489,6 +489,16 @@
   "requires_cwd": true,
   "verified": true
  },
+ "Hermes": {
+  "install": "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "tip": "First run: `hermes model` in a shell to add providers and API keys (or `hermes setup --portal`). Config lives in ~/.hermes/config.yaml. Chat with `hermes --tui`.",
+  "verified": true
+ },
  "HumBLE Explorer": {
   "install": "pipx install humble-explorer",
   "method": "pipx",
@@ -544,8 +554,8 @@
    "windows"
   ],
   "requires_cwd": true,
-  "verified": true,
-  "tip": "First run: type /connect inside kilo (or `kilo auth login`) to add a provider. A free Kilo account includes hosted models; BYOK and Ollama also work."
+  "tip": "First run: type /connect inside kilo (or `kilo auth login`) to add a provider. A free Kilo account includes hosted models; BYOK and Ollama also work.",
+  "verified": true
  },
  "Kyanos": {
   "install": "tar xvf kyanos_vx.x.x_linux_amd64.tar.gz && sudo mv kyanos /usr/local/bin/",
@@ -673,6 +683,17 @@
    "macos",
    "linux"
   ],
+  "verified": true
+ },
+ "OpenClaw": {
+  "install": "curl -fsSL https://openclaw.ai/install.sh | bash",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "tip": "First run: `openclaw onboard --install-daemon` in a shell — picks a provider, adds API keys, starts the gateway. Needs Node 22.19+. Chat with `openclaw tui`.",
   "verified": true
  },
  "OpenHands": {
@@ -870,6 +891,11 @@
    "macos",
    "linux"
   ],
+  "verified": true
+ },
+ "SwarmCLI": {
+  "install": "git clone https://github.com/Eldara-Tech/swarmcli.git && cd swarmcli && go install .",
+  "method": "source",
   "verified": true
  },
  "Systemd-manager-tui": {
@@ -1147,6 +1173,15 @@
  },
  "alpine": {
   "install": "brew install alpine",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "amp": {
+  "install": "brew install amp",
   "method": "brew",
   "os": [
    "macos",
@@ -1696,6 +1731,15 @@
   ],
   "verified": true
  },
+ "concord": {
+  "install": "brew install concord",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "cruise": {
   "install": "brew tap cruise-org/homebrew-tap && brew install --cask cruise",
   "method": "brew",
@@ -1993,12 +2037,32 @@
   ],
   "verified": true
  },
+ "dua": {
+  "install": "cargo install dua-cli",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "ducker": {
   "install": "brew install ducker",
   "method": "brew",
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "dust": {
+  "install": "cargo install du-dust",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },
@@ -2179,6 +2243,15 @@
   ],
   "verified": true
  },
+ "flow-control": {
+  "install": "brew install flow-control",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "fml": {
   "install": "git clone https://github.com/wick3dr0se/fml && cd fml && cp fml /usr/local/bin",
   "method": "script",
@@ -2199,6 +2272,15 @@
  },
  "framework-tool-tui": {
   "install": "brew install framework-tool-tui",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "freeze": {
+  "install": "brew install charmbracelet/tap/freeze",
   "method": "brew",
   "os": [
    "macos",
@@ -2289,18 +2371,18 @@
   ],
   "verified": true
  },
- "gif-for-cli": {
-  "install": "pipx install gif-for-cli",
-  "method": "pipx",
+ "ghui": {
+  "install": "brew install kitlangton/tap/ghui",
+  "method": "brew",
   "os": [
    "macos",
    "linux"
   ],
   "verified": true
  },
- "ghui": {
-  "install": "brew install kitlangton/tap/ghui",
-  "method": "brew",
+ "gif-for-cli": {
+  "install": "pipx install gif-for-cli",
+  "method": "pipx",
   "os": [
    "macos",
    "linux"
@@ -2474,6 +2556,15 @@
   ],
   "verified": true
  },
+ "gum": {
+  "install": "brew install gum",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "gurk-rs": {
   "install": "brew install gurk",
   "method": "brew",
@@ -2557,6 +2648,16 @@
   ],
   "verified": true
  },
+ "himalaya": {
+  "install": "cargo install himalaya --locked",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "hledger-ui": {
   "install": "brew install hledger",
   "method": "brew",
@@ -2602,6 +2703,15 @@
    "macos",
    "linux",
    "windows"
+  ],
+  "verified": true
+ },
+ "hwatch": {
+  "install": "brew install hwatch",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
   ],
   "verified": true
  },
@@ -2855,6 +2965,15 @@
   ],
   "verified": true
  },
+ "khard": {
+  "install": "pipx install khard",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "kilo": {
   "install": "git clone https://github.com/antirez/kilo.git && cd kilo && make && sudo cp kilo /usr/local/bin/",
   "method": "source",
@@ -3001,6 +3120,15 @@
   ],
   "verified": true
  },
+ "litecli": {
+  "install": "brew install litecli",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "llm": {
   "install": "pipx install llm",
   "method": "pipx",
@@ -3059,6 +3187,11 @@
    "linux",
    "windows"
   ],
+  "verified": true
+ },
+ "lssh": {
+  "install": "go install github.com/blacknon/lssh/cmd/lssh@latest",
+  "method": "go",
   "verified": true
  },
  "mac-cleanup-go": {
@@ -3208,6 +3341,15 @@
   ],
   "verified": true
  },
+ "microNeo": {
+  "install": "curl -fsSL https://raw.githubusercontent.com/sollawen/microNeo/master/tools/install.sh | sh",
+  "method": "script",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "minesweep-rs": {
   "install": "cargo install minesweep",
   "method": "cargo",
@@ -3311,6 +3453,15 @@
   ],
   "verified": true
  },
+ "mycli": {
+  "install": "brew install mycli",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "mynav": {
   "install": "curl -fsSL https://raw.githubusercontent.com/GianlucaP106/mynav/main/install.bash | bash",
   "method": "script",
@@ -3340,6 +3491,15 @@
  },
  "nap": {
   "install": "brew install nap",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "nb": {
+  "install": "brew install nb",
   "method": "brew",
   "os": [
    "macos",
@@ -3622,8 +3782,8 @@
    "windows"
   ],
   "requires_cwd": true,
-  "verified": true,
-  "tip": "First run: `opencode auth login` to pick a provider and add a key \u2014 local models via Ollama are supported."
+  "tip": "First run: `opencode auth login` to pick a provider and add a key — local models via Ollama are supported.",
+  "verified": true
  },
  "openmux": {
   "install": "npm install -g openmux",
@@ -3720,6 +3880,15 @@
   "install": "pip install pdiary",
   "method": "pip",
   "os": [
+   "linux"
+  ],
+  "verified": true
+ },
+ "pgcli": {
+  "install": "brew install pgcli",
+  "method": "brew",
+  "os": [
+   "macos",
    "linux"
   ],
   "verified": true
@@ -4211,6 +4380,15 @@
   ],
   "verified": true
  },
+ "sfm": {
+  "install": "git clone https://github.com/afify/sfm && cd sfm && make && make install",
+  "method": "source",
+  "os": [
+   "linux",
+   "macos"
+  ],
+  "verified": true
+ },
  "sheets": {
   "install": "go install github.com/maaslalani/sheets@latest",
   "method": "go",
@@ -4218,15 +4396,6 @@
    "macos",
    "linux",
    "windows"
-  ],
-  "verified": true
- },
- "sfm": {
-  "install": "git clone https://github.com/afify/sfm && cd sfm && make && make install",
-  "method": "source",
-  "os": [
-   "linux",
-   "macos"
   ],
   "verified": true
  },
@@ -4266,6 +4435,18 @@
    "linux",
    "windows"
   ],
+  "verified": true
+ },
+ "smallcode": {
+  "install": "npm install -g smallcode",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "requires_cwd": true,
+  "tip": "Needs a local OpenAI-compatible server (Ollama, LM Studio, llama.cpp). Set SMALLCODE_MODEL and SMALLCODE_BASE_URL in a .env in your project, or run /provider inside smallcode. Node 18+.",
   "verified": true
  },
  "smassh": {
@@ -5000,8 +5181,22 @@
   ],
   "verified": true
  },
+ "trx": {
+  "install": "curl -fsSL https://trx.pidev.tech/install.sh | sh",
+  "method": "script",
+  "verified": true
+ },
  "try-rs": {
   "install": "brew install try-rs",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "ttm": {
+  "install": "brew install vst93/tap/ttm",
   "method": "brew",
   "os": [
    "macos",
@@ -5271,6 +5466,24 @@
   ],
   "verified": true
  },
+ "vdirsyncer": {
+  "install": "pipx install vdirsyncer",
+  "method": "pipx",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
+ "vhs": {
+  "install": "brew install vhs",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "violet": {
   "install": "go install github.com/braheezy/violet/cmd/violet@latest",
   "method": "go",
@@ -5416,6 +5629,15 @@
   ],
   "verified": true
  },
+ "wordgrinder": {
+  "install": "brew install wordgrinder",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "wttr.in": {
   "install": "git clone https://github.com/chubin/wttr.in && cd wttr.in && bash build.sh build",
   "method": "source",
@@ -5480,6 +5702,14 @@
   ],
   "verified": true
  },
+ "ytreenova": {
+  "install": "git clone https://github.com/robkam/ytreenova.git && cd ytreenova && make && sudo make install",
+  "method": "source",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
  "ytui-music": {
   "install": "git clone https://github.com/sudipghimire533/ytui-music && cd ytui-music && git submodule init && MPV_BUILD=mpv-build/ cargo build --all --release --features build_libmpv",
   "method": "source",
@@ -5534,158 +5764,5 @@
    "linux"
   ],
   "verified": true
- },
- "wordgrinder": {
-  "install": "brew install wordgrinder",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "himalaya": {
-  "install": "cargo install himalaya --locked",
-  "method": "cargo",
-  "os": [
-   "macos",
-   "linux",
-   "windows"
-  ],
-  "verified": true
- },
- "khard": {
-  "install": "pipx install khard",
-  "method": "pipx",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "vdirsyncer": {
-  "install": "pipx install vdirsyncer",
-  "method": "pipx",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "nb": {
-  "install": "brew install nb",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "gum": {
-  "install": "brew install gum",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "vhs": {
-  "install": "brew install vhs",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "freeze": {
-  "install": "brew install charmbracelet/tap/freeze",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "dust": {
-  "install": "cargo install du-dust",
-  "method": "cargo",
-  "os": [
-   "macos",
-   "linux",
-   "windows"
-  ],
-  "verified": true
- },
- "dua": {
-  "install": "cargo install dua-cli",
-  "method": "cargo",
-  "os": [
-   "macos",
-   "linux",
-   "windows"
-  ],
-  "verified": true
- },
- "pgcli": {
-  "install": "brew install pgcli",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "mycli": {
-  "install": "brew install mycli",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "litecli": {
-  "install": "brew install litecli",
-  "method": "brew",
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "verified": true
- },
- "smallcode": {
-  "install": "npm install -g smallcode",
-  "method": "npm",
-  "verified": true,
-  "os": [
-   "macos",
-   "linux",
-   "windows"
-  ],
-  "requires_cwd": true,
-  "tip": "Needs a local OpenAI-compatible server (Ollama, LM Studio, llama.cpp). Set SMALLCODE_MODEL and SMALLCODE_BASE_URL in a .env in your project, or run /provider inside smallcode. Node 18+."
- },
- "Hermes": {
-  "install": "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash",
-  "method": "script",
-  "verified": true,
-  "os": [
-   "macos",
-   "linux"
-  ],
-  "tip": "First run: `hermes model` in a shell to add providers and API keys (or `hermes setup --portal`). Config lives in ~/.hermes/config.yaml. Chat with `hermes --tui`."
- },
- "OpenClaw": {
-  "install": "curl -fsSL https://openclaw.ai/install.sh | bash",
-  "method": "script",
-  "verified": true,
-  "os": [
-   "macos",
-   "linux",
-   "windows"
-  ],
-  "tip": "First run: `openclaw onboard --install-daemon` in a shell \u2014 picks a provider, adds API keys, starts the gateway. Needs Node 22.19+. Chat with `openclaw tui`."
  }
 }
