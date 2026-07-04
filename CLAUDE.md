@@ -18,7 +18,7 @@ Clippy is currently warning-clean — keep it that way.
 
 ## Versioning & release channels
 
-`Cargo.toml` carries the semver version (currently 0.2.9); update `CHANGELOG.md`
+`Cargo.toml` carries the semver version (currently 0.2.11); update `CHANGELOG.md`
 in the same commit as user-visible changes (roll `[Unreleased]` into a new
 `[x.y.z]` heading).
 
@@ -43,9 +43,17 @@ The updater reloads via the freshly-installed binary's **absolute path** (a
 bare `tuiui reload` can miss `$PATH` in the non-interactive `sh -lc` it runs
 in) and logs each step (`update: …`) to `~/tuiui-debug.log`. The debug log now
 **appends across reloads** — `dbg_init` used to truncate on every daemon start,
-wiping the very update trace needed to debug it. **⚠ An in-app "update from
-Settings" still gets stuck — investigation IN PROGRESS, awaiting a user log;
-see `docs/superpowers/plans/2026-06-14-update-stuck-investigation.md`.**
+wiping the very update trace needed to debug it. The long-standing "update
+from Settings gets stuck" report (investigation log:
+`docs/superpowers/plans/2026-06-14-update-stuck-investigation.md`) was root-
+caused and fixed in 0.2.10: both `install.sh` and `check_for_updates()`
+resolved the latest release via the unauthenticated, 60-req/hour
+`api.github.com` REST endpoint, which answered a 403 once rate-limited — read
+as "no published release yet" and silently dropped Settings' Update & Reload
+into a multi-minute source build that looked hung. Both now resolve the tag
+from the `github.com/OWNER/REPO/releases/latest` web redirect, which isn't
+rate-limited, falling back to the REST API only if that redirect can't be
+parsed.
 
 ## Architecture (the three processes)
 
