@@ -17,6 +17,29 @@ fetch() {
   fi
 }
 
+# Resolve the latest release tag WITHOUT the api.github.com REST endpoint.
+# That endpoint is rate-limited to 60 requests/hour per IP and answers 403 once
+# the budget is spent — which previously surfaced as a bogus "no published
+# release yet" and silently wedged the in-app updater into a slow source-build
+# fallback. The web redirect github.com/OWNER/REPO/releases/latest 302s to
+# .../releases/tag/vX.Y.Z off a different, effectively-unlimited path; we read
+# the tag straight out of its Location header. The REST API is only a fallback
+# for when the redirect can't be parsed (and we're still under the hourly cap).
+latest_tag() {
+  redirect="https://github.com/$REPO/releases/latest"
+  loc=""
+  if command -v curl >/dev/null 2>&1; then
+    loc="$(curl -fsSI "$redirect" | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}' | tail -1)"
+  elif command -v wget >/dev/null 2>&1; then
+    loc="$(wget -qS --max-redirect=0 -O /dev/null "$redirect" 2>&1 | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}' | tail -1)"
+  fi
+  case "$loc" in
+    */releases/tag/*) printf '%s\n' "${loc##*/}"; return 0 ;;
+  esac
+  fetch "https://api.github.com/repos/$REPO/releases/latest" \
+    | grep '"tag_name"' | head -1 | cut -d'"' -f4
+}
+
 os="$(uname -s)"
 arch="$(uname -m)"
 case "$os/$arch" in
@@ -31,10 +54,9 @@ case "$os/$arch" in
 esac
 
 echo "tuiui: finding latest release…"
-tag="$(fetch "https://api.github.com/repos/$REPO/releases/latest" \
-        | grep '"tag_name"' | head -1 | cut -d'"' -f4)"
+tag="$(latest_tag || true)"
 if [ -z "${tag:-}" ]; then
-  echo "tuiui: no published release yet."
+  echo "tuiui: couldn't resolve the latest release (GitHub unreachable or rate-limited)."
   echo "Install with Rust instead:  cargo install --git https://github.com/$REPO"
   exit 1
 fi

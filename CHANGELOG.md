@@ -6,6 +6,24 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.10] — 2026-07-04
+
+### Fixed
+- **Installing and self-updating no longer break when GitHub rate-limits the
+  API.** `install.sh` resolved the latest release through the unauthenticated
+  `api.github.com` REST endpoint, which is capped at 60 requests/hour per IP.
+  Once that budget is spent GitHub answers **403**, and the script reported it
+  as `no published release yet` before falling back to a slow `cargo install`
+  source build — so `curl | sh` appeared to say the project had no releases,
+  and the in-app **Update & Reload** silently dropped into a multi-minute build
+  that looked hung (the long-standing "update from Settings gets stuck"
+  report). Both now resolve the tag from the web redirect
+  `github.com/OWNER/REPO/releases/latest` → `.../releases/tag/vX.Y.Z`, which
+  isn't subject to the API rate limit, and only fall back to the REST API if
+  that redirect can't be parsed. Settings' "check for updates" uses the same
+  path, so a spent API budget no longer shows a false "Couldn't check
+  (offline?)".
+
 ## [0.2.9] — 2026-06-13
 
 ### Changed

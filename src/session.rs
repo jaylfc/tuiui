@@ -3968,6 +3968,31 @@ fn compat_dialog_buttons(w: i32, h: i32) -> (Rect, Rect) {
     (keep, restart)
 }
 
+/// Latest release tag via the web redirect, dodging the rate-limited REST API.
+/// `github.com/OWNER/REPO/releases/latest` 302s to `.../releases/tag/vX.Y.Z`;
+/// we read the tag straight out of the redirect's `Location` header. install.sh
+/// resolves it the same way, for the same reason: the api.github.com endpoint is
+/// rate-limited to 60 req/hour/IP and its 403 was surfacing as a false
+/// "Couldn't check (offline?)" (and wedging the updater's install path).
+fn latest_release_tag(repo: &str) -> Option<String> {
+    let url = format!("https://github.com/{repo}/releases/latest");
+    let out = std::process::Command::new("curl")
+        .args(["-fsSI", "--max-time", "6", &url])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())?;
+    let headers = String::from_utf8_lossy(&out.stdout);
+    let location = headers
+        .lines()
+        .rfind(|l| l.to_ascii_lowercase().starts_with("location:"))
+        .and_then(|l| l.split_once(':').map(|(_, v)| v.trim()))?;
+    if !location.contains("/releases/tag/") {
+        return None;
+    }
+    let tag = location.rsplit('/').next()?.trim();
+    (!tag.is_empty()).then(|| tag.to_string())
+}
+
 /// Check whether a newer build is available, comparing against whatever the
 /// update channel would actually install, and reporting it in that channel's
 /// own terms:
@@ -3998,8 +4023,12 @@ fn check_for_updates(branch: &str) -> String {
     };
 
     if branch == "main" {
-        // Release channel: compare versions, show versions.
-        let tag = match get_json("releases/latest").and_then(|v| str_field(&v, "tag_name")) {
+        // Release channel: compare versions, show versions. Resolve the tag via
+        // the web redirect first (not rate-limited), falling back to the REST API
+        // only when the redirect can't be parsed.
+        let tag = match latest_release_tag(repo)
+            .or_else(|| get_json("releases/latest").and_then(|v| str_field(&v, "tag_name")))
+        {
             Some(t) => t,
             None => return "Couldn't check (offline?)".to_string(),
         };
