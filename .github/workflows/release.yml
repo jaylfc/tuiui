@@ -64,6 +64,22 @@ jobs:
             fi
           fi
 
+      # Pre-create the tag + release ONCE, before the build matrix fans out.
+      # Without this, the four platform jobs race to create the release via
+      # action-gh-release; the v0.2.11 run left the loser holding an orphaned
+      # draft release with its binary while the real release shipped 3 of 4
+      # assets. With the release existing up front, builders only ever attach.
+      - name: Create release up front
+        if: steps.d.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.d.outputs.tag }}"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title "$tag" \
+              --notes "See CHANGELOG.md for the full release notes."
+
   build:
     needs: decide
     if: needs.decide.outputs.release == 'true'
