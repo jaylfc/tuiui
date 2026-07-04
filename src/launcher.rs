@@ -383,7 +383,7 @@ impl Launcher {
             let (bw, bh) = (18, 3);
             let mut buf = CellBuffer::new(bw, bh);
             fill_box(&mut buf, bw, bh);
-            draw_row(&mut buf, 1, bw - 2, 1, "(no apps)", false, false);
+            draw_row(&mut buf, 1, bw - 2, 1, "(no apps)", RowStyle { highlighted: false, marker: false, cli: false });
             return Rendered {
                 layers: vec![Layer { z: 5000, origin: Point::new(0, 1), buf, opacity: 1.0, scissor: None }],
                 items: Vec::new(),
@@ -399,7 +399,8 @@ impl Launcher {
             for (i, e) in entries.iter().enumerate() {
                 let highlighted = i == *sel;
                 let label = e.label();
-                draw_row(&mut buf, 1, panel.w - 2, 1 + i as i32, label, highlighted, false);
+                let cli = matches!(e, MenuEntry::Launch(a) if a.cli.unwrap_or(false));
+                draw_row(&mut buf, 1, panel.w - 2, 1 + i as i32, label, RowStyle { highlighted, marker: false, cli });
                 if e.is_submenu() {
                     // submenu marker at the right edge of the row
                     let (fg, bg) = if highlighted { (SEL_FG, SEL_BG) } else { (ACCENT, MENU_BG) };
@@ -496,7 +497,8 @@ impl Launcher {
                 Row::Header(c) => draw_header(&mut buf, 1, box_w - 2, y, c),
                 Row::Item(i) => {
                     let e = &filtered[*i];
-                    draw_row(&mut buf, 1, box_w - 2, y, &e.name, *i == self.selected, true);
+                    let style = RowStyle { highlighted: *i == self.selected, marker: true, cli: e.cli.unwrap_or(false) };
+                    draw_row(&mut buf, 1, box_w - 2, y, &e.name, style);
                     items.push((e.clone(), Rect::new(origin.x + 1, origin.y + y, inner_w, 1)));
                 }
             }
@@ -529,6 +531,7 @@ fn shell_entry() -> AppEntry {
         category: None,
         requires_cwd: None,
         cwd: None,
+        cli: None,
     }
 }
 
@@ -559,22 +562,39 @@ fn fill_box(buf: &mut CellBuffer, w: i32, h: i32) {
     buf.set(w - 1, h - 1, b('\u{256F}'));
 }
 
-/// Draw one app row spanning `cw` cells from `x0`, optionally highlighted, with
-/// an optional `▸` selection marker. The name is truncated to fit the column.
-fn draw_row(buf: &mut CellBuffer, x0: i32, cw: i32, row: i32, name: &str, highlighted: bool, marker: bool) {
+/// Per-row rendering flags for [`draw_row`], bundled into one argument to keep
+/// the function's parameter count clippy-clean.
+struct RowStyle {
+    /// Whether this row is the current selection (swaps to the highlight colors).
+    highlighted: bool,
+    /// Whether a leading `▸` marker is drawn when highlighted (Spotlight rows).
+    marker: bool,
+    /// Whether a right-aligned `CLI` tag is drawn (app flagged as a CLI tool).
+    cli: bool,
+}
+
+/// Draw one app row spanning `cw` cells from `x0` per `style` (see [`RowStyle`]).
+/// The name is truncated to fit the column, leaving room for the `CLI` tag.
+fn draw_row(buf: &mut CellBuffer, x0: i32, cw: i32, row: i32, name: &str, style: RowStyle) {
+    let RowStyle { highlighted, marker, cli } = style;
     let (fg, bg) = if highlighted { (SEL_FG, SEL_BG) } else { (MENU_FG, MENU_BG) };
     for x in x0..x0 + cw {
         buf.set(x, row, Cell { ch: ' ', fg, bg, attrs: Default::default() });
     }
     let lead = if marker && highlighted { "\u{25B8} " } else { "  " };
     buf.write_str(x0, row, lead, ACCENT, bg);
-    let avail = (cw - 2).max(1) as usize;
+    const BADGE: &str = "CLI";
+    let badge_w = if cli { BADGE.chars().count() as i32 + 1 } else { 0 };
+    let avail = (cw - 2 - badge_w).max(1) as usize;
     let shown: String = if name.chars().count() > avail {
         name.chars().take(avail.saturating_sub(1)).collect::<String>() + "\u{2026}"
     } else {
         name.to_string()
     };
     buf.write_str(x0 + 2, row, &shown, fg, bg);
+    if cli {
+        buf.write_str(x0 + cw - BADGE.chars().count() as i32, row, BADGE, ACCENT, bg);
+    }
 }
 
 #[cfg(test)]
@@ -582,7 +602,7 @@ mod tests {
     use super::*;
 
     fn app(name: &str, cat: &str) -> AppEntry {
-        AppEntry { name: name.into(), command: name.into(), args: vec![], category: Some(cat.into()), requires_cwd: None, cwd: None }
+        AppEntry { name: name.into(), command: name.into(), args: vec![], category: Some(cat.into()), requires_cwd: None, cwd: None, cli: None }
     }
 
     fn many() -> Vec<AppEntry> {

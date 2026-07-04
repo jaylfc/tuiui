@@ -1235,11 +1235,11 @@ or a remote-side error — its authorized_keys was left untouched)",
     fn build_launcher_apps(cfg: &Config, systems: &[crate::systems::RemoteSystem]) -> Vec<AppEntry> {
         // Pinned tuiui actions first (open the store / settings windows).
         let mut apps = vec![
-            AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
-            AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
-            AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
-            AppEntry { name: "Logs".into(), command: "@logs".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
-            AppEntry { name: "Activity".into(), command: "@activity".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None },
+            AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
+            AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
+            AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
+            AppEntry { name: "Logs".into(), command: "@logs".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
+            AppEntry { name: "Activity".into(), command: "@activity".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
         ];
         // One remote file browser per saved system (Systems category).
         for sys in systems {
@@ -1250,6 +1250,7 @@ or a remote-side error — its authorized_keys was left untouched)",
                 category: Some("Systems".into()),
                 requires_cwd: None,
                 cwd: None,
+                cli: None,
             });
         }
         apps.extend(cfg.launcher_apps());
@@ -1264,6 +1265,14 @@ or a remote-side error — its authorized_keys was left untouched)",
             if a.requires_cwd.is_none() {
                 a.requires_cwd = crate::catalog::requires_cwd_for(&a.name)
                     .or_else(|| crate::catalog::requires_cwd_for(&a.command));
+            }
+            // Backfill the CLI flag from the catalog the same way, so a config
+            // entry that just names a known CLI tool still gets the badge and
+            // the `sh -lc` launch wrapper without repeating the flag by hand.
+            if a.cli.is_none() {
+                a.cli = Some(
+                    crate::catalog::is_cli(&a.name) || crate::catalog::is_cli(&a.command),
+                );
             }
         }
         for detected in crate::catalog::detect_installed() {
@@ -1383,6 +1392,18 @@ or a remote-side error — its authorized_keys was left untouched)",
             .and_then(|id| self.titles.iter().find(|(i, _)| *i == id))
             .map(|(_, t)| t.clone())
             .unwrap_or_default()
+    }
+
+    /// Test helper: the focused window's actual spawned command + args, as
+    /// recorded by the (in-process) apphost — lets launch tests assert on the
+    /// real `sh -lc …` wrapper rewrite for CLI-flagged apps.
+    #[doc(hidden)]
+    pub fn focused_app_launch_cmd_for_test(&self) -> Option<(String, Vec<String>)> {
+        let id = self.wm.focused()?;
+        match self.contents.get(&id)? {
+            WinContent::App(aid) => Some(self.apphost_launch_cmd(*aid)),
+            _ => None,
+        }
     }
 
     /// Collect the rows for the open dock-group popup (badge, label per window).
@@ -2496,19 +2517,12 @@ or a remote-side error — its authorized_keys was left untouched)",
         }
     }
 
-    /// Try to recover the launch command + args for `id` from the in-process
-    /// `LocalAppHost` (only available for that impl; `RemoteAppHost` returns
-    /// empty strings, which is fine — the panel just shows blanks).
+    /// Recover the launch command + args for `id` via the `AppHost` trait's
+    /// own `launch_cmd` (both `LocalAppHost` and `RemoteAppHost` track it);
+    /// empty strings when the host has no record (e.g. an unknown id).
     fn apphost_launch_cmd(&self, id: AppId) -> (String, Vec<String>) {
-        // We don't have a trait-level accessor for the original cmd/args (and
-        // adding one would force the remote host to track them). Probe the
-        // concrete `LocalAppHost` by downcasting through Any.
-        use std::any::Any;
-        if let Some(local) = (&self.apphost as &dyn Any).downcast_ref::<crate::apphost::LocalAppHost>() {
-            local
-                .launch_cmd(id)
-                .map(|(c, a)| (c.to_string(), a.to_vec()))
-                .unwrap_or_default()
+        if let Some((cmd, args)) = self.apphost.launch_cmd(id) {
+            (cmd, args)
         } else {
             (String::new(), Vec::new())
         }
@@ -2594,6 +2608,7 @@ or a remote-side error — its authorized_keys was left untouched)",
                     category: None,
                     requires_cwd: None,
                     cwd: None,
+                    cli: None,
                 });
             }
             Some(crate::desktop::DesktopAction::Unpin(cmd)) => {
@@ -2630,7 +2645,10 @@ or a remote-side error — its authorized_keys was left untouched)",
             // Coding agents (flagged, or in the AI category) prompt for a dir.
             let requires_cwd = crate::catalog::recipe(&app.name).map(|r| r.requires_cwd).unwrap_or(false)
                 || app.category == "AI";
-            self.launch_maybe_cwd(app.name.clone(), app.bin.clone(), Vec::new(), requires_cwd, None);
+            // CLI-flagged apps get the same `sh -lc … --help; exec $SHELL` wrapper
+            // as launcher-driven launches (see `cli_wrap` / `launch_entry`).
+            let (command, args) = if app.cli { cli_wrap(&app.bin, &[]) } else { (app.bin.clone(), Vec::new()) };
+            self.launch_maybe_cwd(app.name.clone(), command, args, requires_cwd, None);
         } else {
             // Run the install visibly, then drop into a shell so the output (and
             // any errors) stay on screen. Closing the window triggers a $PATH
@@ -2659,7 +2677,18 @@ or a remote-side error — its authorized_keys was left untouched)",
             }
             "@activity" => self.open_activity(),
             "@image" => { if let Some(p) = e.args.first().cloned() { self.open_image(p); } }
-            _ => self.launch_maybe_cwd(e.name, e.command, e.args, e.requires_cwd.unwrap_or(false), e.cwd),
+            _ => {
+                // CLI-flagged apps launch through the `sh -lc … --help; exec $SHELL`
+                // wrapper instead of the bare binary (see `cli_wrap`); the window
+                // title still shows the app name, and `requires_cwd`/`cwd` keep
+                // working since the shell itself starts in the picked directory.
+                let (command, args) = if e.cli.unwrap_or(false) {
+                    cli_wrap(&e.command, &e.args)
+                } else {
+                    (e.command, e.args)
+                };
+                self.launch_maybe_cwd(e.name, command, args, e.requires_cwd.unwrap_or(false), e.cwd)
+            }
         }
     }
 
@@ -3765,6 +3794,23 @@ or a remote-side error — its authorized_keys was left untouched)",
         self.contents.clear();
         self.apphost.shutdown_host();
     }
+}
+
+/// Rewrite a CLI-flagged app's command/args into the `sh -lc` wrapper: run the
+/// bare binary with `--help` so its usage is visible immediately, then drop
+/// into the user's shell (tool still on `$PATH`, ready to invoke properly).
+/// `requires_cwd`/`cwd` are untouched by this — the shell still starts wherever
+/// the caller picked.
+fn cli_wrap(command: &str, args: &[String]) -> (String, Vec<String>) {
+    // Quote every word so an arg with spaces/quotes (from user config) can't
+    // splice into the script — same rule as every other shell command we build.
+    let mut invocation = crate::systems::sh_quote(command);
+    for a in args {
+        invocation.push(' ');
+        invocation.push_str(&crate::systems::sh_quote(a));
+    }
+    let script = format!("{invocation} --help; exec \"${{SHELL:-sh}}\"");
+    ("sh".into(), vec!["-lc".into(), script])
 }
 
 /// Expand a leading `~` to the user's home directory.

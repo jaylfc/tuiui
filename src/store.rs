@@ -19,6 +19,10 @@ const PANEL: Rgba = Rgba { r: 22, g: 26, b: 37, a: 255 };
 const SIDEBAR_W: i32 = 16;
 const LIST_W: i32 = 30;
 
+/// Tag shown on apps flagged `cli` — a tool that prints output and exits (or
+/// needs subcommands) rather than opening a persistent full-screen TUI.
+const CLI_BADGE: &str = "CLI";
+
 /// State of the store browser.
 pub struct Store {
     categories: Vec<String>,
@@ -139,14 +143,9 @@ impl Store {
             let idx = scroll + row;
             let y = 2 + row as i32;
             let sel = idx == self.selected;
-            let bg = if sel { SEL_BG } else { BG };
-            for x in list_x..list_x + LIST_W {
-                buf.set(x, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() });
-            }
             let installed = catalog::is_installed(&app.bin);
-            let mark = if installed { "\u{2713} " } else { "  " };
-            buf.write_str(list_x, y, mark, GREEN, bg);
-            buf.write_str(list_x + 2, y, truncate(&app.name, LIST_W as usize - 3), FG, bg);
+            let flags = ListRowFlags { installed, cli: app.cli, sel };
+            draw_list_row(&mut buf, list_x, y, LIST_W, &app.name, flags);
         }
         vline(&mut buf, list_x + LIST_W, 2, h);
 
@@ -160,7 +159,14 @@ impl Store {
                 }
             }
             buf.write_str(dx + 1, 3, truncate(&app.name, dw as usize - 2), ACCENT, PANEL);
-            buf.write_str(dx + 1, 4, truncate(&app.category, dw as usize - 2), DIM, PANEL);
+            let cat_str = truncate(&app.category, dw as usize - 2);
+            buf.write_str(dx + 1, 4, cat_str, DIM, PANEL);
+            if app.cli {
+                let bx = dx + 1 + cat_str.chars().count() as i32 + 2;
+                if bx + CLI_BADGE.len() as i32 <= dx + dw {
+                    buf.write_str(bx, 4, CLI_BADGE, ACCENT, PANEL);
+                }
+            }
             let mut y = 6;
             for line in wrap(&app.description, dw as usize - 2) {
                 if y >= h - 5 {
@@ -295,6 +301,37 @@ echo; echo 'Close this window (✕) when done.'; exec \"$SHELL\"",
     )
 }
 
+/// Per-row flags for [`draw_list_row`], bundled into one argument to keep the
+/// function's parameter count clippy-clean.
+struct ListRowFlags {
+    /// Whether the app is on `$PATH` (shows the green checkmark).
+    installed: bool,
+    /// Whether a right-aligned `CLI` tag is drawn (app flagged as a CLI tool).
+    cli: bool,
+    /// Whether this row is the current selection (swaps to the highlight bg).
+    sel: bool,
+}
+
+/// Draw one app-list row spanning `w` cells from `x` per `flags` (see
+/// [`ListRowFlags`]): the install checkmark, the (possibly truncated) name,
+/// and — for CLI-flagged apps (prints output and exits / needs subcommands,
+/// rather than a persistent TUI) — a right-aligned `CLI` tag.
+fn draw_list_row(buf: &mut CellBuffer, x: i32, y: i32, w: i32, name: &str, flags: ListRowFlags) {
+    let ListRowFlags { installed, cli, sel } = flags;
+    let bg = if sel { SEL_BG } else { BG };
+    for dx in 0..w {
+        buf.set(x + dx, y, Cell { ch: ' ', fg: FG, bg, attrs: Default::default() });
+    }
+    let mark = if installed { "\u{2713} " } else { "  " };
+    buf.write_str(x, y, mark, GREEN, bg);
+    let badge_w = if cli { CLI_BADGE.len() as i32 + 1 } else { 0 };
+    let name_w = (w - 3 - badge_w).max(1) as usize;
+    buf.write_str(x + 2, y, truncate(name, name_w), FG, bg);
+    if cli {
+        buf.write_str(x + w - CLI_BADGE.len() as i32, y, CLI_BADGE, ACCENT, bg);
+    }
+}
+
 fn hline(buf: &mut CellBuffer, w: i32, y: i32) {
     for x in 0..w {
         buf.set(x, y, Cell { ch: '\u{2500}', fg: DIM, bg: BG, attrs: Default::default() });
@@ -327,4 +364,24 @@ fn wrap(s: &str, width: usize) -> Vec<String> {
         lines.push(line);
     }
     lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row_text(buf: &CellBuffer, y: i32, w: i32) -> String {
+        (0..w).map(|x| buf.get(x, y).map(|c| c.ch).unwrap_or(' ')).collect()
+    }
+
+    /// A `cli`-flagged app's list row shows the "CLI" tag; an unflagged one
+    /// doesn't (the badge shown in the store's app list — see `render`).
+    #[test]
+    fn cli_badge_shown_only_on_flagged_row() {
+        let mut buf = CellBuffer::new(30, 2);
+        draw_list_row(&mut buf, 0, 0, 30, "himalaya", ListRowFlags { installed: true, cli: true, sel: false });
+        draw_list_row(&mut buf, 0, 1, 30, "btop", ListRowFlags { installed: true, cli: false, sel: false });
+        assert!(row_text(&buf, 0, 30).contains("CLI"), "flagged row should show the badge");
+        assert!(!row_text(&buf, 1, 30).contains("CLI"), "unflagged row should not show the badge");
+    }
 }

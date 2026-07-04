@@ -39,3 +39,42 @@ fn ai_tools_require_cwd() {
     assert!(tuiui::catalog::recipe("Claude Code").unwrap().requires_cwd);
     assert!(!tuiui::catalog::recipe("btop").map(|r| r.requires_cwd).unwrap_or(false));
 }
+
+/// A catalog entry with no `"cli"` key parses with the field defaulting to
+/// `false` (TUI), so the 600+ existing entries don't churn.
+#[test]
+fn cli_flag_defaults_to_false_when_absent() {
+    let json = r#"{"name":"Foo","bin":"foo","category":"Cat","description":"d","homepage":"https://example.com"}"#;
+    let app: tuiui::catalog::CatalogApp = serde_json::from_str(json).unwrap();
+    assert!(!app.cli);
+}
+
+/// A catalog entry with `"cli": true` parses the flag through.
+#[test]
+fn cli_flag_parses_when_present() {
+    let json = r#"{"name":"Foo","bin":"foo","category":"Cat","description":"d","homepage":"https://example.com","cli":true}"#;
+    let app: tuiui::catalog::CatalogApp = serde_json::from_str(json).unwrap();
+    assert!(app.cli);
+}
+
+/// `is_cli` mirrors `category_for`/`requires_cwd_for`: false for apps outside
+/// the catalog, and reflects the flag for apps that are in it (none of the
+/// bundled entries are flagged yet — the catalog-data sweep ships separately).
+#[test]
+fn is_cli_lookup_by_name_or_bin() {
+    use tuiui::catalog::is_cli;
+    assert!(!is_cli("definitely-not-a-real-app-xyz"));
+    assert!(!is_cli("btop"));
+}
+
+/// `AppEntry.cli` follows the exact `requires_cwd: Option<bool>` pattern:
+/// absent in TOML, `None` in memory, so a config entry without the field falls
+/// back to the catalog when the launcher backfills it (see `session.rs`).
+#[test]
+fn app_entry_cli_field_defaults_to_none() {
+    let toml = r#"name = "Foo"
+command = "foo"
+"#;
+    let entry: tuiui::config::AppEntry = toml::from_str(toml).unwrap();
+    assert_eq!(entry.cli, None);
+}

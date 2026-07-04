@@ -1,7 +1,13 @@
 use tuiui::launcher::{Launcher, LauncherMode};
 use tuiui::config::AppEntry;
+use tuiui::buffer::CellBuffer;
 
-fn entry(n: &str) -> AppEntry { AppEntry { name: n.into(), command: n.into(), args: vec![], category: None, requires_cwd: None, cwd: None } }
+fn entry(n: &str) -> AppEntry { AppEntry { name: n.into(), command: n.into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: None } }
+
+/// The visible text of row `y` in `buf` (spaces where no glyph was written).
+fn row_text(buf: &CellBuffer, y: i32) -> String {
+    (0..buf.width()).map(|x| buf.get(x, y).map(|c| c.ch).unwrap_or(' ')).collect()
+}
 fn launcher() -> Launcher {
     Launcher::new(vec![entry("btop"), entry("lazygit"), entry("yazi"), entry("helix")])
 }
@@ -68,7 +74,7 @@ fn menu_render_exposes_clickable_items() {
 
 #[test]
 fn categories_group_with_headers() {
-    let cat = |n: &str, c: &str| AppEntry { name: n.into(), command: n.into(), args: vec![], category: Some(c.into()), requires_cwd: None, cwd: None };
+    let cat = |n: &str, c: &str| AppEntry { name: n.into(), command: n.into(), args: vec![], category: Some(c.into()), requires_cwd: None, cwd: None, cli: None };
     let mut l = Launcher::new(vec![cat("btop","System"), cat("lazygit","Git"), cat("top","System")]);
     l.toggle_menu();
     // Root: the "Shell" quick-launch, then categories sorted: Git, System.
@@ -84,4 +90,36 @@ fn categories_group_with_headers() {
     assert_eq!(l.focused_label(), Some("btop".to_string()));
     l.move_down();
     assert_eq!(l.focused_label(), Some("top".to_string()));
+}
+
+/// A `cli`-flagged entry gets a "CLI" tag rendered on its row in Spotlight; an
+/// unflagged entry's row does not.
+#[test]
+fn spotlight_shows_cli_badge_only_on_flagged_entries() {
+    let cli = AppEntry { name: "himalaya".into(), command: "himalaya".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: Some(true) };
+    let tui = AppEntry { name: "btop".into(), command: "btop".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: Some(false) };
+    let mut l = Launcher::new(vec![cli, tui]);
+    l.toggle_spotlight();
+    let r = l.render(80, 24);
+    let buf = &r.layers[0].buf;
+    let rows: Vec<String> = (0..buf.height()).map(|y| row_text(buf, y)).collect();
+    let himalaya_row = rows.iter().find(|t| t.contains("himalaya")).expect("himalaya row rendered");
+    assert!(himalaya_row.contains("CLI"), "flagged row should show the CLI badge: {himalaya_row:?}");
+    let btop_row = rows.iter().find(|t| t.contains("btop")).expect("btop row rendered");
+    assert!(!btop_row.contains("CLI"), "unflagged row should not show the badge: {btop_row:?}");
+}
+
+/// The same badge renders in the cascading Menu (the leaf row inside the
+/// auto-expanded "Apps" category).
+#[test]
+fn menu_shows_cli_badge_on_flagged_leaf() {
+    let cli = AppEntry { name: "himalaya".into(), command: "himalaya".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: Some(true) };
+    let mut l = Launcher::new(vec![cli]);
+    l.toggle_menu();
+    l.move_down(); // select the "Apps" category (after the Shell quick-launch)
+    let r = l.render(120, 40);
+    let found = r.layers.iter().any(|layer| {
+        (0..layer.buf.height()).any(|y| row_text(&layer.buf, y).contains("CLI"))
+    });
+    assert!(found, "the auto-expanded Apps panel should show the CLI badge on himalaya's row");
 }

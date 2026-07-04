@@ -328,6 +328,7 @@ impl Settings {
             category: Some("Custom".into()),
             requires_cwd: None,
             cwd: None,
+            cli: None,
         });
         self.edit = None;
         self.sel = self.cfg.launcher.len(); // park on the "＋ Add app…" row
@@ -600,8 +601,8 @@ mod tests {
     fn left_removes_selected_custom_app() {
         let cfg = Config {
             launcher: vec![
-                AppEntry { name: "A".into(), command: "a".into(), args: vec![], category: Some("Custom".into()), requires_cwd: None, cwd: None },
-                AppEntry { name: "B".into(), command: "b".into(), args: vec![], category: Some("Custom".into()), requires_cwd: None, cwd: None },
+                AppEntry { name: "A".into(), command: "a".into(), args: vec![], category: Some("Custom".into()), requires_cwd: None, cwd: None, cli: None },
+                AppEntry { name: "B".into(), command: "b".into(), args: vec![], category: Some("Custom".into()), requires_cwd: None, cwd: None, cli: None },
             ],
             ..Config::default()
         };

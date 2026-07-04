@@ -6,6 +6,26 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.11] — 2026-07-04
+
+### Added
+- **CLI tools get a proper launch path.** Some catalog apps are CLI tools, not
+  persistent TUIs (himalaya, gum, freeze, khal, dust, …) — launching one used
+  to open a window that printed an error or usage text and immediately died.
+  A one-time audit flagged **52** such entries with a new `"cli": true` catalog
+  field; they now show a **`CLI` tag** in the launcher (menu + Spotlight) and
+  the Store, and launching one opens a shell that prints the tool's `--help`
+  first, then drops to your interactive shell with the tool on `$PATH` — see
+  the commands, then use them. `requires_cwd` still applies (the shell starts
+  in the picked directory), and user config can set `cli = true` on custom
+  entries too.
+
+### Fixed
+- **Activity monitor now shows the command/args of local app sessions.** An
+  `Any`-downcast through `Box<dyn AppHost>` could never match the concrete
+  host type, so the cmd column was always blank; it now uses the `AppHost`
+  trait's own `launch_cmd`.
+
 ## [0.2.10] — 2026-07-04
 
 ### Fixed

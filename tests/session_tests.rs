@@ -1,6 +1,6 @@
 use tuiui::chrome::DockKind;
 use tuiui::session::{SessionCore, ClientMsg};
-use tuiui::config::Config;
+use tuiui::config::{AppEntry, Config};
 use tuiui::geometry::Point;
 
 #[test]
@@ -555,5 +555,62 @@ fn dock_right_click_elsewhere_dismisses_without_acting() {
     let row = dock_ctx_row_rect(pill.x, 120, 40, 3);
     core.apply(ClientMsg::MouseDown(Point::new(row.x + 1, row.y)));
     assert_eq!(core.focused_window_rect_for_test().unwrap(), before);
+    core.shutdown();
+}
+
+/// Launcher entries flagged `cli` (prints-and-exits tools like himalaya, gum,
+/// khard) spawn through the `sh -lc '<bin> --help; exec "${SHELL:-sh}"'`
+/// wrapper instead of the bare binary, so the user sees usage then lands in a
+/// normal shell with the tool on `$PATH`.
+#[test]
+fn cli_flagged_launcher_app_wraps_in_shell() {
+    let mut cfg = Config::default();
+    cfg.launcher.push(AppEntry {
+        name: "himalaya".into(),
+        command: "himalaya".into(),
+        args: vec![],
+        category: None,
+        requires_cwd: None,
+        cwd: None,
+        cli: Some(true),
+    });
+    let mut core = SessionCore::new(80, 24, cfg);
+    core.apply(ClientMsg::ToggleSpotlight);
+    for c in "himalaya".chars() {
+        core.apply(ClientMsg::LauncherChar(c));
+    }
+    core.apply(ClientMsg::LauncherEnter);
+    let (cmd, args) = core.focused_app_launch_cmd_for_test().expect("app launched");
+    assert_eq!(cmd, "sh");
+    assert_eq!(args.first().map(String::as_str), Some("-lc"));
+    let script = args.get(1).cloned().unwrap_or_default();
+    assert!(script.contains("'himalaya' --help"), "script: {script}");
+    assert!(script.contains("exec \"${SHELL:-sh}\""), "script: {script}");
+    core.shutdown();
+}
+
+/// A launcher entry with no `cli` flag (the common TUI case) launches the bare
+/// binary unchanged — no shell wrapper.
+#[test]
+fn non_cli_launcher_app_launches_bare_binary() {
+    let mut cfg = Config::default();
+    cfg.launcher.push(AppEntry {
+        name: "true".into(),
+        command: "true".into(),
+        args: vec![],
+        category: None,
+        requires_cwd: None,
+        cwd: None,
+        cli: Some(false),
+    });
+    let mut core = SessionCore::new(80, 24, cfg);
+    core.apply(ClientMsg::ToggleSpotlight);
+    for c in "true".chars() {
+        core.apply(ClientMsg::LauncherChar(c));
+    }
+    core.apply(ClientMsg::LauncherEnter);
+    let (cmd, args) = core.focused_app_launch_cmd_for_test().expect("app launched");
+    assert_eq!(cmd, "true");
+    assert!(args.is_empty());
     core.shutdown();
 }

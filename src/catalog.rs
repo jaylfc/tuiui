@@ -24,6 +24,11 @@ pub struct CatalogApp {
     pub description: String,
     /// Project homepage / repository URL.
     pub homepage: String,
+    /// Whether this is a CLI tool (prints output and exits, or needs
+    /// subcommands) rather than a persistent full-screen TUI. Absent in the
+    /// catalog JSON means `false` (TUI), so the existing entries don't churn.
+    #[serde(default)]
+    pub cli: bool,
 }
 
 const CATALOG_JSON: &str = include_str!("../assets/catalog.json");
@@ -113,6 +118,16 @@ pub fn requires_cwd_for(name_or_bin: &str) -> Option<bool> {
     Some(recipe(&c.name).map(|r| r.requires_cwd).unwrap_or(false))
 }
 
+/// Whether a known app is a CLI tool (not a persistent TUI), by display name or
+/// binary. Apps not in the catalog default to `false` (unknown apps launch as-is).
+pub fn is_cli(name_or_bin: &str) -> bool {
+    catalog()
+        .iter()
+        .find(|c| c.name.eq_ignore_ascii_case(name_or_bin) || c.bin.eq_ignore_ascii_case(name_or_bin))
+        .map(|c| c.cli)
+        .unwrap_or(false)
+}
+
 /// Cached set of `$PATH` executable names. `None` until first use; replaced by
 /// [`refresh_installed`] after an install so newly-added binaries are detected
 /// without restarting the daemon.
@@ -152,6 +167,7 @@ pub fn detect_installed() -> Vec<AppEntry> {
             category: Some(c.category.clone()),
             requires_cwd: Some(recipe(&c.name).map(|r| r.requires_cwd).unwrap_or(false)),
             cwd: None,
+            cli: Some(c.cli),
         })
         .collect()
 }

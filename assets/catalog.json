@@ -58,6 +58,7 @@
  {
   "name": "Goose",
   "bin": "goose",
+  "cli": true,
   "category": "AI",
   "description": "Open-source AI agent that runs in your terminal to automate coding, research, and engineering tasks across 15+ LLM providers.",
   "homepage": "https://goose-docs.ai"
@@ -79,6 +80,7 @@
  {
   "name": "Hermes",
   "bin": "hermes",
+  "cli": true,
   "category": "AI",
   "description": "Nous Research's self-improving AI agent: creates skills from experience and builds a persistent model of its user. Chat TUI via hermes --tui.",
   "homepage": "https://hermes-agent.nousresearch.com"
@@ -93,6 +95,7 @@
  {
   "name": "llm",
   "bin": "llm",
+  "cli": true,
   "category": "AI",
   "description": "Run prompts against large language models from the command line, with support for dozens of models via plugins.",
   "homepage": "https://llm.datasette.io"
@@ -107,6 +110,7 @@
  {
   "name": "OpenClaw",
   "bin": "openclaw",
+  "cli": true,
   "category": "AI",
   "description": "Your own personal AI assistant — self-hosted gateway answering on WhatsApp/Telegram/Slack/Discord and more; terminal chat via openclaw tui.",
   "homepage": "https://openclaw.ai"
@@ -170,6 +174,7 @@
  {
   "name": "Backlog.md",
   "bin": "backlog.md",
+  "cli": true,
   "category": "Dashboards",
   "description": "A tool for managing project collaboration between humans and AI Agents in a git ecosystem",
   "homepage": "https://github.com/MrLesk/Backlog.md"
@@ -401,6 +406,7 @@
  {
   "name": "ID-Spoofer",
   "bin": "id-spoofer",
+  "cli": true,
   "category": "Dashboards",
   "description": "A cross-platform cybersecurity toolkit for fingerprint and traffic obfuscation.",
   "homepage": "https://github.com/NubleX/ID-Spoofer"
@@ -681,6 +687,7 @@
  {
   "name": "act3",
   "bin": "act3",
+  "cli": true,
   "category": "Development",
   "description": "Glance at the last 3 runs of your Github Actions",
   "homepage": "https://github.com/dhth/act3"
@@ -828,6 +835,7 @@
  {
   "name": "delta",
   "bin": "delta",
+  "cli": true,
   "category": "Development",
   "description": "A syntax-highlighting pager for git, diff, and grep output",
   "homepage": "https://github.com/dandavison/delta"
@@ -870,6 +878,7 @@
  {
   "name": "Feluda",
   "bin": "feluda",
+  "cli": true,
   "category": "Development",
   "description": "Detect restrictive and incompatible licesenses in all dependencies of your project.",
   "homepage": "https://github.com/anistark/feluda"
@@ -877,6 +886,7 @@
  {
   "name": "freeze",
   "bin": "freeze",
+  "cli": true,
   "category": "Development",
   "description": "Generate images of code and terminal output.",
   "homepage": "https://github.com/charmbracelet/freeze"
@@ -954,6 +964,7 @@
  {
   "name": "gum",
   "bin": "gum",
+  "cli": true,
   "category": "Development",
   "description": "A tool for glamorous shell scripts (prompts, menus, spinners).",
   "homepage": "https://github.com/charmbracelet/gum"
@@ -1038,6 +1049,7 @@
  {
   "name": "LogLens",
   "bin": "loglens",
+  "cli": true,
   "category": "Development",
   "description": "A structured log viewer and query engine for the terminal.",
   "homepage": "https://github.com/Caelrith/loglens-core"
@@ -1199,6 +1211,7 @@
  {
   "name": "runme",
   "bin": "runme",
+  "cli": true,
   "category": "Development",
   "description": "Discover and run code snippets directly from your README.md or other markdowns",
   "homepage": "https://github.com/stateful/runme"
@@ -1304,6 +1317,7 @@
  {
   "name": "turbostream",
   "bin": "server",
+  "cli": true,
   "category": "Development",
   "description": "Tool to extract key signals from high-velocity streaming data using AI Agents",
   "homepage": "https://github.com/turboline-ai/turbostream"
@@ -1507,6 +1521,7 @@
  {
   "name": "lazytrivy",
   "bin": "lazytrivy",
+  "cli": true,
   "category": "Docker/LXC/K8s",
   "description": "The lazier way to scan images, k8s and the filesytem with Trivy",
   "homepage": "https://github.com/owenrumney/lazytrivy"
@@ -1892,6 +1907,7 @@
  {
   "name": "cbonsai",
   "bin": "cbonsai",
+  "cli": true,
   "category": "Games",
   "description": "A bonsai tree generator",
   "homepage": "https://gitlab.com/jallbrit/cbonsai"
@@ -2277,6 +2293,7 @@
  {
   "name": "Gomphotherium",
   "bin": "gomphotherium",
+  "cli": true,
   "category": "Messaging",
   "description": "A command line Mastodon client.",
   "homepage": "https://github.com/mrusme/gomphotherium"
@@ -2298,6 +2315,7 @@
  {
   "name": "himalaya",
   "bin": "himalaya",
+  "cli": true,
   "category": "Messaging",
   "description": "CLI/TUI to manage emails (IMAP/SMTP, multi-account).",
   "homepage": "https://github.com/pimalaya/himalaya"
@@ -2312,6 +2330,7 @@
  {
   "name": "instagram-cli",
   "bin": "instagram-cli",
+  "cli": true,
   "category": "Messaging",
   "description": "Use Instagram from your terminal, the end of brainrot is here",
   "homepage": "https://github.com/supreme-gg-gg/instagram-cli"
@@ -2459,6 +2478,7 @@
  {
   "name": "toot",
   "bin": "toot",
+  "cli": true,
   "category": "Messaging",
   "description": "Mastodon CLI & TUI",
   "homepage": "https://github.com/ihabunek/toot"
@@ -2613,6 +2633,7 @@
  {
   "name": "dua",
   "bin": "dua",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "Fast interactive disk-usage analyzer and cleaner.",
   "homepage": "https://github.com/Byron/dua-cli"
@@ -2620,6 +2641,7 @@
  {
   "name": "dust",
   "bin": "dust",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "A more intuitive, visual version of du (disk usage).",
   "homepage": "https://github.com/bootandy/dust"
@@ -2627,6 +2649,7 @@
  {
   "name": "ec2-instance-selector",
   "bin": "ec2-instance-selector",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "A CLI tool and go library which recommends instance types based on resource criteria like vcpus and memory",
   "homepage": "https://github.com/aws/amazon-ec2-instance-selector"
@@ -2669,6 +2692,7 @@
  {
   "name": "gif-for-cli",
   "bin": "gif-for-cli",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "Convert a gif into ASCII",
   "homepage": "https://github.com/google/gif-for-cli"
@@ -2697,6 +2721,7 @@
  {
   "name": "HumBLE Explorer",
   "bin": "humbleexplorer",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "A cross-platform, command-line and human-friendly Bluetooth Low Energy scanner",
   "homepage": "https://github.com/koenvervloesem/humble-explorer"
@@ -2718,6 +2743,7 @@
  {
   "name": "jrnl",
   "bin": "jrnl",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "Collect your thoughts and notes without leaving the command line. human-friendly. future-proof. secure.",
   "homepage": "https://jrnl.sh/"
@@ -2816,6 +2842,7 @@
  {
   "name": "oha",
   "bin": "oha",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "HTTP load generator",
   "homepage": "https://github.com/hatoo/oha"
@@ -2900,6 +2927,7 @@
  {
   "name": "tab-pal",
   "bin": "tab-pal",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "Add and edit custom colour palettes in Tableau from the command-line.",
   "homepage": "https://github.com/ben-n93/tab-pal"
@@ -3019,6 +3047,7 @@
  {
   "name": "wego",
   "bin": "wego",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "Weather app",
   "homepage": "https://github.com/schachmat/wego"
@@ -3054,6 +3083,7 @@
  {
   "name": "wttr.in",
   "bin": "wttr.in",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "The right way to check the weather",
   "homepage": "https://github.com/chubin/wttr.in"
@@ -3061,6 +3091,7 @@
  {
   "name": "x-cmd",
   "bin": "x-cmd",
+  "cli": true,
   "category": "Miscellaneous",
   "description": "A vast and interesting collection of tools that can then bootstrap lots of other programs / functions in a consistent and structured way.",
   "homepage": "https://github.com/x-cmd/x-cmd"
@@ -3096,6 +3127,7 @@
  {
   "name": "chafa",
   "bin": "chafa",
+  "cli": true,
   "category": "Multimedia",
   "description": "A powerful utility that converts image data, including animated GIFs, into graphics formats or ANSI/Unicode character art suitable for display in a terminal.",
   "homepage": "https://hpjansson.org/chafa/"
@@ -3236,6 +3268,7 @@
  {
   "name": "mpvc",
   "bin": "mpvc",
+  "cli": true,
   "category": "Multimedia",
   "description": "A mpc-like control interface for mpv",
   "homepage": "https://github.com/gmt4/mpvc"
@@ -3369,6 +3402,7 @@
  {
   "name": "timg",
   "bin": "timg",
+  "cli": true,
   "category": "Multimedia",
   "description": "A terminal image viewer",
   "homepage": "https://github.com/hzeller/timg"
@@ -3376,6 +3410,7 @@
  {
   "name": "tizonia-openmax-il",
   "bin": "tizonia-openmax-il",
+  "cli": true,
   "category": "Multimedia",
   "description": "Command-line cloud music player for Linux with support for Spotify, Google Play Music, YouTube, SoundCloud, Dirble, Plex servers and Chromecast devices",
   "homepage": "https://github.com/tizonia/tizonia-openmax-il"
@@ -3418,6 +3453,7 @@
  {
   "name": "vhs",
   "bin": "vhs",
+  "cli": true,
   "category": "Multimedia",
   "description": "Write terminal GIFs as code — scriptable session recorder.",
   "homepage": "https://github.com/charmbracelet/vhs"
@@ -3439,6 +3475,7 @@
  {
   "name": "vv",
   "bin": "vv",
+  "cli": true,
   "category": "Multimedia",
   "description": "A terminal image viewer, supporting an extensive range of modern image formats",
   "homepage": "https://github.com/wolfpld/vv"
@@ -3474,6 +3511,7 @@
  {
   "name": "ytfzf",
   "bin": "ytfzf",
+  "cli": true,
   "category": "Multimedia",
   "description": "A POSIX script that helps you find Youtube videos (without API) or Peertube videos and opens/downloads them using mpv/youtube-dl",
   "homepage": "https://github.com/pystardust/ytfzf"
@@ -3649,6 +3687,7 @@
  {
   "name": "HydroFetch",
   "bin": "hydrofetch",
+  "cli": true,
   "category": "Productivity",
   "description": "A fast, beautiful, and lightweight system information tool written exclusively for the Fish shell.",
   "homepage": "https://github.com/Henriquehnnm/hydrofetch"
@@ -3670,6 +3709,7 @@
  {
   "name": "intelli-shell",
   "bin": "intelli-shell",
+  "cli": true,
   "category": "Productivity",
   "description": "Manage command templates/snippets with dynamic completions and AI integration",
   "homepage": "https://github.com/lasantosr/intelli-shell"
@@ -3712,6 +3752,7 @@
  {
   "name": "khal",
   "bin": "khal",
+  "cli": true,
   "category": "Productivity",
   "description": "A standards based CLI calendar program, able to synchronize with CalDAV servers",
   "homepage": "https://github.com/pimutils/khal"
@@ -3719,6 +3760,7 @@
  {
   "name": "khard",
   "bin": "khard",
+  "cli": true,
   "category": "Productivity",
   "description": "Console CardDAV address book and contact manager.",
   "homepage": "https://github.com/lucc/khard"
@@ -3754,6 +3796,7 @@
  {
   "name": "mcfly",
   "bin": "mcfly",
+  "cli": true,
   "category": "Productivity",
   "description": "Intelligent context-aware search engine for your shell history",
   "homepage": "https://github.com/cantino/mcfly"
@@ -3775,6 +3818,7 @@
  {
   "name": "nb",
   "bin": "nb",
+  "cli": true,
   "category": "Productivity",
   "description": "Plain-text note-taking, bookmarking, and knowledge base.",
   "homepage": "https://github.com/xwmx/nb"
@@ -3838,6 +3882,7 @@
  {
   "name": "portfolio_rs",
   "bin": "portfolio_rs",
+  "cli": true,
   "category": "Productivity",
   "description": "A command line tool for managing financial investment portfolios.",
   "homepage": "https://github.com/MarkusZoppelt/portfolio_rs"
@@ -3922,6 +3967,7 @@
  {
   "name": "taskline",
   "bin": "taskline",
+  "cli": true,
   "category": "Productivity",
   "description": "Tasks, boards & notes for the command-line habitat",
   "homepage": "https://github.com/perryrh0dan/taskline"
@@ -3985,6 +4031,7 @@
  {
   "name": "todoman",
   "bin": "todoman",
+  "cli": true,
   "category": "Productivity",
   "description": "A simple, standards-based (ics, DAV), cli task-manager",
   "homepage": "https://github.com/pimutils/todoman"
@@ -3999,6 +4046,7 @@
  {
   "name": "topydo",
   "bin": "topydo",
+  "cli": true,
   "category": "Productivity",
   "description": "A powerful todo list application using the todo.txt format",
   "homepage": "https://github.com/topydo/topydo"
@@ -4076,6 +4124,7 @@
  {
   "name": "vdirsyncer",
   "bin": "vdirsyncer",
+  "cli": true,
   "category": "Productivity",
   "description": "Synchronize calendars and contacts (CalDAV/CardDAV).",
   "homepage": "https://github.com/pimutils/vdirsyncer"
@@ -4097,6 +4146,7 @@
  {
   "name": "zeit",
   "bin": "zeit",
+  "cli": true,
   "category": "Productivity",
   "description": "A command line tool for tracking time spent on activities.",
   "homepage": "https://github.com/mrusme/zeit"
@@ -4209,6 +4259,7 @@
  {
   "name": "cloudflare-speed-cli",
   "bin": "cloudflare-speed-cli",
+  "cli": true,
   "category": "Web",
   "description": "Internet speed test via Cloudflare",
   "homepage": "https://github.com/kavehtehrani/cloudflare-speed-cli"
@@ -4237,6 +4288,7 @@
  {
   "name": "haxor-news",
   "bin": "hn",
+  "cli": true,
   "category": "Web",
   "description": "Browse Hacker News like a haxor: A Hacker News command line interface (CLI)",
   "homepage": "https://github.com/donnemartin/haxor-news"
