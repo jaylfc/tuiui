@@ -218,7 +218,7 @@ grid_rows = 2
 grid_cols = 3
 tile_gap = 0
 auto_tile = false
-launch_maximized = false  # new windows open maximized (Settings → Windows)
+launch_maximized = false  # true = new windows open maximized (Settings → Windows)
 
 # Working-directory picker (for coding agents flagged requires_cwd)
 default_project_dir = "~/Development"   # picker opens here (default: ~)
