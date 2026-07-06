@@ -4,6 +4,11 @@ These commands talk to the running tuiui daemon (same user, local socket).
 They are how you open windows and arrange the user's desktop.
 
 - `tuiui launch <command> [args…]`   open a new app window running <command>
+  - **CLI tools** (catalog entries tagged `"cli": true` — gum, himalaya, khal,
+    dust, and ~50 others) print usage and exit immediately if launched bare
+    this way; the help-then-shell wrapper only applies inside the launcher
+    menu/Spotlight/Store, not this CLI escape hatch. Launch them as
+    `tuiui launch sh -lc '<bin> --help; exec "$SHELL"'` instead.
 - `tuiui tile`                       tile all windows into the configured grid
 - `tuiui theme <name>`               switch theme (midnight|nord|gruvbox|dracula)
 - `tuiui reload`                     reload the UI (apps keep running)
