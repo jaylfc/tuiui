@@ -8,7 +8,8 @@ They are how you open windows and arrange the user's desktop.
     dust, and ~50 others) print usage and exit immediately if launched bare
     this way; the help-then-shell wrapper only applies inside the launcher
     menu/Spotlight/Store, not this CLI escape hatch. Launch them as
-    `tuiui launch sh -lc '<bin> --help; exec "$SHELL"'` instead.
+    `tuiui launch sh -lc 'gum --help; exec "${SHELL:-sh}"'` instead (substitute
+    the binary name for `gum`).
 - `tuiui tile`                       tile all windows into the configured grid
 - `tuiui theme <name>`               switch theme (midnight|nord|gruvbox|dracula)
 - `tuiui reload`                     reload the UI (apps keep running)
