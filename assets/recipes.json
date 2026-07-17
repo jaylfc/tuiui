@@ -5684,6 +5684,16 @@
   ],
   "verified": true
  },
+ "yoinks": {
+  "install": "npm install -g yoinks",
+  "method": "npm",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "ytdl-tui": {
   "install": "npm install -g ytdl-tui",
   "method": "npm",
