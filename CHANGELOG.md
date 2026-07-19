@@ -6,6 +6,29 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.13] — 2026-07-20
+
+### Added
+- **File-manager icons now match the desktop.** The FM's Icon view renders
+  the same role-icon image tiles as desktop icons (folders, text, code,
+  archives, …) on Kitty-graphics terminals, instead of text glyphs; image
+  files keep their real thumbnails. Glyph fallback elsewhere is unchanged.
+- **Right-click in the file manager.** Right-clicking an entry raises the
+  window, selects the entry, and opens the context menu (open / rename /
+  delete / copy / …) — previously the menu was keyboard-only.
+- **App variants in the catalog.** A catalog entry can declare launcher
+  variants (extra entries emitted when the app is installed). First user:
+  Claude Code ships a **⚠️ variant** running `--dangerously-skip-permissions`.
+- **Launch-warning dialog.** Launcher entries can carry a `warn` message
+  (the Claude ⚠️ variant does; your own `[[launcher]]` config entries can
+  too): launching one opens a confirm dialog before anything spawns —
+  Enter/`y` launches, Esc/`n` cancels.
+
+### Fixed
+- **The desktop now notices external changes to `~/Desktop`.** A folder or
+  file created in a terminal or the file manager appears on the desktop
+  within ~2 seconds (throttled mtime poll), instead of only after a reload.
+
 ## [0.2.12] — 2026-07-19
 
 ### Fixed
