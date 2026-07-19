@@ -2648,6 +2648,14 @@
   ],
   "verified": true
  },
+ "hexed": {
+  "install": "git clone https://codeberg.org/quorend/hexed.git && cd hexed && make && install -Dm755 build/hexed ~/.local/bin/hexed",
+  "method": "source",
+  "os": [
+   "linux"
+  ],
+  "verified": true
+ },
  "himalaya": {
   "install": "cargo install himalaya --locked",
   "method": "cargo",
@@ -5316,6 +5324,16 @@
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "tuiserial": {
+  "install": "cargo install tuiserial",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },

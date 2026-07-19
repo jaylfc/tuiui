@@ -1625,6 +1625,13 @@
   "homepage": "https://helix-editor.com/"
  },
  {
+  "name": "hexed",
+  "bin": "hexed",
+  "category": "Editors",
+  "description": "(Yet another) hex editor — a minimal terminal hex editor written in C, built from source with make. Linux only.",
+  "homepage": "https://codeberg.org/quorend/hexed"
+ },
+ {
   "name": "kakoune",
   "bin": "kakoune",
   "category": "Editors",
@@ -4120,6 +4127,13 @@
   "category": "Productivity",
   "description": "A TUI window manager for managing multiple terminal sessions",
   "homepage": "https://github.com/Gaurav-Gosain/tuios"
+ },
+ {
+  "name": "tuiserial",
+  "bin": "tuiserial",
+  "category": "Productivity",
+  "description": "A serial-port debugging TUI in Rust/Ratatui: port/baud/parity configuration with persistence, real-time status, menu-bar navigation with full keyboard and mouse support, and an optional JS/TS plugin system.",
+  "homepage": "https://github.com/Horldsence/tuiserial"
  },
  {
   "name": "tvterm",
