@@ -262,6 +262,20 @@ impl<F: FsOps> FileManager<F> {
         self.tab_mut().thumbs.insert(idx, id);
     }
 
+    /// Non-image entries (index, role) that should show a role-icon tile —
+    /// the same `icons::role_icon_png` tiles the desktop uses, one PNG shared
+    /// by every entry of that role. Image entries use `thumbnail_requests`
+    /// (their own file's contents) instead.
+    pub fn role_icon_requests(&self) -> Vec<(usize, crate::openwith::Role)> {
+        self.tab()
+            .entries
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.role != crate::openwith::Role::Image)
+            .map(|(i, e)| (i, e.role))
+            .collect()
+    }
+
     /// Placements for loaded thumbnails, in the Icon view's tile grid, offset into
     /// `content` (the window content rect, cells). Only on-screen tiles are emitted.
     pub fn thumbnail_placements(
