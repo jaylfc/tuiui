@@ -532,6 +532,7 @@ fn shell_entry() -> AppEntry {
         requires_cwd: None,
         cwd: None,
         cli: None,
+        warn: None,
     }
 }
 
@@ -602,7 +603,7 @@ mod tests {
     use super::*;
 
     fn app(name: &str, cat: &str) -> AppEntry {
-        AppEntry { name: name.into(), command: name.into(), args: vec![], category: Some(cat.into()), requires_cwd: None, cwd: None, cli: None }
+        AppEntry { name: name.into(), command: name.into(), args: vec![], category: Some(cat.into()), requires_cwd: None, cwd: None, cli: None, warn: None }
     }
 
     fn many() -> Vec<AppEntry> {

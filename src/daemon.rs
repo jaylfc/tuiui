@@ -256,6 +256,7 @@ fn serve_client(
         core.sync_app_meta();
         core.pump_thumbnails();
         core.refresh_activity();
+        core.poll_desktop_dir();
         let frame = core.build_frame();
         comp.composite(&frame.layers, frame.cursor);
         let changes = comp.diff();
@@ -273,6 +274,7 @@ fn serve_client(
             desktop_editing: core.desktop_editing(),
             renaming: core.renaming(),
             confirm_close: core.confirm_close_open(),
+            launch_warn: core.launch_warn_open(),
             power_editing: core.power_form_editing(),
             logs_focused: core.focused_is_logs(),
             activity_focused: core.focused_is_activity(),

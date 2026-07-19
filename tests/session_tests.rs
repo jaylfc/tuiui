@@ -185,6 +185,45 @@ fn desktop_new_folder_via_menu_creates_dir() {
 }
 
 #[test]
+fn right_click_fm_entry_opens_context_menu() {
+    let dir = std::env::temp_dir().join(format!("tuiui-fmctx-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("entry.txt"), b"hi").unwrap();
+
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::OpenFileManager);
+    core.open_filemanager_at(dir.clone());
+    assert!(!core.focused_fm_context_open_for_test());
+    // The FM window opens at rect (15, 2, 90, 30) for a 120x40 screen, so its
+    // content rect is (16, 3, 88, 28). Icon view's first tile sits at local
+    // (16, 2)..(30, 5); (18, 2) lands inside it (row 0, col 0 → entry 0).
+    let p = Point::new(16 + 18, 3 + 2);
+    core.apply(ClientMsg::MouseRightDown(p));
+    assert!(core.focused_fm_context_open_for_test(), "right-click on the entry opens the context menu");
+    core.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn right_click_fm_toolbar_does_not_open_context_menu() {
+    let dir = std::env::temp_dir().join(format!("tuiui-fmctx2-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("entry.txt"), b"hi").unwrap();
+
+    let mut core = SessionCore::new(120, 40, Config::default());
+    core.apply(ClientMsg::OpenFileManager);
+    core.open_filemanager_at(dir.clone());
+    // The toolbar row (local y = 0) is a non-entry hit — v1 does nothing.
+    let p = Point::new(16 + 18, 3);
+    core.apply(ClientMsg::MouseRightDown(p));
+    assert!(!core.focused_fm_context_open_for_test());
+    core.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn open_file_manager_creates_focused_window_and_is_single_instance() {
     let mut core = SessionCore::new(120, 40, Config::default());
     assert!(!core.focused_is_filemanager());
@@ -573,6 +612,7 @@ fn cli_flagged_launcher_app_wraps_in_shell() {
         requires_cwd: None,
         cwd: None,
         cli: Some(true),
+        warn: None,
     });
     let mut core = SessionCore::new(80, 24, cfg);
     core.apply(ClientMsg::ToggleSpotlight);
@@ -602,6 +642,7 @@ fn non_cli_launcher_app_launches_bare_binary() {
         requires_cwd: None,
         cwd: None,
         cli: Some(false),
+        warn: None,
     });
     let mut core = SessionCore::new(80, 24, cfg);
     core.apply(ClientMsg::ToggleSpotlight);
@@ -612,6 +653,67 @@ fn non_cli_launcher_app_launches_bare_binary() {
     let (cmd, args) = core.focused_app_launch_cmd_for_test().expect("app launched");
     assert_eq!(cmd, "true");
     assert!(args.is_empty());
+    core.shutdown();
+}
+
+/// A launcher entry flagged `warn` opens the launch-warning dialog instead of
+/// launching immediately; confirming (`LaunchWarnYes`) then runs the exact
+/// same launch.
+#[test]
+fn warn_flagged_launcher_app_opens_dialog_then_launches_on_confirm() {
+    let mut cfg = Config::default();
+    cfg.launcher.push(AppEntry {
+        name: "true".into(),
+        command: "true".into(),
+        args: vec![],
+        category: None,
+        requires_cwd: None,
+        cwd: None,
+        cli: None,
+        warn: Some("careful?".into()),
+    });
+    let mut core = SessionCore::new(80, 24, cfg);
+    assert!(!core.launch_warn_open());
+    core.apply(ClientMsg::ToggleSpotlight);
+    for c in "true".chars() {
+        core.apply(ClientMsg::LauncherChar(c));
+    }
+    core.apply(ClientMsg::LauncherEnter);
+    assert!(core.launch_warn_open(), "a warn-flagged entry opens the dialog first");
+    assert!(core.focused_app_launch_cmd_for_test().is_none(), "not launched yet");
+
+    core.apply(ClientMsg::LaunchWarnYes);
+    assert!(!core.launch_warn_open());
+    let (cmd, args) = core.focused_app_launch_cmd_for_test().expect("confirming launches the pending entry");
+    assert_eq!(cmd, "true");
+    assert!(args.is_empty());
+    core.shutdown();
+}
+
+/// Cancelling the launch-warning dialog (`LaunchWarnNo`) never launches.
+#[test]
+fn warn_flagged_launcher_app_cancel_does_not_launch() {
+    let mut cfg = Config::default();
+    cfg.launcher.push(AppEntry {
+        name: "true".into(),
+        command: "true".into(),
+        args: vec![],
+        category: None,
+        requires_cwd: None,
+        cwd: None,
+        cli: None,
+        warn: Some("careful?".into()),
+    });
+    let mut core = SessionCore::new(80, 24, cfg);
+    core.apply(ClientMsg::ToggleSpotlight);
+    for c in "true".chars() {
+        core.apply(ClientMsg::LauncherChar(c));
+    }
+    core.apply(ClientMsg::LauncherEnter);
+    assert!(core.launch_warn_open());
+    core.apply(ClientMsg::LaunchWarnNo);
+    assert!(!core.launch_warn_open());
+    assert!(core.focused_app_launch_cmd_for_test().is_none(), "cancelling never launches");
     core.shutdown();
 }
 

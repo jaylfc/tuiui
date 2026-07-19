@@ -87,6 +87,10 @@ impl<F: FsOps> DesktopIcons<F> {
     pub fn icons(&self) -> &[DesktopIcon] {
         &self.icons
     }
+    /// The folder this desktop is watching (`~/Desktop`, or a test override).
+    pub fn dir(&self) -> &std::path::Path {
+        &self.desktop_dir
+    }
     pub fn selection(&self) -> Vec<usize> {
         self.selection.iter().copied().collect()
     }

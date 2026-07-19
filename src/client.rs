@@ -143,6 +143,18 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                             }
                             _ => {}
                         }
+                    } else if f.launch_warn {
+                        // The launch-warning dialog is modal: Enter/y launches, Esc/n cancels.
+                        leader = false;
+                        match k.code {
+                            KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
+                                send(&mut out_stream, &ClientMsg::LaunchWarnYes)?
+                            }
+                            KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
+                                send(&mut out_stream, &ClientMsg::LaunchWarnNo)?
+                            }
+                            _ => {}
+                        }
                     } else if f.power_editing {
                         // The Add Remote form is modal: forward typing + field nav.
                         leader = false;

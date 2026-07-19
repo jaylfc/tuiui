@@ -2,7 +2,7 @@ use tuiui::launcher::{Launcher, LauncherMode};
 use tuiui::config::AppEntry;
 use tuiui::buffer::CellBuffer;
 
-fn entry(n: &str) -> AppEntry { AppEntry { name: n.into(), command: n.into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: None } }
+fn entry(n: &str) -> AppEntry { AppEntry { name: n.into(), command: n.into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: None, warn: None } }
 
 /// The visible text of row `y` in `buf` (spaces where no glyph was written).
 fn row_text(buf: &CellBuffer, y: i32) -> String {
@@ -74,7 +74,7 @@ fn menu_render_exposes_clickable_items() {
 
 #[test]
 fn categories_group_with_headers() {
-    let cat = |n: &str, c: &str| AppEntry { name: n.into(), command: n.into(), args: vec![], category: Some(c.into()), requires_cwd: None, cwd: None, cli: None };
+    let cat = |n: &str, c: &str| AppEntry { name: n.into(), command: n.into(), args: vec![], category: Some(c.into()), requires_cwd: None, cwd: None, cli: None, warn: None };
     let mut l = Launcher::new(vec![cat("btop","System"), cat("lazygit","Git"), cat("top","System")]);
     l.toggle_menu();
     // Root: the "Shell" quick-launch, then categories sorted: Git, System.
@@ -96,8 +96,8 @@ fn categories_group_with_headers() {
 /// unflagged entry's row does not.
 #[test]
 fn spotlight_shows_cli_badge_only_on_flagged_entries() {
-    let cli = AppEntry { name: "himalaya".into(), command: "himalaya".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: Some(true) };
-    let tui = AppEntry { name: "btop".into(), command: "btop".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: Some(false) };
+    let cli = AppEntry { name: "himalaya".into(), command: "himalaya".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: Some(true), warn: None };
+    let tui = AppEntry { name: "btop".into(), command: "btop".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: Some(false), warn: None };
     let mut l = Launcher::new(vec![cli, tui]);
     l.toggle_spotlight();
     let r = l.render(80, 24);
@@ -113,7 +113,7 @@ fn spotlight_shows_cli_badge_only_on_flagged_entries() {
 /// auto-expanded "Apps" category).
 #[test]
 fn menu_shows_cli_badge_on_flagged_leaf() {
-    let cli = AppEntry { name: "himalaya".into(), command: "himalaya".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: Some(true) };
+    let cli = AppEntry { name: "himalaya".into(), command: "himalaya".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: Some(true), warn: None };
     let mut l = Launcher::new(vec![cli]);
     l.toggle_menu();
     l.move_down(); // select the "Apps" category (after the Shell quick-launch)

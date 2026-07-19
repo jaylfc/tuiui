@@ -105,6 +105,9 @@ pub struct Flags {
     /// The confirm-close dialog is open; the client routes Enter/Esc and y/n to
     /// it (confirm / cancel) instead of the focused app.
     pub confirm_close: bool,
+    /// The launch-warning dialog is open (launching an app entry flagged
+    /// `warn`); the client routes Enter/Esc and y/n to it (launch / cancel).
+    pub launch_warn: bool,
     /// The power menu's "Add Remote" form is open; the client forwards typed
     /// characters and field navigation to it.
     pub power_editing: bool,

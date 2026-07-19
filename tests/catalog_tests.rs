@@ -78,3 +78,64 @@ command = "foo"
     let entry: tuiui::config::AppEntry = toml::from_str(toml).unwrap();
     assert_eq!(entry.cli, None);
 }
+
+/// `AppEntry.warn` follows the exact `cli: Option<bool>` pattern: absent in
+/// TOML, `None` in memory — hand-edited config entries can opt an app into
+/// the launch-warning dialog by setting it directly.
+#[test]
+fn app_entry_warn_field_defaults_to_none_and_round_trips() {
+    let toml = r#"name = "Foo"
+command = "foo"
+"#;
+    let entry: tuiui::config::AppEntry = toml::from_str(toml).unwrap();
+    assert_eq!(entry.warn, None);
+
+    let toml = r#"name = "Foo"
+command = "foo"
+warn = "careful?"
+"#;
+    let entry: tuiui::config::AppEntry = toml::from_str(toml).unwrap();
+    assert_eq!(entry.warn.as_deref(), Some("careful?"));
+}
+
+/// A catalog entry with no `"variants"` key parses with an empty list, so the
+/// 600+ existing entries don't churn.
+#[test]
+fn variants_default_to_empty_when_absent() {
+    let json = r#"{"name":"Foo","bin":"foo","category":"Cat","description":"d","homepage":"https://example.com"}"#;
+    let app: tuiui::catalog::CatalogApp = serde_json::from_str(json).unwrap();
+    assert!(app.variants.is_empty());
+}
+
+/// A declared variant parses its suffix/args/warn through.
+#[test]
+fn variants_parse_from_json() {
+    let json = r#"{"name":"Foo","bin":"foo","category":"Cat","description":"d","homepage":"https://example.com",
+        "variants":[{"suffix":"⚠️","args":["--x"],"warn":"careful"}]}"#;
+    let app: tuiui::catalog::CatalogApp = serde_json::from_str(json).unwrap();
+    assert_eq!(app.variants.len(), 1);
+    assert_eq!(app.variants[0].suffix, "\u{26a0}\u{fe0f}");
+    assert_eq!(app.variants[0].args, vec!["--x".to_string()]);
+    assert_eq!(app.variants[0].warn.as_deref(), Some("careful"));
+}
+
+/// A variant with no `args`/`warn` keys parses with the defaults (empty args,
+/// no warning) rather than failing.
+#[test]
+fn variant_args_and_warn_default_when_absent() {
+    let json = r#"{"suffix":"x"}"#;
+    let v: tuiui::catalog::Variant = serde_json::from_str(json).unwrap();
+    assert!(v.args.is_empty());
+    assert_eq!(v.warn, None);
+}
+
+/// The bundled catalog carries the Claude Code "skip permissions" variant
+/// this feature was built for.
+#[test]
+fn bundled_catalog_has_claude_code_skip_permissions_variant() {
+    let claude = catalog().iter().find(|c| c.name == "Claude Code").expect("Claude Code is in the catalog");
+    assert_eq!(claude.variants.len(), 1);
+    assert_eq!(claude.variants[0].suffix, "\u{26a0}\u{fe0f}");
+    assert_eq!(claude.variants[0].args, vec!["--dangerously-skip-permissions".to_string()]);
+    assert!(claude.variants[0].warn.is_some());
+}

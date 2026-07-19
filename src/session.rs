@@ -15,6 +15,7 @@ use crate::chrome::{
 };
 use crate::powermenu::{PowerClick, PowerMenu, PowerOutcome};
 use crate::confirmclose::ConfirmClose;
+use crate::launchwarn::LaunchWarn;
 use crate::compositor::Layer;
 use crate::config::{AppEntry, Config};
 use crate::geometry::{Point, Rect, SnapZone};
@@ -288,6 +289,10 @@ pub enum ClientMsg {
     ConfirmCloseYes,
     /// Dismiss the close-window dialog (Esc / n) without closing.
     ConfirmCloseNo,
+    /// Confirm the launch-warning dialog (Enter / y): launch the pending entry.
+    LaunchWarnYes,
+    /// Dismiss the launch-warning dialog (Esc / n) without launching.
+    LaunchWarnNo,
     /// Shut down the daemon entirely (kills all apps). Sent by `tuiui kill`.
     Shutdown,
     /// Restart the frontend only, keeping the apphost (and apps) alive.
@@ -423,6 +428,8 @@ pub struct SessionCore {
     power_menu: PowerMenu,
     /// Modal "are you sure?" shown when closing an app window (which kills it).
     confirm_close: ConfirmClose,
+    /// Modal "are you sure?" shown before launching an app entry flagged `warn`.
+    launch_warn: LaunchWarn,
     /// Shared host-state snapshot refreshed by the daemon's `SystemPoller`.
     tray_state: std::sync::Arc<std::sync::RwLock<crate::system::SystemState>>,
     /// The menubar status tray (open popover state + hit-testing).
@@ -441,6 +448,12 @@ pub struct SessionCore {
     images: crate::imagestore::ImageStore,
     /// The wallpaper-level desktop icons (merged `~/Desktop` + pins).
     desktop: crate::desktop::DesktopIcons,
+    /// When [`poll_desktop_dir`](Self::poll_desktop_dir) last actually stat'd
+    /// the desktop folder (throttle so every tick doesn't hit the filesystem).
+    desktop_last_poll: std::time::Instant,
+    /// The desktop folder's modified-time as of the last poll, so a changed
+    /// mtime (folder/file created or removed outside tuiui) is detected.
+    desktop_last_mtime: Option<std::time::SystemTime>,
     /// Maps a hosted app's Kitty image id `(window, kitty_id)` to the `ImageStore`
     /// id its PNG was loaded under (populated by [`refresh_app_graphics`]).
     app_image_ids: HashMap<(WindowId, u32), u64>,
@@ -511,6 +524,7 @@ impl SessionCore {
             launcher,
             power_menu: PowerMenu::new(),
             confirm_close: ConfirmClose::new(),
+            launch_warn: LaunchWarn::new(),
             tray_state: std::sync::Arc::new(std::sync::RwLock::new(crate::system::SystemState::default())),
             tray: crate::tray::Tray::new(),
             backend: crate::system::backend(),
@@ -520,6 +534,8 @@ impl SessionCore {
             simple: false,
             images: crate::imagestore::ImageStore::new(),
             desktop: crate::desktop::DesktopIcons::new(desktop_dir),
+            desktop_last_poll: std::time::Instant::now(),
+            desktop_last_mtime: None,
             app_image_ids: HashMap::new(),
             thumb_loader: crate::thumbnail::ThumbLoader::new(),
             thumb_ids: HashMap::new(),
@@ -558,6 +574,26 @@ impl SessionCore {
         self.desktop.reload(&self.cfg.desktop_pins, &self.cfg.desktop_positions);
         crate::dbg_log(&format!("desktop reload: {} icons", self.desktop.icons().len()));
         self.refresh_desktop_thumbnails();
+    }
+
+    /// Throttled mtime watch for `~/Desktop`: at most every
+    /// [`DESKTOP_POLL_INTERVAL`], stat the desktop folder and reload the
+    /// desktop when its modified-time changed since the last observed scan —
+    /// picks up a folder/file created via the file manager or a terminal
+    /// without an FS-watcher dependency. Called once per daemon tick; cheap
+    /// (a single `stat`, gated by an `Instant` so most ticks do nothing).
+    pub fn poll_desktop_dir(&mut self) {
+        let now = std::time::Instant::now();
+        if !desktop_poll_due(self.desktop_last_poll, now) {
+            return;
+        }
+        self.desktop_last_poll = now;
+        let current = std::fs::metadata(self.desktop.dir()).and_then(|m| m.modified()).ok();
+        if desktop_mtime_changed(self.desktop_last_mtime, current) {
+            crate::dbg_log("desktop: folder mtime changed, auto-reloading");
+            self.reload_desktop();
+        }
+        self.desktop_last_mtime = current;
     }
 
     /// Assign already-loaded thumbnails to the desktop's image icons and queue any
@@ -619,6 +655,10 @@ impl SessionCore {
     pub fn set_desktop_dir_for_test(&mut self, dir: std::path::PathBuf) {
         self.desktop = crate::desktop::DesktopIcons::new(dir);
         self.reload_desktop();
+        // Re-baseline the mtime watch against the new folder so a stale mtime
+        // from the previous desktop dir doesn't trigger a spurious reload.
+        self.desktop_last_mtime = None;
+        self.desktop_last_poll = std::time::Instant::now();
     }
 
     /// The number of currently-selected desktop icons (integration tests).
@@ -1235,11 +1275,11 @@ or a remote-side error — its authorized_keys was left untouched)",
     fn build_launcher_apps(cfg: &Config, systems: &[crate::systems::RemoteSystem]) -> Vec<AppEntry> {
         // Pinned tuiui actions first (open the store / settings windows).
         let mut apps = vec![
-            AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
-            AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
-            AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
-            AppEntry { name: "Logs".into(), command: "@logs".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
-            AppEntry { name: "Activity".into(), command: "@activity".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None },
+            AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None, warn: None },
+            AppEntry { name: "Settings".into(), command: "@settings".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None, warn: None },
+            AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None, warn: None },
+            AppEntry { name: "Logs".into(), command: "@logs".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None, warn: None },
+            AppEntry { name: "Activity".into(), command: "@activity".into(), args: vec![], category: Some("tuiui".into()), requires_cwd: None, cwd: None, cli: None, warn: None },
         ];
         // One remote file browser per saved system (Systems category).
         for sys in systems {
@@ -1251,6 +1291,7 @@ or a remote-side error — its authorized_keys was left untouched)",
                 requires_cwd: None,
                 cwd: None,
                 cli: None,
+                warn: None,
             });
         }
         apps.extend(cfg.launcher_apps());
@@ -1319,6 +1360,10 @@ or a remote-side error — its authorized_keys was left untouched)",
     /// Whether the confirm-close dialog is showing (the client routes Enter/Esc
     /// and y/n to it while open).
     pub fn confirm_close_open(&self) -> bool { self.confirm_close.is_open() }
+
+    /// Whether the launch-warning dialog is showing (the client routes
+    /// Enter/Esc and y/n to it while open).
+    pub fn launch_warn_open(&self) -> bool { self.launch_warn.is_open() }
 
     /// Return the number of live windows (app instances spawned successfully).
     pub fn window_count(&self) -> usize { self.contents.len() }
@@ -1793,6 +1838,7 @@ or a remote-side error — its authorized_keys was left untouched)",
                     || self.dirpicker.is_some()
                     || self.power_menu.is_open()
                     || self.confirm_close.is_open()
+                    || self.launch_warn.is_open()
                     || self.compat_dialog
                     || self.rename.is_some()
                     || self.tray.open().is_some()
@@ -1817,6 +1863,26 @@ or a remote-side error — its authorized_keys was left untouched)",
                             self.dock_ctx = Some((id, r.x));
                         }
                         return;
+                    }
+                }
+                // Right-clicking inside a file-manager window's content area
+                // opens its context menu (rename / delete / …) on the entry
+                // under the cursor. Same overlay guard as the dock branch
+                // above; a non-entry hit (toolbar/sidebar/empty area) does
+                // nothing (v1) rather than falling through to the desktop.
+                if !overlay_open {
+                    if let Some((id, cr)) = self.topmost_window_content_at(p) {
+                        if matches!(self.contents.get(&id), Some(WinContent::FileManager(_))) {
+                            self.wm.raise(id);
+                            let local = Point::new(p.x - cr.x, p.y - cr.y);
+                            if let Some(WinContent::FileManager(f)) = self.contents.get_mut(&id) {
+                                if let Some(crate::filemanager::Target::Entry(i)) = f.hit_test(local, cr.w, cr.h) {
+                                    f.select_at(i, false, false);
+                                    f.begin_context();
+                                }
+                            }
+                            return;
+                        }
                     }
                 }
                 self.handle_desktop_right(p);
@@ -1900,6 +1966,12 @@ or a remote-side error — its authorized_keys was left untouched)",
                 }
             }
             ClientMsg::ConfirmCloseNo => self.confirm_close.cancel(),
+            ClientMsg::LaunchWarnYes => {
+                if let Some(l) = self.launch_warn.confirm() {
+                    self.launch_resolved(l.name, l.command, l.args, l.cli, l.requires_cwd, l.cwd);
+                }
+            }
+            ClientMsg::LaunchWarnNo => self.launch_warn.cancel(),
             ClientMsg::Shutdown => self.shutdown = true,
             ClientMsg::Reload => self.reload = true,
             ClientMsg::MouseInput(m) => self.forward_mouse_to_app(m),
@@ -2356,6 +2428,17 @@ or a remote-side error — its authorized_keys was left untouched)",
         )
     }
 
+    /// Whether the focused file manager has its context (right-click) overlay
+    /// open (integration tests).
+    #[doc(hidden)]
+    pub fn focused_fm_context_open_for_test(&self) -> bool {
+        matches!(
+            self.wm.focused().and_then(|id| self.contents.get(&id)),
+            Some(WinContent::FileManager(f))
+                if matches!(f.overlay(), Some(crate::filemanager::Overlay::Context { .. }))
+        )
+    }
+
     fn focused_filemanager_mut(&mut self) -> Option<&mut crate::filemanager::DynFileManager> {
         let id = self.wm.focused()?;
         match self.contents.get_mut(&id)? {
@@ -2622,6 +2705,7 @@ or a remote-side error — its authorized_keys was left untouched)",
                     requires_cwd: None,
                     cwd: None,
                     cli: None,
+                    warn: None,
                 });
             }
             Some(crate::desktop::DesktopAction::Unpin(cmd)) => {
@@ -2691,18 +2775,43 @@ or a remote-side error — its authorized_keys was left untouched)",
             "@activity" => self.open_activity(),
             "@image" => { if let Some(p) = e.args.first().cloned() { self.open_image(p); } }
             _ => {
-                // CLI-flagged apps launch through the `sh -lc … --help; exec $SHELL`
-                // wrapper instead of the bare binary (see `cli_wrap`); the window
-                // title still shows the app name, and `requires_cwd`/`cwd` keep
-                // working since the shell itself starts in the picked directory.
-                let (command, args) = if e.cli.unwrap_or(false) {
-                    cli_wrap(&e.command, &e.args)
+                let cli = e.cli.unwrap_or(false);
+                let requires_cwd = e.requires_cwd.unwrap_or(false);
+                if let Some(message) = e.warn {
+                    // A warn-flagged entry (e.g. the Claude Code "skip
+                    // permissions" variant) opens the modal first instead of
+                    // launching; `LaunchWarnYes` replays the exact same launch
+                    // via `launch_resolved`.
+                    self.launch_warn.open(
+                        crate::launchwarn::PendingLaunch {
+                            name: e.name,
+                            command: e.command,
+                            args: e.args,
+                            cli,
+                            requires_cwd,
+                            cwd: e.cwd,
+                        },
+                        message,
+                    );
                 } else {
-                    (e.command, e.args)
-                };
-                self.launch_maybe_cwd(e.name, command, args, e.requires_cwd.unwrap_or(false), e.cwd)
+                    self.launch_resolved(e.name, e.command, e.args, cli, requires_cwd, e.cwd);
+                }
             }
         }
+    }
+
+    /// The tail of `launch_entry`'s default arm: apply the CLI
+    /// help-then-shell wrapper (if flagged) and hand off to
+    /// `launch_maybe_cwd`. Shared by the direct launch path and the
+    /// launch-warning dialog's confirm action, so a warned launch proceeds
+    /// exactly as it would have without the prompt.
+    fn launch_resolved(&mut self, name: String, command: String, args: Vec<String>, cli: bool, requires_cwd: bool, cwd: Option<String>) {
+        // CLI-flagged apps launch through the `sh -lc … --help; exec $SHELL`
+        // wrapper instead of the bare binary (see `cli_wrap`); the window
+        // title still shows the app name, and `requires_cwd`/`cwd` keep
+        // working since the shell itself starts in the picked directory.
+        let (command, args) = if cli { cli_wrap(&command, &args) } else { (command, args) };
+        self.launch_maybe_cwd(name, command, args, requires_cwd, cwd)
     }
 
     /// Spawn a new PTY-backed window.
@@ -2839,6 +2948,15 @@ or a remote-side error — its authorized_keys was left untouched)",
         if kind == MouseKind::Down && self.confirm_close.is_open() {
             if let Some(id) = self.confirm_close.on_click(p, self.w, self.h) {
                 self.close(id);
+            }
+            return;
+        }
+
+        // The launch-warning dialog is modal while open: route the click to it
+        // and run the pending launch if confirmed.
+        if kind == MouseKind::Down && self.launch_warn.is_open() {
+            if let Some(l) = self.launch_warn.on_click(p, self.w, self.h) {
+                self.launch_resolved(l.name, l.command, l.args, l.cli, l.requires_cwd, l.cwd);
             }
             return;
         }
@@ -3486,9 +3604,12 @@ or a remote-side error — its authorized_keys was left untouched)",
             layers.extend(self.power_menu.render(self.w, self.h, &self.systems, &online));
         }
 
-        // The confirm-close dialog is the topmost modal of all.
+        // The confirm-close / compat-restart / launch-warning dialogs stack on
+        // top of everything else, in that order (launch-warning is the topmost
+        // modal of all, by z).
         layers.extend(self.confirm_close.render(self.w, self.h));
         layers.extend(self.render_compat_dialog());
+        layers.extend(self.launch_warn.render(self.w, self.h));
 
         // Screen rects of the floating overlays now showing (empty when none open).
         let overlay_rects: Vec<crate::geometry::Rect> = layers[overlay_start..]
@@ -3758,6 +3879,7 @@ or a remote-side error — its authorized_keys was left untouched)",
             || self.dirpicker.is_some()
             || self.power_menu.is_open()
             || self.confirm_close.is_open()
+            || self.launch_warn.is_open()
             || self.tray.open().is_some()
             || self.desktop.overlay_rect().is_some()
             || self.dock_popup.is_some()
@@ -3985,6 +4107,25 @@ fn needs_apphost_restart(host_proto: u32, min_compat: u32, app_count: usize) -> 
     host_proto < min_compat && app_count > 0
 }
 
+/// Minimum spacing between desktop-folder `stat` calls in
+/// [`SessionCore::poll_desktop_dir`] — cheap, but no reason to hit the
+/// filesystem every tick.
+const DESKTOP_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Whether enough time has passed since the last desktop-folder poll to do
+/// another one. Pure so the throttle is testable without real sleeps.
+fn desktop_poll_due(last_poll: std::time::Instant, now: std::time::Instant) -> bool {
+    now.duration_since(last_poll) >= DESKTOP_POLL_INTERVAL
+}
+
+/// Whether the desktop folder's modified-time changed since the last observed
+/// poll (so it should be rescanned). The very first poll (`last == None`)
+/// never counts as a change — it just establishes the baseline, since the
+/// desktop was already scanned at startup / by its own actions.
+fn desktop_mtime_changed(last: Option<std::time::SystemTime>, current: Option<std::time::SystemTime>) -> bool {
+    matches!((last, current), (Some(a), Some(b)) if a != b)
+}
+
 /// Rows of the dock right-click context menu (row 2, "Close", renders in the
 /// close colour and routes through the confirm-close dialog for apps).
 const DOCK_CTX_ROWS: [&str; 4] = ["Minimise", "Maximise", "Close", "Reset size"];
@@ -4168,6 +4309,26 @@ mod tests {
                 assert!(crate::apphost::proto::PROTO_VERSION >= crate::apphost::proto::MIN_COMPAT);
             }
         }
+    }
+
+    #[test]
+    fn desktop_poll_is_throttled() {
+        let t0 = std::time::Instant::now();
+        assert!(!desktop_poll_due(t0, t0), "no time has passed yet");
+        assert!(!desktop_poll_due(t0, t0 + std::time::Duration::from_secs(1)), "under the interval");
+        assert!(desktop_poll_due(t0, t0 + DESKTOP_POLL_INTERVAL), "interval elapsed");
+        assert!(desktop_poll_due(t0, t0 + std::time::Duration::from_secs(60)), "well past the interval");
+    }
+
+    #[test]
+    fn desktop_mtime_change_detection() {
+        let a = std::time::SystemTime::UNIX_EPOCH;
+        let b = a + std::time::Duration::from_secs(1);
+        assert!(!desktop_mtime_changed(None, None), "nothing observed yet");
+        assert!(!desktop_mtime_changed(None, Some(a)), "first poll only sets the baseline");
+        assert!(!desktop_mtime_changed(Some(a), Some(a)), "unchanged mtime");
+        assert!(desktop_mtime_changed(Some(a), Some(b)), "mtime moved forward");
+        assert!(!desktop_mtime_changed(Some(a), None), "folder vanished: no reload, just note it");
     }
 
     #[test]

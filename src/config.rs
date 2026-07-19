@@ -25,6 +25,12 @@ pub struct AppEntry {
     /// so its `--help` output stays visible before dropping into a shell.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cli: Option<bool>,
+    /// When set, launching this entry first shows a confirmation dialog with
+    /// this message (see `launchwarn.rs`) instead of launching immediately —
+    /// e.g. a variant that skips a tool's own safety prompts. User config
+    /// entries can set this directly, not just catalog variants.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warn: Option<String>,
 }
 
 /// Top-level configuration for tuiui.
@@ -161,8 +167,8 @@ fn default_true() -> bool { true }
 /// `desktop_pins` field (so existing users still get Files + Store on the desktop).
 fn default_desktop_pins() -> Vec<AppEntry> {
     vec![
-        AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: None },
-        AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: None },
+        AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: None, warn: None },
+        AppEntry { name: "Store".into(), command: "@store".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: None, warn: None },
     ]
 }
 

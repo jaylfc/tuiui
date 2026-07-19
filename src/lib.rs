@@ -16,6 +16,7 @@ pub mod activity;
 pub mod launcher;
 pub mod powermenu;
 pub mod confirmclose;
+pub mod launchwarn;
 pub mod input;
 pub mod session;
 pub mod config;

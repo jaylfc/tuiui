@@ -23,6 +23,13 @@
  {
   "name": "Claude Code",
   "bin": "claude",
+  "variants": [
+   {
+    "suffix": "⚠️",
+    "args": ["--dangerously-skip-permissions"],
+    "warn": "Runs Claude Code with --dangerously-skip-permissions: it can edit files and run commands without asking. Launch anyway?"
+   }
+  ],
   "category": "AI",
   "description": "Anthropic's official AI coding assistant that runs as a terminal/TUI CLI for agentic coding tasks.",
   "homepage": "https://code.claude.com"

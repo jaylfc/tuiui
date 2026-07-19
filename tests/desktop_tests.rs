@@ -12,7 +12,7 @@ fn tmp(tag: &str) -> std::path::PathBuf {
 }
 
 fn pins() -> Vec<AppEntry> {
-    vec![AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: None }]
+    vec![AppEntry { name: "Files".into(), command: "@files".into(), args: vec![], category: None, requires_cwd: None, cwd: None, cli: None, warn: None }]
 }
 
 #[test]
