@@ -220,6 +220,24 @@ fn thumbnail_requests_lists_image_entries() {
 }
 
 #[test]
+fn role_icon_requests_lists_non_image_entries_only() {
+    use tuiui::openwith::Role;
+    let d = tmp("roleicon");
+    fs::write(d.join("pic.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+    fs::write(d.join("note.txt"), b"hi").unwrap();
+    fs::create_dir(d.join("sub")).unwrap();
+    let fm = FileManager::new(d.clone(), BTreeMap::new());
+    let reqs = fm.role_icon_requests();
+    // Image entries are excluded (they use thumbnail_requests instead); the
+    // folder and text file both want a role-icon tile.
+    assert_eq!(reqs.len(), 2);
+    assert!(reqs.iter().any(|(_, r)| *r == Role::Directory));
+    assert!(reqs.iter().any(|(_, r)| *r == Role::Text));
+    assert!(!reqs.iter().any(|(_, r)| *r == Role::Image));
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
 fn set_thumb_then_placement_is_reported() {
     use tuiui::geometry::Rect;
     let d = tmp("thumbplace");

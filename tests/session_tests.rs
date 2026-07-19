@@ -128,6 +128,32 @@ fn file_manager_emits_thumbnail_placement_for_image() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+#[test]
+fn file_manager_emits_role_icon_placement_for_non_image_entry() {
+    // A folder with only non-image entries (a text file and a subfolder) —
+    // these have no real thumbnail, so the Icon view should place the shared
+    // per-role tile (same image id for every entry of that role) instead of
+    // falling back to a bare glyph.
+    let dir = std::env::temp_dir().join(format!("tuiui-fmrole-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("note.txt"), b"hello").unwrap();
+    std::fs::create_dir(dir.join("sub")).unwrap();
+
+    let mut core = SessionCore::new(100, 30, Config::default());
+    core.apply(ClientMsg::OpenFileManager);
+    core.open_filemanager_at(dir.clone());
+    // Role icons are pre-generated (no background loader involved), so a
+    // single build_frame right after opening should already carry them.
+    let frame = core.build_frame();
+    assert!(
+        frame.images.iter().any(|p| p.cols >= 1),
+        "expected a role-icon placement for the non-image entries"
+    );
+    core.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Drive the background thumbnail loader until `build_frame` emits an image
 /// placement (or a timeout), returning that frame.
 fn pump_until_image(core: &mut SessionCore) -> tuiui::session::Frame {

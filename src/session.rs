@@ -2106,9 +2106,11 @@ or a remote-side error — its authorized_keys was left untouched)",
     /// Assign already-loaded thumbnails to the focused file manager's image
     /// entries and queue any not-yet-loaded ones on the background loader. Never
     /// blocks on file I/O (a slow/offloaded image can no longer freeze the loop).
+    /// Non-image entries get the same pre-generated per-role tile the desktop
+    /// uses (`self.role_icon_ids`) — no disk I/O, no per-entry PNG generation.
     fn refresh_fm_thumbnails(&mut self) {
-        let reqs = match self.focused_filemanager_mut() {
-            Some(f) => f.thumbnail_requests(),
+        let (reqs, role_reqs) = match self.focused_filemanager_mut() {
+            Some(f) => (f.thumbnail_requests(), f.role_icon_requests()),
             None => return,
         };
         let mut ready: Vec<(usize, u64)> = Vec::new();
@@ -2117,6 +2119,11 @@ or a remote-side error — its authorized_keys was left untouched)",
                 ready.push((idx, id));
             } else {
                 self.thumb_loader.request(path, 13 * 8, 16);
+            }
+        }
+        for (idx, role) in role_reqs {
+            if let Some(&id) = self.role_icon_ids.get(&role) {
+                ready.push((idx, id));
             }
         }
         if let Some(f) = self.focused_filemanager_mut() {
