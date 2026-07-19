@@ -4,6 +4,10 @@ These commands talk to the running tuiui daemon (same user, local socket).
 They are how you open windows and arrange the user's desktop.
 
 - `tuiui launch <command> [args…]`   open a new app window running <command>
+  - Launching a catalog-tagged **CLI tool** (gum, himalaya, khal, dust, …)
+    with **no args** automatically opens a shell with the tool's `--help`
+    printed first, instead of a window that prints usage and dies. Passing
+    args runs the command exactly as given.
 - `tuiui tile`                       tile all windows into the configured grid
 - `tuiui theme <name>`               switch theme (midnight|nord|gruvbox|dracula)
 - `tuiui reload`                     reload the UI (apps keep running)

@@ -6,6 +6,17 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.12] — 2026-07-19
+
+### Fixed
+- **`tuiui launch <cli-tool>` no longer opens a window that instantly dies.**
+  The v0.2.11 help-then-shell wrapper for catalog-tagged CLI tools only
+  applied to the launcher menu / Spotlight / Store paths; the `tuiui launch`
+  escape hatch (used by the AI assistant and scripts) still spawned the bare
+  binary, which printed usage and exited. A bare `tuiui launch gum` now gets
+  the same wrapper; passing args (`tuiui launch gum choose a b`) runs the
+  command exactly as given.
+
 ## [0.2.11] — 2026-07-04
 
 ### Added

@@ -1471,6 +1471,19 @@ or a remote-side error — its authorized_keys was left untouched)",
         }
         match msg {
             ClientMsg::Launch { name, command, args } => {
+                // The `tuiui launch` escape hatch (CLI / assistant / dock pins).
+                // A bare launch of a catalog-flagged CLI tool would open a window
+                // that prints usage and instantly dies, so give it the same
+                // help-then-shell wrapper as the launcher menu. Explicit args mean
+                // an intentional invocation (`tuiui launch gum choose a b`) —
+                // run those as given.
+                let (command, args) = if args.is_empty()
+                    && (crate::catalog::is_cli(&command) || crate::catalog::is_cli(&name))
+                {
+                    cli_wrap(&command, &args)
+                } else {
+                    (command, args)
+                };
                 self.launch(name, command, args);
             }
             ClientMsg::MouseDown(p) => {

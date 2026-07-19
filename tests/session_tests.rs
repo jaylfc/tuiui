@@ -614,3 +614,44 @@ fn non_cli_launcher_app_launches_bare_binary() {
     assert!(args.is_empty());
     core.shutdown();
 }
+
+/// The `tuiui launch` escape hatch (ClientMsg::Launch) applies the same
+/// help-then-shell wrapper to a bare launch of a catalog-flagged CLI tool
+/// (gum is `"cli": true` in the embedded catalog) — previously it spawned the
+/// bare binary, which printed usage and instantly died (the gap flagged by
+/// PR #46).
+#[test]
+fn bare_cli_launch_via_client_msg_wraps_in_shell() {
+    let mut core = SessionCore::new(80, 24, Config::default());
+    core.apply(ClientMsg::Launch {
+        name: "gum".into(),
+        command: "gum".into(),
+        args: vec![],
+    });
+    let (cmd, args) = core.focused_app_launch_cmd_for_test().expect("app launched");
+    assert_eq!(cmd, "sh");
+    assert_eq!(args.first().map(String::as_str), Some("-lc"));
+    let script = args.get(1).cloned().unwrap_or_default();
+    assert!(script.contains("'gum' --help"), "script: {script}");
+    assert!(script.contains("exec \"${SHELL:-sh}\""), "script: {script}");
+    core.shutdown();
+}
+
+/// Explicit args mean an intentional invocation — `tuiui launch gum choose a`
+/// must run exactly as given, no wrapper. (The window is named after the
+/// catalog CLI app "gum" but runs `true` so the spawn succeeds on any
+/// machine — the point is that the CLI flag must NOT rewrite an invocation
+/// that carries args.)
+#[test]
+fn cli_launch_with_args_via_client_msg_runs_bare() {
+    let mut core = SessionCore::new(80, 24, Config::default());
+    core.apply(ClientMsg::Launch {
+        name: "gum".into(),
+        command: "true".into(),
+        args: vec!["choose".into(), "a".into()],
+    });
+    let (cmd, args) = core.focused_app_launch_cmd_for_test().expect("app launched");
+    assert_eq!(cmd, "true");
+    assert_eq!(args, vec!["choose".to_string(), "a".to_string()]);
+    core.shutdown();
+}
