@@ -223,7 +223,7 @@ fn right_click_fm_entry_opens_context_menu() {
     assert!(!core.focused_fm_context_open_for_test());
     // The FM window opens at rect (15, 2, 90, 30) for a 120x40 screen, so its
     // content rect is (16, 3, 88, 28). Icon view's first tile sits at local
-    // (16, 2)..(30, 5); (18, 2) lands inside it (row 0, col 0 → entry 0).
+    // (16, 2)..(30, 8); (18, 2) lands inside it (row 0, col 0 → entry 0).
     let p = Point::new(16 + 18, 3 + 2);
     core.apply(ClientMsg::MouseRightDown(p));
     assert!(core.focused_fm_context_open_for_test(), "right-click on the entry opens the context menu");

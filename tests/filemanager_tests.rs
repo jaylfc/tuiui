@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::fs;
-use tuiui::filemanager::{FileManager, ViewMode};
+use tuiui::filemanager::{FileManager, Overlay, ViewMode};
+use tuiui::geometry::Point;
 
 fn tmp(tag: &str) -> std::path::PathBuf {
     let d = std::env::temp_dir().join(format!("tuiui-fm-{}-{}", tag, std::process::id()));
@@ -305,5 +306,80 @@ fn tabs_open_switch_and_close() {
     assert_eq!(fm.cwd(), d.as_path()); // tab 0 unchanged
     fm.close_tab();
     assert_eq!(fm.tab_count(), 1);
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn context_menu_opens_anchored_at_the_click_and_click_on_rename_starts_a_rename() {
+    let d = tmp("ctxopen");
+    fs::write(d.join("a.txt"), b"hi").unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    let _ = fm.render(80, 24);
+
+    let at = Point::new(20, 5);
+    fm.begin_context_at(0, at);
+    assert!(fm.context_menu_open());
+    match fm.overlay() {
+        Some(Overlay::Context { idx, at: anchor, sel }) => {
+            assert_eq!(*idx, 0);
+            assert_eq!(*anchor, at, "menu must anchor at the exact click point");
+            assert_eq!(*sel, 0);
+        }
+        other => panic!("expected a Context overlay, got {other:?}"),
+    }
+
+    // Menu rows start one below the anchor (row 0 is the top border); Open is
+    // row 0, Rename is row 1.
+    let rename_row = Point::new(at.x + 1, at.y + 2);
+    assert!(fm.context_menu_click(rename_row, 80, 24), "click on a menu row is consumed by the overlay");
+    assert!(
+        matches!(fm.overlay(), Some(Overlay::Rename { idx: 0, .. })),
+        "clicking Rename must start a rename of the entry the menu was opened on, got {:?}",
+        fm.overlay()
+    );
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn context_menu_click_outside_it_closes_without_acting() {
+    let d = tmp("ctxclose");
+    fs::write(d.join("a.txt"), b"hi").unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    let _ = fm.render(80, 24);
+
+    fm.begin_context_at(0, Point::new(20, 5));
+    assert!(fm.context_menu_open());
+
+    // Far outside the menu box.
+    assert!(fm.context_menu_click(Point::new(0, 0), 80, 24), "the overlay still consumes the click");
+    assert!(fm.overlay().is_none(), "a click outside the menu dismisses it");
+    let _ = fs::remove_dir_all(&d);
+}
+
+#[test]
+fn context_menu_up_down_wrap_and_enter_performs_the_highlighted_action() {
+    let d = tmp("ctxkeys");
+    fs::write(d.join("a.txt"), b"hi").unwrap();
+    let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+    let _ = fm.render(80, 24);
+
+    fm.begin_context_at(0, Point::new(20, 5));
+    fm.context_menu_up(); // wraps from 0 to the last item (Get Info)
+    match fm.overlay() {
+        Some(Overlay::Context { sel, .. }) => assert_eq!(*sel, 5),
+        other => panic!("expected a Context overlay, got {other:?}"),
+    }
+    fm.context_menu_down(); // wraps back to 0 (Open)
+    match fm.overlay() {
+        Some(Overlay::Context { sel, .. }) => assert_eq!(*sel, 0),
+        other => panic!("expected a Context overlay, got {other:?}"),
+    }
+    fm.context_menu_down(); // -> Rename
+    fm.context_menu_commit();
+    assert!(
+        matches!(fm.overlay(), Some(Overlay::Rename { idx: 0, .. })),
+        "Enter on the highlighted Rename row must start a rename, got {:?}",
+        fm.overlay()
+    );
     let _ = fs::remove_dir_all(&d);
 }

@@ -271,6 +271,7 @@ fn serve_client(
             help_open: core.help_open(),
             filemanager_focused: core.focused_is_filemanager(),
             filemanager_editing: core.filemanager_editing(),
+            filemanager_context: core.filemanager_context(),
             desktop_editing: core.desktop_editing(),
             renaming: core.renaming(),
             confirm_close: core.confirm_close_open(),

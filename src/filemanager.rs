@@ -2,6 +2,7 @@
 //! overlays, and operation dispatch. All disk access goes through `FsOps`.
 
 use crate::fileops::{Entry, FsOps, StdFs};
+use crate::geometry::Point;
 use crate::openwith::{resolve, OpenAction};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -28,7 +29,10 @@ pub enum Overlay {
     NewFolder { name: String },
     Rename { idx: usize, name: String },
     ConfirmDelete { count: usize },
-    Context { idx: usize },          // right-click menu for entry `idx`
+    /// Context menu for entry `idx`, anchored at content-local point `at`
+    /// (the click point for a right-click, or the entry's tile/row for the
+    /// keyboard shortcut); `sel` is the highlighted row.
+    Context { idx: usize, at: Point, sel: usize },
     OpenWith { idx: usize, sel: usize },
     Error { message: String },
     GetInfo { idx: usize },
@@ -290,20 +294,19 @@ impl<F: FsOps> FileManager<F> {
         let top = self.content_top();
         let area_x = SIDEBAR_W;
         let area_w = (content.w - SIDEBAR_W - self.preview_reserve(content.w)).max(1);
-        let cols = (area_w / TILE_W).max(1);
+        let cols = icon_cols(area_w);
+        let visible_rows = icon_visible_rows(top, content.h);
         let mut out = Vec::new();
         for (&idx, &id) in &self.tab().thumbs {
             if idx >= self.tab().entries.len() {
                 continue;
             }
-            let col = idx as i32 % cols;
             let row = idx as i32 / cols;
-            let cx = content.x + area_x + col * TILE_W;
-            let cy = content.y + top + row * TILE_H;
-            if cy + 1 >= content.y + content.h {
+            if row >= visible_rows {
                 continue; // below the viewport
             }
-            let rect = crate::geometry::Rect::new(cx, cy, (TILE_W - 1).max(1), 1);
+            let tile = icon_tile_rect(content.x + area_x, content.y + top, cols, idx);
+            let rect = icon_image_rect(tile);
             out.push(crate::protocol::ImagePlacement {
                 id,
                 rect,
@@ -425,8 +428,104 @@ impl<F: FsOps> FileManager<F> {
         self.overlay = Some(Overlay::ConfirmDelete { count });
     }
 
+    /// Open the context menu for the focused entry (keyboard-invoked),
+    /// anchored at its tile/row so it appears right where the entry is.
     pub fn begin_context(&mut self) {
-        self.overlay = Some(Overlay::Context { idx: self.tab().cursor });
+        let idx = self.tab().cursor;
+        if idx >= self.tab().entries.len() {
+            return;
+        }
+        let at = self.entry_anchor(idx);
+        self.overlay = Some(Overlay::Context { idx, at, sel: 0 });
+    }
+
+    /// Open the context menu for entry `idx`, anchored at the exact
+    /// content-local point `at` — used by the mouse right-click path, which
+    /// already knows where the user clicked (mirrors the desktop's
+    /// `right_click`).
+    pub fn begin_context_at(&mut self, idx: usize, at: Point) {
+        if idx >= self.tab().entries.len() {
+            return;
+        }
+        self.select_at(idx, false, false);
+        self.overlay = Some(Overlay::Context { idx, at, sel: 0 });
+    }
+
+    /// The content-local point to anchor a keyboard-invoked context menu for
+    /// `idx`, matching render's layout for the active view.
+    fn entry_anchor(&self, idx: usize) -> Point {
+        let t = self.tab();
+        let top = self.content_top();
+        match t.view {
+            ViewMode::List | ViewMode::Columns => Point::new(SIDEBAR_W, top + idx as i32),
+            ViewMode::Icon => {
+                let cols = self.cols_per_row.get().max(1);
+                let tile = icon_tile_rect(SIDEBAR_W, top, cols, idx);
+                Point::new(tile.x, tile.y)
+            }
+        }
+    }
+
+    /// Whether the context menu overlay is open.
+    pub fn context_menu_open(&self) -> bool {
+        matches!(self.overlay, Some(Overlay::Context { .. }))
+    }
+
+    /// Move the context-menu highlight up (wrapping).
+    pub fn context_menu_up(&mut self) {
+        if let Some(Overlay::Context { sel, .. }) = &mut self.overlay {
+            let n = ContextMenuItem::ALL.len();
+            *sel = (*sel + n - 1) % n;
+        }
+    }
+
+    /// Move the context-menu highlight down (wrapping).
+    pub fn context_menu_down(&mut self) {
+        if let Some(Overlay::Context { sel, .. }) = &mut self.overlay {
+            let n = ContextMenuItem::ALL.len();
+            *sel = (*sel + 1) % n;
+        }
+    }
+
+    /// Perform the highlighted context-menu action and close the menu.
+    pub fn context_menu_commit(&mut self) {
+        if let Some(Overlay::Context { idx, sel, .. }) = self.overlay.take() {
+            self.run_context_action(idx, ContextMenuItem::ALL[sel]);
+        }
+    }
+
+    /// Handle a content-local click while the context menu is open: a hit on
+    /// a row performs that action, a miss closes the menu. Returns `true`
+    /// either way (the overlay always consumes the click while it's open),
+    /// or `false` when no menu is open (so the caller falls back to normal
+    /// FM click handling).
+    pub fn context_menu_click(&mut self, p: Point, w: i32, h: i32) -> bool {
+        if !self.context_menu_open() {
+            return false;
+        }
+        match self.context_menu_item_at(p, w, h) {
+            Some(item) => {
+                if let Some(Overlay::Context { idx, .. }) = self.overlay.take() {
+                    self.run_context_action(idx, item);
+                }
+            }
+            None => self.overlay = None,
+        }
+        true
+    }
+
+    /// Dispatch a context-menu action, reusing the FM's existing operations —
+    /// no new file operations are introduced for the menu.
+    fn run_context_action(&mut self, idx: usize, item: ContextMenuItem) {
+        self.select_at(idx, false, false);
+        match item {
+            ContextMenuItem::Open => self.activate(),
+            ContextMenuItem::Rename => self.begin_rename(),
+            ContextMenuItem::Copy => self.copy_selection(),
+            ContextMenuItem::Cut => self.cut_selection(),
+            ContextMenuItem::Delete => self.begin_delete(),
+            ContextMenuItem::GetInfo => self.begin_get_info(),
+        }
     }
 
     pub fn begin_get_info(&mut self) {
@@ -546,7 +645,6 @@ fn pdf_preview(path: &std::path::Path, max: usize) -> Vec<String> {
 
 use crate::buffer::CellBuffer;
 use crate::cell::{Cell, Rgba};
-use crate::geometry::Point;
 
 const BG: Rgba = Rgba { r: 17, g: 20, b: 29, a: 255 };
 const FG: Rgba = Rgba { r: 200, g: 208, b: 220, a: 255 };
@@ -557,8 +655,47 @@ const ACCENT: Rgba = Rgba { r: 108, g: 182, b: 255, a: 255 };
 const SIDEBAR_W: i32 = 16; // left shortcuts column
 const TOOLBAR_Y: i32 = 0;  // breadcrumb/toolbar row
 const LIST_TOP: i32 = 2;   // first entry row (below toolbar + spacer)
-const TILE_W: i32 = 14;    // icon-grid tile width
-const TILE_H: i32 = 3;     // icon-grid tile height (glyph row + name row + gap)
+/// Icon-grid tile size — mirrors the desktop's icon tile
+/// (`desktop::ICON_W`/`ICON_H`) so the FM's Icon view and the desktop icons
+/// scale and look the same: the top `TILE_H - 1` rows hold the (image) icon,
+/// the last row holds the centered label. Kept in lockstep with the desktop
+/// constants deliberately (not re-exported from there) since the FM grid is
+/// laid out row-major by entry index, unlike the desktop's draggable cells.
+pub(crate) const TILE_W: i32 = 14;
+pub(crate) const TILE_H: i32 = 6;
+
+/// Tiles per row for an Icon-view grid `area_w` cells wide.
+fn icon_cols(area_w: i32) -> i32 {
+    (area_w / TILE_W).max(1)
+}
+
+/// How many full tile rows fit between `top` and the bottom status row, for a
+/// content area `h` cells tall. Entries beyond this must not be
+/// drawn/hit-tested/placed: there is no Icon-view scroll offset (yet) to page
+/// past them, and a partially clipped tile would look broken.
+fn icon_visible_rows(top: i32, h: i32) -> i32 {
+    ((h - 1 - top) / TILE_H).max(0)
+}
+
+/// The Icon-view tile rect for entry index `i` in a `cols`-wide grid whose
+/// origin is `(area_x, top)`. Shared by render/hit_test/thumbnail_placements
+/// so they can never drift (the repo's render-and-hit-test-share-geometry
+/// convention).
+fn icon_tile_rect(area_x: i32, top: i32, cols: i32, i: usize) -> crate::geometry::Rect {
+    let i = i as i32;
+    let col = i % cols;
+    let row = i / cols;
+    crate::geometry::Rect::new(area_x + col * TILE_W, top + row * TILE_H, TILE_W, TILE_H)
+}
+
+/// The icon-image sub-rect within a tile — centered horizontally, the top
+/// `TILE_H - 1` rows (the last row is the label). Mirrors
+/// `desktop::icon_image_rect`.
+fn icon_image_rect(tile: crate::geometry::Rect) -> crate::geometry::Rect {
+    let iw = (TILE_W - 2).max(2);
+    let ih = (TILE_H - 1).max(1);
+    crate::geometry::Rect::new(tile.x + (TILE_W - iw) / 2, tile.y, iw, ih)
+}
 
 /// A click target inside the file-manager content area.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -669,20 +806,36 @@ impl<F: FsOps> FileManager<F> {
                 self.render_columns(&mut buf, area_x, area_right, h);
             }
             ViewMode::Icon => {
-                let cols = (area_w / TILE_W).max(1);
+                let cols = icon_cols(area_w);
                 self.cols_per_row.set(cols);
+                let visible_rows = icon_visible_rows(top, h);
                 for (i, e) in t.entries.iter().enumerate() {
-                    let col = i as i32 % cols;
                     let row = i as i32 / cols;
-                    let x = area_x + col * TILE_W;
-                    let y = top + row * TILE_H;
-                    if y >= h - 1 { break; }
+                    if row >= visible_rows { break; } // below the viewport: don't draw a clipped tile
+                    let tile = icon_tile_rect(area_x, top, cols, i);
+                    let ir = icon_image_rect(tile);
                     let selected = t.selection.contains(&i);
                     let focused = i == t.cursor;
-                    let bg = if selected || focused { SEL_BG } else { BG };
-                    buf.set(x + TILE_W / 2, y, Cell { ch: Self::glyph(e), fg: FG, bg, attrs: Default::default() });
-                    let name: String = e.name.chars().take((TILE_W - 1) as usize).collect();
-                    buf.write_str(x, y + 1, &name, if focused { ACCENT } else { FG }, bg);
+                    // Big centered glyph — the text-glyph fallback for
+                    // non-graphics terminals; a loaded thumbnail/role-icon
+                    // image covers the same rect on Kitty-graphics terminals
+                    // (see `thumbnail_placements`).
+                    buf.set(
+                        ir.x + ir.w / 2,
+                        ir.y + ir.h / 2,
+                        Cell { ch: Self::glyph(e), fg: FG, bg: BG, attrs: Default::default() },
+                    );
+                    // Label: centered on the tile's last row. Selection/focus
+                    // highlight lives here only, like the desktop.
+                    let label_bg = if selected || focused { SEL_BG } else { BG };
+                    let label_y = tile.y + TILE_H - 1;
+                    let name: String = e.name.chars().take(TILE_W as usize).collect();
+                    let len = name.chars().count() as i32;
+                    let lx = tile.x + (TILE_W - len).max(0) / 2;
+                    for x in tile.x..(tile.x + TILE_W).min(area_right) {
+                        buf.set(x, label_y, Cell { ch: ' ', fg: FG, bg: label_bg, attrs: Default::default() });
+                    }
+                    buf.write_str(lx, label_y, &name, if focused { ACCENT } else { FG }, label_bg);
                 }
             }
         }
@@ -766,7 +919,7 @@ impl<F: FsOps> FileManager<F> {
     }
 
     /// Map a content-local click to a target. Mirrors the render layout.
-    pub fn hit_test(&self, p: Point, w: i32, _h: i32) -> Option<Target> {
+    pub fn hit_test(&self, p: Point, w: i32, h: i32) -> Option<Target> {
         let top = self.content_top();
         let t = self.tab();
         if p.y == TOOLBAR_Y {
@@ -803,11 +956,12 @@ impl<F: FsOps> FileManager<F> {
                 if i < t.entries.len() { Some(Target::Entry(i)) } else { None }
             }
             ViewMode::Icon => {
-                let cols = (area_w / TILE_W).max(1);
+                let cols = icon_cols(area_w);
                 if p.y < top { return None; }
+                let visible_rows = icon_visible_rows(top, h);
                 let col = (p.x - area_x) / TILE_W;
                 let row = (p.y - top) / TILE_H;
-                if col < 0 || col >= cols { return None; }
+                if col < 0 || col >= cols || row < 0 || row >= visible_rows { return None; }
                 let i = (row * cols + col) as usize;
                 if i < t.entries.len() { Some(Target::Entry(i)) } else { None }
             }
@@ -866,8 +1020,8 @@ impl<F: FsOps> FileManager<F> {
                     &[format!("Trash {count} item(s)? [Enter] Yes  [Esc] No")],
                 );
             }
-            Overlay::Context { .. } => {
-                self.draw_box(buf, w, h, "Actions", &["Open  Rename  Copy  Cut  Delete".to_string()]);
+            Overlay::Context { sel, .. } => {
+                self.render_context_menu(buf, w, h, *sel);
             }
             Overlay::OpenWith { .. } => {
                 self.draw_box(buf, w, h, "Open with", &["Pick an app (Enter), Esc to cancel".to_string()]);
@@ -913,6 +1067,89 @@ impl<F: FsOps> FileManager<F> {
         buf.write_str(bx + 2, by, title, ACCENT, SEL_BG);
         for (i, line) in lines.iter().enumerate() {
             buf.write_str(bx + 2, by + 2 + i as i32, line, FG, SEL_BG);
+        }
+    }
+
+    /// The screen rect of the open context menu (anchor + item list), clamped
+    /// so it never spills outside the `w×h` content area. `None` when no
+    /// context menu is open.
+    fn context_menu_rect(&self, w: i32, h: i32) -> Option<crate::geometry::Rect> {
+        let Some(Overlay::Context { at, .. }) = &self.overlay else { return None; };
+        let mw = CONTEXT_MENU_W;
+        let mh = ContextMenuItem::ALL.len() as i32 + 2;
+        let x = at.x.clamp(0, (w - mw).max(0));
+        let y = at.y.clamp(0, (h - mh).max(0));
+        Some(crate::geometry::Rect::new(x, y, mw, mh))
+    }
+
+    /// The context-menu item under `p`, if the menu is open and `p` lands on
+    /// one of its rows.
+    fn context_menu_item_at(&self, p: Point, w: i32, h: i32) -> Option<ContextMenuItem> {
+        let r = self.context_menu_rect(w, h)?;
+        if !r.contains(p) {
+            return None;
+        }
+        // Rows are the interior of the box (skip the top border row).
+        let row = p.y - (r.y + 1);
+        if row < 0 || row as usize >= ContextMenuItem::ALL.len() {
+            return None;
+        }
+        Some(ContextMenuItem::ALL[row as usize])
+    }
+
+    /// Render the open context menu: a compact box at its anchor with one row
+    /// per item, the highlighted (hovered / keyboard-selected) row in reverse
+    /// video.
+    fn render_context_menu(&self, buf: &mut CellBuffer, w: i32, h: i32, sel: usize) {
+        let Some(r) = self.context_menu_rect(w, h) else { return; };
+        for y in r.y..r.y + r.h {
+            for x in r.x..r.x + r.w {
+                buf.set(x, y, Cell { ch: ' ', fg: FG, bg: SEL_BG, attrs: Default::default() });
+            }
+        }
+        for (i, item) in ContextMenuItem::ALL.iter().enumerate() {
+            let hi = i == sel;
+            let (fg, bg) = if hi { (BG, ACCENT) } else { (FG, SEL_BG) };
+            let y = r.y + 1 + i as i32;
+            for x in r.x + 1..r.x + r.w - 1 {
+                buf.set(x, y, Cell { ch: ' ', fg, bg, attrs: Default::default() });
+            }
+            buf.write_str(r.x + 1, y, item.label(), fg, bg);
+        }
+    }
+}
+
+/// Fixed width of the FM context-menu box.
+const CONTEXT_MENU_W: i32 = 14;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ContextMenuItem {
+    Open,
+    Rename,
+    Copy,
+    Cut,
+    Delete,
+    GetInfo,
+}
+
+impl ContextMenuItem {
+    const ALL: [ContextMenuItem; 6] = [
+        ContextMenuItem::Open,
+        ContextMenuItem::Rename,
+        ContextMenuItem::Copy,
+        ContextMenuItem::Cut,
+        ContextMenuItem::Delete,
+        ContextMenuItem::GetInfo,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            ContextMenuItem::Open => "Open",
+            ContextMenuItem::Rename => "Rename",
+            ContextMenuItem::Copy => "Copy",
+            ContextMenuItem::Cut => "Cut",
+            ContextMenuItem::Delete => "Delete",
+            ContextMenuItem::GetInfo => "Get Info",
         }
     }
 }
@@ -983,6 +1220,84 @@ mod tests {
         let entry0 = crate::geometry::Point::new(SIDEBAR_W + 2, LIST_TOP);
         assert!(fm.double_click(entry0, 80, 24));
         assert_eq!(fm.cwd(), d.join("sub"));
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    /// hit_test must return exactly the entry whose tile `icon_tile_rect`
+    /// (the geometry the Icon-view render uses) places under the click — the
+    /// repo's "render and hit-test share the same rect math" convention,
+    /// verified against the *enlarged* (desktop-proportioned) tile now that
+    /// TILE_H > 1.
+    #[test]
+    fn icon_hit_test_matches_the_tile_render_computes() {
+        let d = tmp("tilegeo");
+        for n in ["a", "b", "c", "d", "e"] { fs::write(d.join(n), b"").unwrap(); }
+        let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+        fm.set_view(ViewMode::Icon);
+        let (w, h) = (80, 24);
+        let _ = fm.render(w, h); // populates cols_per_row from the real layout
+        let cols = fm.cols_per_row.get().max(1);
+        let top = fm.content_top();
+        assert_eq!(fm.entries().len(), 5);
+        for i in 0..fm.entries().len() {
+            let tile = icon_tile_rect(SIDEBAR_W, top, cols, i);
+            // Any point inside the tile — including its label row, the last
+            // of the TILE_H rows — must hit this entry, not a neighbor.
+            let p = crate::geometry::Point::new(tile.x + 1, tile.y + TILE_H - 1);
+            assert_eq!(fm.hit_test(p, w, h), Some(Target::Entry(i)), "entry {i} tile {tile:?}");
+        }
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    /// The old 1-row-tall thumbnail placement was the bug: with the enlarged
+    /// tile, the placed rect must span the multi-row icon area (`TILE_H - 1`
+    /// rows), sitting entirely inside the tile it belongs to.
+    #[test]
+    fn thumbnail_placement_spans_multiple_rows_within_its_tile() {
+        let d = tmp("thumbrows");
+        fs::write(d.join("pic.png"), b"\x89PNG\r\n\x1a\n").unwrap();
+        let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+        let idx = fm.thumbnail_requests()[0].0;
+        fm.set_thumb(idx, 999);
+        let content = crate::geometry::Rect::new(0, 0, 80, 24);
+        let places = fm.thumbnail_placements(content, true);
+        assert_eq!(places.len(), 1);
+        let r = places[0].rect;
+        assert_eq!(r.h, (TILE_H - 1).max(1), "icon area is TILE_H - 1 rows tall, not 1");
+        assert!(r.h > 1, "must be multi-row, not the old 1-row blob");
+
+        let top = fm.content_top();
+        let area_w = (content.w - SIDEBAR_W).max(1); // preview closed by default
+        let cols = icon_cols(area_w);
+        let tile = icon_tile_rect(SIDEBAR_W, top, cols, idx);
+        assert!(r.x >= tile.x && r.x + r.w <= tile.x + TILE_W, "placement must stay inside the tile horizontally");
+        assert!(r.y >= tile.y && r.y + r.h <= tile.y + TILE_H, "placement must stay inside the tile vertically");
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    /// The keyboard-invoked context menu anchors at the focused entry's tile
+    /// (Icon view), matching the same `icon_tile_rect` render/hit_test use —
+    /// not some fixed/centered position.
+    #[test]
+    fn begin_context_anchors_at_the_focused_tile_in_icon_view() {
+        let d = tmp("ctxkbd");
+        for n in ["a", "b", "c"] { fs::write(d.join(n), b"").unwrap(); }
+        let mut fm = FileManager::new(d.clone(), BTreeMap::new());
+        fm.set_view(ViewMode::Icon);
+        let _ = fm.render(80, 24); // establishes cols_per_row
+        fm.move_cursor(1, 0); // cursor -> entry 1
+        fm.begin_context();
+        let cols = fm.cols_per_row.get().max(1);
+        let top = fm.content_top();
+        let expected = icon_tile_rect(SIDEBAR_W, top, cols, 1);
+        match fm.overlay() {
+            Some(Overlay::Context { idx, at, .. }) => {
+                assert_eq!(*idx, 1);
+                assert_eq!(at.x, expected.x);
+                assert_eq!(at.y, expected.y);
+            }
+            other => panic!("expected a Context overlay, got {other:?}"),
+        }
         let _ = fs::remove_dir_all(&d);
     }
 }

@@ -298,6 +298,17 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
                             KeyCode::Char(c) if !ctrl => send(&mut out_stream, &ClientMsg::FileManagerChar(c))?,
                             _ => {}
                         }
+                    } else if f.filemanager_focused && f.filemanager_context {
+                        // Context menu open: Up/Down move its highlight, Enter
+                        // performs the highlighted action, Esc dismisses it —
+                        // none of these should reach normal file navigation.
+                        match k.code {
+                            KeyCode::Esc => send(&mut out_stream, &ClientMsg::FileManagerCancel)?,
+                            KeyCode::Up => send(&mut out_stream, &ClientMsg::FileManagerUp)?,
+                            KeyCode::Down => send(&mut out_stream, &ClientMsg::FileManagerDown)?,
+                            KeyCode::Enter => send(&mut out_stream, &ClientMsg::FileManagerCommit)?,
+                            _ => {}
+                        }
                     } else if f.filemanager_focused {
                         match (k.code, ctrl) {
                             (KeyCode::Esc, _) => send(&mut out_stream, &ClientMsg::FileManagerClose)?,

@@ -1693,8 +1693,18 @@ or a remote-side error — its authorized_keys was left untouched)",
                 }
             }
             ClientMsg::OpenFileManager => self.open_filemanager(),
-            ClientMsg::FileManagerUp => { if let Some(f) = self.focused_filemanager_mut() { f.move_cursor(0, -1); } }
-            ClientMsg::FileManagerDown => { if let Some(f) = self.focused_filemanager_mut() { f.move_cursor(0, 1); } }
+            ClientMsg::FileManagerUp => {
+                if let Some(f) = self.focused_filemanager_mut() {
+                    // While the context menu is open, Up/Down move its
+                    // highlight instead of the file cursor underneath.
+                    if f.context_menu_open() { f.context_menu_up(); } else { f.move_cursor(0, -1); }
+                }
+            }
+            ClientMsg::FileManagerDown => {
+                if let Some(f) = self.focused_filemanager_mut() {
+                    if f.context_menu_open() { f.context_menu_down(); } else { f.move_cursor(0, 1); }
+                }
+            }
             ClientMsg::FileManagerLeft => { if let Some(f) = self.focused_filemanager_mut() { f.move_cursor(-1, 0); } }
             ClientMsg::FileManagerRight => { if let Some(f) = self.focused_filemanager_mut() { f.move_cursor(1, 0); } }
             ClientMsg::FileManagerActivate => {
@@ -1745,13 +1755,18 @@ or a remote-side error — its authorized_keys was left untouched)",
             ClientMsg::FileManagerChar(c) => { if let Some(f) = self.focused_filemanager_mut() { f.overlay_char(c); } }
             ClientMsg::FileManagerBackspace => { if let Some(f) = self.focused_filemanager_mut() { f.overlay_backspace(); } }
             ClientMsg::FileManagerCommit => {
-                // Commit either an edit overlay or a delete confirmation.
+                // Commit an edit overlay, a delete confirmation, or (Enter on
+                // an open context menu) the highlighted menu action.
                 if let Some(f) = self.focused_filemanager_mut() {
                     match f.overlay() {
                         Some(crate::filemanager::Overlay::ConfirmDelete { .. }) => f.confirm_delete(),
+                        Some(crate::filemanager::Overlay::Context { .. }) => f.context_menu_commit(),
                         _ => f.overlay_commit(),
                     }
                 }
+                // The "Open" menu action can queue an OpenImage/RunApp action,
+                // same as FileManagerActivate.
+                self.drain_fm_action();
             }
             ClientMsg::FileManagerCancel => { if let Some(f) = self.focused_filemanager_mut() { f.cancel_overlay(); } }
             ClientMsg::FileManagerClose => {
@@ -1877,8 +1892,9 @@ or a remote-side error — its authorized_keys was left untouched)",
                             let local = Point::new(p.x - cr.x, p.y - cr.y);
                             if let Some(WinContent::FileManager(f)) = self.contents.get_mut(&id) {
                                 if let Some(crate::filemanager::Target::Entry(i)) = f.hit_test(local, cr.w, cr.h) {
-                                    f.select_at(i, false, false);
-                                    f.begin_context();
+                                    // Anchor the menu at the exact click point (mirrors the
+                                    // desktop's right_click), not the tile origin.
+                                    f.begin_context_at(i, local);
                                 }
                             }
                             return;
@@ -2190,7 +2206,13 @@ or a remote-side error — its authorized_keys was left untouched)",
             if let Some(&id) = self.thumb_ids.get(&path) {
                 ready.push((idx, id));
             } else {
-                self.thumb_loader.request(path, 13 * 8, 16);
+                // Icon tile's image area is (TILE_W - 2) cells wide by
+                // (TILE_H - 1) tall; cells are ~8x16px. Sized to match the
+                // enlarged Icon-view tile (was a 1-row-tall request before
+                // the icon tile grew to mirror the desktop's).
+                let iw = (crate::filemanager::TILE_W - 2).max(2) * 8;
+                let ih = (crate::filemanager::TILE_H - 1).max(1) * 16;
+                self.thumb_loader.request(path, iw as u32, ih as u32);
             }
         }
         for (idx, role) in role_reqs {
@@ -2435,15 +2457,21 @@ or a remote-side error — its authorized_keys was left untouched)",
         )
     }
 
-    /// Whether the focused file manager has its context (right-click) overlay
-    /// open (integration tests).
-    #[doc(hidden)]
-    pub fn focused_fm_context_open_for_test(&self) -> bool {
+    /// Whether the focused file manager has its context (right-click) menu
+    /// open; the client redirects Up/Down/Enter/Esc to the menu instead of
+    /// normal navigation while this is true.
+    pub fn filemanager_context(&self) -> bool {
         matches!(
             self.wm.focused().and_then(|id| self.contents.get(&id)),
             Some(WinContent::FileManager(f))
                 if matches!(f.overlay(), Some(crate::filemanager::Overlay::Context { .. }))
         )
+    }
+
+    /// Alias kept for integration-test readability.
+    #[doc(hidden)]
+    pub fn focused_fm_context_open_for_test(&self) -> bool {
+        self.filemanager_context()
     }
 
     fn focused_filemanager_mut(&mut self) -> Option<&mut crate::filemanager::DynFileManager> {
@@ -3290,7 +3318,16 @@ or a remote-side error — its authorized_keys was left untouched)",
                         // The mouse path carries no modifiers, so a click is a plain
                         // single-select / toolbar-nav (Ctrl/Shift-select and
                         // double-click-to-open are keyboard-driven for v1).
-                        Some(WinContent::FileManager(f)) => fm_clicked = f.handle_click(local, cr.w, cr.h, false, false),
+                        // While the context menu is open it captures every click
+                        // (item → act, elsewhere → dismiss) before normal FM
+                        // click handling ever sees it.
+                        Some(WinContent::FileManager(f)) => {
+                            fm_clicked = if f.context_menu_open() {
+                                f.context_menu_click(local, cr.w, cr.h)
+                            } else {
+                                f.handle_click(local, cr.w, cr.h, false, false)
+                            };
+                        }
                         Some(WinContent::Activity(a)) => activity_kill = a.handle_click(local, cr.w),
                         _ => {}
                     }

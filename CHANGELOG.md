@@ -6,6 +6,23 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+## [0.2.14] — 2026-07-20
+
+### Fixed
+- **File-manager icons are now real desktop-style tiles.** 0.2.13's FM icons
+  rendered as a squashed one-row smear: the Icon view's tiles were still the
+  old 3-row (glyph + label) cells, so images were crushed into a single row.
+  Tiles are now the desktop's proportions (icon area + centered label), role
+  icons and thumbnails fill the tile without stretching, and render /
+  hit-test / image placement all share the same geometry helpers so they
+  can't drift. Glyph fallback matches the new layout.
+- **The FM context menu is now a real right-click menu.** It used to open as
+  a centered "Actions" dialog with one horizontal text line. It's now a
+  compact vertical menu (Open / Rename / Copy / Cut / Delete / Get Info)
+  anchored at the click (or the focused tile via keyboard), with clickable
+  rows, hover/arrow-key highlight, click-outside-to-dismiss — and Esc now
+  closes the menu instead of the whole Files window.
+
 ## [0.2.13] — 2026-07-20
 
 ### Added
