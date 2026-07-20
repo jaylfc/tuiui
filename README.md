@@ -27,7 +27,7 @@ It's a multiplexer at heart — like tmux, but with windows and a mouse: apps ru
 - **Custom apps** — add your own launcher entries (name + command) from **Settings → Apps**.
 - **Working-directory picker** — launching a coding agent (Claude Code, Aider, …) opens a browsable file-tree so it starts in the project you choose; remembers recent directories. Installing Claude Code also adds a **Claude Code ⚠️** launcher variant running `--dangerously-skip-permissions` — behind a **warning dialog** so it's never launched by accident (your own `[[launcher]]` entries can set a `warn` message too).
 - **Theming** — four built-in palettes (midnight, nord, gruvbox, dracula), switchable live from **Settings → Appearance**.
-- **Dock app-grouping + window rename** — windows of the same app collapse into one dock pill with a colored **letter badge** (per-app color, configurable in `[dock.badges]`); click a grouped pill to choose between its windows. **Right-click a pill** for a context menu (minimise / maximise / close / reset size — Reset re-centres a stranded or mis-sized window at half the work area). **Rename** any window (double-click its titlebar or `Ctrl+Space r`) — the label changes but it stays grouped with its app.
+- **Dock app-grouping + window rename** — windows of the same app collapse into one dock pill with a colored **letter badge** (per-app color, configurable in `[dock_badges]`); click a grouped pill to choose between its windows. **Right-click a pill** for a context menu (minimise / maximise / close / reset size — Reset re-centres a stranded or mis-sized window at half the work area). **Rename** any window (double-click its titlebar or `Ctrl+Space r`) — the label changes but it stays grouped with its app.
 - **Simple view mode** — a top-bar toggle (`⊞` desktop ⇄ `▦` simple) that flips to a tmux-style full-screen-single-app view (no window decorations), keeping the menubar + dock; the dock is your app switcher. Same running apps in both modes.
 - **Persistent daemon + thin client, with live updates** (tmux-style): apps run in a separate **apphost** process and survive client detach, SSH disconnects, **and a frontend reload** — update the binary and **reload the UI without killing your apps** (menubar **Restart**, `tuiui reload`, or **Settings → Update & Reload**). Closing an app window (titlebar **✕**) asks for confirmation first since it ends the process; built-in panels (Store/Settings/Files) close without asking. `tuiui kill` stops everything (daemon + apphost), and works even while a client is attached.
 - **Bare-console mouse (Linux)** — on a raw Linux VT with no GUI terminal, tuiui reads the mouse directly from the **gpm** daemon (`apt install gpm`); see [the gpm section](#mouse-on-a-bare-linux-console-gpm).
@@ -248,7 +248,7 @@ category = "Git"
 # Dock app-badge colors: keyword (matched in the app name/command) → color
 # (a named color or #rrggbb). Unlisted apps get a stable color hashed from
 # their name. The badge is the app's initial; renamed windows keep it.
-[dock.badges]
+[dock_badges]
 claude = "orange"
 kilo = "yellow"
 ```
