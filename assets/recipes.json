@@ -737,6 +737,15 @@
   ],
   "verified": true
  },
+ "PNANA": {
+  "install": "git clone https://github.com/Cyxuan0311/PNANA && cd PNANA && ./build.sh && cd build && sudo make install",
+  "method": "source",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "Pocker": {
   "install": "pipx install pocker-tui",
   "method": "pipx",
@@ -1971,6 +1980,15 @@
   ],
   "verified": true
  },
+ "dockup": {
+  "install": "go install github.com/paulo-amaral/dockup/v2/cmd/dockup@latest",
+  "method": "go",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "dolphie": {
   "install": "brew install dolphie",
   "method": "brew",
@@ -2361,6 +2379,15 @@
   ],
   "verified": true
  },
+ "ghcup": {
+  "install": "brew install ghcup",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
+  ],
+  "verified": true
+ },
  "ghgrab": {
   "install": "cargo install ghgrab",
   "method": "cargo",
@@ -2605,6 +2632,16 @@
  "haxor-news": {
   "install": "pipx install haxor-news",
   "method": "pipx",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
+ "hcom": {
+  "install": "pipx install hcom",
+  "method": "pip",
   "os": [
    "macos",
    "linux",
@@ -3069,6 +3106,15 @@
    "macos",
    "linux",
    "windows"
+  ],
+  "verified": true
+ },
+ "lazyslurm": {
+  "install": "brew install hill/tap/lazyslurm",
+  "method": "brew",
+  "os": [
+   "macos",
+   "linux"
   ],
   "verified": true
  },
@@ -4360,6 +4406,16 @@
   ],
   "verified": true
  },
+ "scope": {
+  "install": "cargo install scope-monitor",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "searxngr": {
   "install": "uv tool install https://github.com/scross01/searxngr.git",
   "method": "other",
@@ -4385,6 +4441,16 @@
   "os": [
    "macos",
    "linux"
+  ],
+  "verified": true
+ },
+ "Servonaut": {
+  "install": "pipx install servonaut",
+  "method": "pip",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
   ],
   "verified": true
  },

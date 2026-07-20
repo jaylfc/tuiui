@@ -440,6 +440,13 @@
   "homepage": "https://github.com/hengyoush/kyanos"
  },
  {
+  "name": "lazyslurm",
+  "bin": "lazyslurm",
+  "category": "Dashboards",
+  "description": "A lazygit-style TUI for Slurm HPC clusters: monitor and manage jobs, nodes, partitions, and job history.",
+  "homepage": "https://github.com/hill/lazyslurm"
+ },
+ {
   "name": "ls-horizons",
   "bin": "ls-horizons",
   "category": "Dashboards",
@@ -571,6 +578,13 @@
   "category": "Dashboards",
   "description": "A TUI server monitoring dashboard for Linux with real-time metrics, scriptable widgets, and remote management",
   "homepage": "https://github.com/nickprotop/ServerHub"
+ },
+ {
+  "name": "Servonaut",
+  "bin": "servonaut",
+  "category": "Dashboards",
+  "description": "A Textual TUI for managing AWS, Hetzner, OVH, and custom servers over SSH, with a built-in AI assistant and MCP server.",
+  "homepage": "https://github.com/zb-ss/servonaut"
  },
  {
   "name": "sockttop",
@@ -920,6 +934,14 @@
   "homepage": "https://github.com/bmf-san/ggc"
  },
  {
+  "name": "ghcup",
+  "bin": "ghcup",
+  "cli": true,
+  "category": "Development",
+  "description": "Installer and version manager for the Haskell toolchain (GHC, cabal, stack, HLS). Subcommand-driven; an interactive mode is available via 'ghcup tui'.",
+  "homepage": "https://www.haskell.org/ghcup/"
+ },
+ {
   "name": "ghgrab",
   "bin": "ghgrab",
   "category": "Development",
@@ -982,6 +1004,13 @@
   "category": "Development",
   "description": "The SQL IDE for Your Terminal",
   "homepage": "https://github.com/tconbeer/harlequin"
+ },
+ {
+  "name": "hcom",
+  "bin": "hcom",
+  "category": "Development",
+  "description": "Lets AI coding agents (Claude Code, Codex, Gemini, ...) message, watch, spawn, and fork each other across terminals, with a TUI dashboard.",
+  "homepage": "https://github.com/aannoo/hcom"
  },
  {
   "name": "heretek",
@@ -1224,6 +1253,13 @@
   "homepage": "https://github.com/stateful/runme"
  },
  {
+  "name": "scope",
+  "bin": "scope",
+  "category": "Development",
+  "description": "A cross-platform serial monitor (RS-232 and RTT) with colored send/receive, tags, hex input, search and filter, session recording, and Lua plugins.",
+  "homepage": "https://github.com/matheuswhite/scope-rs"
+ },
+ {
   "name": "serie",
   "bin": "serie",
   "category": "Development",
@@ -1419,6 +1455,13 @@
   "category": "Docker/LXC/K8s",
   "description": "A lightweight TUI manager for Docker and Podman",
   "homepage": "https://github.com/shubh-io/dockmate"
+ },
+ {
+  "name": "dockup",
+  "bin": "dockup",
+  "category": "Docker/LXC/K8s",
+  "description": "An interactive TUI to install, harden, and audit container runtimes: Docker Engine + Compose v2 and the NVIDIA Container Toolkit on Linux, Apple's native container tool on Apple Silicon.",
+  "homepage": "https://github.com/paulo-amaral/dockup"
  },
  {
   "name": "dprs",
@@ -1693,6 +1736,13 @@
   "category": "Editors",
   "description": "Text editor limited by VT100, suitable for programming, writing git commit messages and editing Markdown",
   "homepage": "https://github.com/xyproto/orbiton"
+ },
+ {
+  "name": "PNANA",
+  "bin": "pnana",
+  "category": "Editors",
+  "description": "An FTXUI terminal text editor with modern (non-vim) keybindings, LSP support, tree-sitter syntax highlighting, and a Lua plugin system. Built from source.",
+  "homepage": "https://github.com/Cyxuan0311/PNANA"
  },
  {
   "name": "slap",
