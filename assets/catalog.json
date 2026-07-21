@@ -3323,6 +3323,13 @@
   "homepage": "https://github.com/schooldanlp6/marstui-rustio"
  },
  {
+  "name": "MovieBox-Tui",
+  "bin": "moviebox-tui",
+  "category": "Multimedia",
+  "description": "A zero-config TUI for streaming movies and TV series in the terminal: search, full metadata (seasons, episodes, dubs, subs), and instant playback via mpv. Requires mpv installed for playback.",
+  "homepage": "https://github.com/mesamirh/MovieBox-Tui"
+ },
+ {
   "name": "mps-youtube",
   "bin": "mps-youtube",
   "category": "Multimedia",

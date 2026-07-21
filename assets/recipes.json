@@ -3469,6 +3469,16 @@
   ],
   "verified": true
  },
+ "MovieBox-Tui": {
+  "install": "cargo install moviebox-tui",
+  "method": "cargo",
+  "os": [
+   "macos",
+   "linux",
+   "windows"
+  ],
+  "verified": true
+ },
  "mps-youtube": {
   "install": "pipx install mps-youtube",
   "method": "pipx",
