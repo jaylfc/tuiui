@@ -245,6 +245,15 @@ name = "lazygit"
 command = "lazygit"
 category = "Git"
 
+# Desktop icons pinned alongside your live ~/Desktop files (defaults to
+# Files + Store; no Settings UI yet, hand-edit to add/remove your own).
+[[desktop_pins]]
+name = "Files"
+command = "@files"
+[[desktop_pins]]
+name = "Store"
+command = "@store"
+
 # Dock app-badge colors: keyword (matched in the app name/command) → color
 # (a named color or #rrggbb). Unlisted apps get a stable color hashed from
 # their name. The badge is the app's initial; renamed windows keep it.
