@@ -1,9 +1,20 @@
 # Session handoff — in-app update "stuck" + release work (2026-06-14)
 
-Status at pause: **0.2.9 shipped.** One open bug under active investigation
-(in-app "update from Settings" still gets stuck) plus one tracked feature
-(Wayland compositor). This doc is the handoff so a fresh session can resume
-without re-deriving anything.
+**Resolved in 0.2.10** (commit 1ef7c35): both `install.sh` and
+`check_for_updates()` resolved the latest release via the rate-limited
+`api.github.com` REST endpoint, which answered a 403 once rate-limited and
+was silently read as "no published release yet" — dropping Settings' Update
+& Reload into a multi-minute source build that looked hung. Both now resolve
+the tag from the `github.com/OWNER/REPO/releases/latest` web redirect
+instead. See CLAUDE.md's "Versioning & release channels" section for the
+current description. The "START HERE NEXT SESSION" steps below are stale —
+kept for historical record only, per this repo's append-only convention for
+dated plan docs.
+
+Status at pause (2026-06-14, now historical): **0.2.9 shipped.** One open bug
+under active investigation (in-app "update from Settings" still gets stuck)
+plus one tracked feature (Wayland compositor). This doc is the handoff so a
+fresh session can resume without re-deriving anything.
 
 ---
 
