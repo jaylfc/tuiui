@@ -76,7 +76,7 @@ Requires a [Rust toolchain](https://rustup.rs).
 
 ### Install
 
-**Prebuilt binary** (macOS arm64/x86_64, Linux x86_64 — no Rust needed):
+**Prebuilt binary** (macOS arm64/x86_64, Linux x86_64/arm64 — no Rust needed):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jaylfc/tuiui/main/install.sh | sh
