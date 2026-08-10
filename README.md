@@ -208,6 +208,9 @@ theme = "midnight"        # midnight | nord | gruvbox | dracula
 # assistant_command = "opencode"   # the agent CLI: "opencode" or "hermes"
 #                                  # (switch in Settings → Assistant), or any binary
 # assistant_args = ["--model", "anthropic/claude-sonnet-4-6"]  # extra CLI args
+#                                  # opencode-only — switching to hermes in Settings
+#                                  # only changes assistant_command, not this. Hermes
+#                                  # needs its own args, e.g. assistant_args = ["--tui"]
 assistant_mode = "panel"  # "panel" (right-docked) | "window" (floating)
 
 # In-app updater (Settings → Updates)
