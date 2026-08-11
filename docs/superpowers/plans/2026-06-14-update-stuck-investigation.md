@@ -7,6 +7,9 @@ without re-deriving anything.
 
 ---
 
+> **Historical — do not follow.** Resolved in 0.2.10; see the addendum at the
+> end of this document.
+
 ## ▶ START HERE NEXT SESSION — ask the user these again
 
 The in-app updater investigation is **blocked on a log from the user.** 0.2.9
