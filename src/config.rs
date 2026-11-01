@@ -115,6 +115,12 @@ pub struct Config {
     /// substring of the app name/command) → color (named or `#rrggbb`).
     #[serde(default = "default_dock_badges", skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub dock_badges: std::collections::BTreeMap<String, String>,
+    /// Let every app window's label follow the app's own terminal title
+    /// (OSC 0/2), not just Claude Code windows (which always do). Off by
+    /// default: most shells retitle on every prompt. A window the user renamed
+    /// keeps its name either way.
+    #[serde(default)]
+    pub follow_app_titles: bool,
 }
 
 impl Config {
@@ -157,6 +163,7 @@ impl Default for Config {
             assistant_mode: default_assistant_mode(),
             update_branch: default_update_branch(),
             dock_badges: default_dock_badges(),
+            follow_app_titles: false,
         }
     }
 }

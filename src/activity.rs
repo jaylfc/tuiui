@@ -339,6 +339,8 @@ mod tests {
             rows: 24,
             age_secs: 90,
             alive,
+            meta: Vec::new(),
+            title: None,
         }
     }
 

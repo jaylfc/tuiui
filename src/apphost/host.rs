@@ -38,6 +38,21 @@ impl LocalAppHost {
     pub fn dims(&self, id: AppId) -> Option<(i32, i32)> {
         self.apps.get(&id).map(|a| (a.snapshot().width(), a.snapshot().height()))
     }
+
+    /// Total bell rings since spawn (monotonic; for per-frontend bookkeeping).
+    pub fn bell_total(&self, id: AppId) -> u64 {
+        self.apps.get(&id).map(|a| a.bell_total()).unwrap_or(0)
+    }
+
+    /// Latest OSC-52 store + its sequence number (monotonic, never drained).
+    pub fn clipboard_latest(&self, id: AppId) -> (u64, Option<String>) {
+        self.apps.get(&id).map(|a| a.clipboard_latest()).unwrap_or((0, None))
+    }
+
+    /// The app's emulator cursor, if visible.
+    pub fn cursor(&self, id: AppId) -> Option<(u16, u16)> {
+        self.apps.get(&id).and_then(|a| a.cursor())
+    }
 }
 
 impl Default for LocalAppHost {
@@ -147,6 +162,10 @@ impl AppHost for LocalAppHost {
 
     fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse {
         self.apps.get(&id).map(|a| a.mouse_mode()).unwrap_or_default()
+    }
+
+    fn title(&self, id: AppId) -> Option<String> {
+        self.apps.get(&id).and_then(|a| a.title())
     }
 
     fn inject_test_image(&self, id: AppId, png: &[u8]) {

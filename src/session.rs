@@ -41,6 +41,30 @@ struct WinMeta {
     /// older stored meta, the title is used as a fallback.
     #[serde(default)]
     app_key: String,
+    /// The user explicitly renamed the window (titlebar double-click /
+    /// `Ctrl+Space r`), so its label no longer follows the app's own title.
+    #[serde(default)]
+    user_renamed: bool,
+}
+
+/// What `tuiui ps --json` (and other out-of-process readers of the apphost)
+/// can learn from a window's opaque apphost metadata.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WindowMetaInfo {
+    /// The dock group (immutable launch name).
+    pub group: String,
+    /// The current window label (titlebar + dock pill).
+    pub label: String,
+    pub minimized: bool,
+    pub user_renamed: bool,
+}
+
+/// Decode the metadata blob a desktop frontend stored for an app window
+/// (`None` for an empty / foreign blob).
+pub fn decode_window_meta(bytes: &[u8]) -> Option<WindowMetaInfo> {
+    let m: WinMeta = serde_json::from_slice(bytes).ok()?;
+    let group = if m.app_key.is_empty() { m.title.clone() } else { m.app_key };
+    Some(WindowMetaInfo { group, label: m.title, minimized: m.minimized, user_renamed: m.user_renamed })
 }
 
 /// A file-manager window's backend identity: `None` browses the local disk,
@@ -297,6 +321,13 @@ pub enum ClientMsg {
     Shutdown,
     /// Restart the frontend only, keeping the apphost (and apps) alive.
     Reload,
+    /// Detach the currently attached client (apps keep running). Sent on the
+    /// control socket by `tuiui attach --takeover`, like `tmux attach -d`.
+    DetachClient,
+    /// Control-socket query: the daemon replies with one JSON line
+    /// `{"attached":bool}` (whether a desktop client is attached). Never
+    /// reaches the session.
+    AttachStatus,
     /// A raw mouse event destined for the focused app's PTY (passthrough).
     MouseInput(crate::mouse::MouseInput),
     /// Scroll the scrollback of the PTY window under `p` by `lines`
@@ -394,6 +425,9 @@ pub struct SessionCore {
     titles: Vec<(WindowId, String)>,
     /// Immutable grouping key per window (set at spawn/open; never mutated).
     app_keys: HashMap<WindowId, String>,
+    /// Windows the user explicitly renamed: their label no longer follows the
+    /// app's OSC title (see [`sync_app_titles`](Self::sync_app_titles)).
+    user_renamed: std::collections::HashSet<WindowId>,
     /// The app_key of the dock group whose chooser popup is open (`None` = closed).
     dock_popup: Option<String>,
     /// Dock right-click context menu: `Some((target window, anchor x of the
@@ -507,6 +541,7 @@ impl SessionCore {
             pending_clipboard: None,
             titles: Vec::new(),
             app_keys: HashMap::new(),
+            user_renamed: std::collections::HashSet::new(),
             dock_popup: None,
             dock_ctx: None,
             power_label: Self::host_power_label(),
@@ -983,7 +1018,8 @@ impl SessionCore {
                     .map(|(_, t)| t.clone())
                     .unwrap_or_default();
                 let app_key = self.app_keys.get(&w.id).cloned().unwrap_or_default();
-                let meta = WinMeta { rect: w.rect, title, z: w.z, minimized: w.minimized, app_key };
+                let user_renamed = self.user_renamed.contains(&w.id);
+                let meta = WinMeta { rect: w.rect, title, z: w.z, minimized: w.minimized, app_key, user_renamed };
                 let bytes = serde_json::to_vec(&meta).unwrap_or_default();
                 if self.last_meta.get(&w.id) != Some(&bytes) {
                     updates.push((*aid, w.id, bytes));
@@ -994,6 +1030,49 @@ impl SessionCore {
             self.apphost.set_meta(aid, bytes.clone());
             self.last_meta.insert(win, bytes);
         }
+    }
+
+    /// Let app windows' labels follow their app's own terminal title (OSC 0/2):
+    /// always for Claude Code (whose title is its session name), for every
+    /// app when `follow_app_titles` is set, and never for a window the user
+    /// explicitly renamed. Called once per frame by the daemon.
+    pub fn sync_app_titles(&mut self) {
+        let mut changes: Vec<(WindowId, String)> = Vec::new();
+        for (id, content) in &self.contents {
+            let WinContent::App(aid) = content else { continue };
+            if self.user_renamed.contains(id) {
+                continue;
+            }
+            let key = self.app_keys.get(id).map(String::as_str).unwrap_or("");
+            let cmd = self.apphost.launch_cmd(*aid).map(|(c, _)| c).unwrap_or_default();
+            let claude = crate::claude::is_claude_app(&cmd, key);
+            if !claude && !self.cfg.follow_app_titles {
+                continue;
+            }
+            let Some(title) = self.apphost.title(*aid) else { continue };
+            let label = if claude {
+                crate::claude::label_from_title(&title)
+            } else {
+                Some(title.trim().to_string()).filter(|t| !t.is_empty())
+            };
+            let Some(label) = label else { continue };
+            let current = self.titles.iter().find(|(i, _)| i == id).map(|(_, t)| t.as_str());
+            if current != Some(label.as_str()) {
+                changes.push((*id, label));
+            }
+        }
+        for (id, label) in changes {
+            if let Some((_, t)) = self.titles.iter_mut().find(|(i, _)| *i == id) {
+                *t = label.clone();
+            }
+            self.wm.rename_window(id, label);
+        }
+    }
+
+    /// Whether the user explicitly renamed window `id` (tests).
+    #[doc(hidden)]
+    pub fn user_renamed_for_test(&self, id: WindowId) -> bool {
+        self.user_renamed.contains(&id)
     }
 
     /// Number of entries in the last-meta cache (for tests).
@@ -1044,6 +1123,9 @@ impl SessionCore {
             // Use stored app_key, falling back to title for old meta blobs.
             let key = if meta.app_key.is_empty() { meta.title.clone() } else { meta.app_key.clone() };
             self.app_keys.insert(id, key);
+            if meta.user_renamed {
+                self.user_renamed.insert(id);
+            }
             self.contents.insert(id, WinContent::App(aid));
             self.titles.push((id, meta.title));
             self.last_meta.insert(id, bytes);
@@ -1968,6 +2050,16 @@ or a remote-side error — its authorized_keys was left untouched)",
                         if let Some((_, label)) = self.titles.iter_mut().find(|(i, _)| *i == id) {
                             *label = buf.clone();
                         }
+                        // An explicit name sticks: the label stops following
+                        // the app's own title from now on.
+                        self.user_renamed.insert(id);
+                        // Claude Code windows: rename the session to match
+                        // (no-op unless a Claude session runs in that tree).
+                        if let Some(WinContent::App(aid)) = self.contents.get(&id) {
+                            if let Some(pid) = self.apphost.pid(*aid) {
+                                crate::claude::sync_rename_async(pid, buf.clone());
+                            }
+                        }
                         // Update the window titlebar title.
                         self.wm.rename_window(id, buf);
                     }
@@ -1990,6 +2082,8 @@ or a remote-side error — its authorized_keys was left untouched)",
             ClientMsg::LaunchWarnNo => self.launch_warn.cancel(),
             ClientMsg::Shutdown => self.shutdown = true,
             ClientMsg::Reload => self.reload = true,
+            ClientMsg::DetachClient => self.quit = true,
+            ClientMsg::AttachStatus => {}
             ClientMsg::MouseInput(m) => self.forward_mouse_to_app(m),
             ClientMsg::ScrollAt { p, lines } => self.scroll_app_at(p, lines),
             ClientMsg::PowerFormChar(c) => self.power_menu.form_char(c),
@@ -2640,6 +2734,8 @@ or a remote-side error — its authorized_keys was left untouched)",
                     rows,
                     age_secs,
                     alive,
+                    meta: Vec::new(),
+                    title: None,
                 }
             })
             .collect();
@@ -3485,6 +3581,7 @@ or a remote-side error — its authorized_keys was left untouched)",
         self.remote_fms.remove(&id);
         self.titles.retain(|(i, _)| *i != id);
         self.app_keys.remove(&id);
+        self.user_renamed.remove(&id);
         // Close popup if its group no longer exists after this window closes.
         if let Some(ref key) = self.dock_popup.clone() {
             let still_has_group = self.app_keys.values().any(|k| k == key);

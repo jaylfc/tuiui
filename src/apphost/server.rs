@@ -1,7 +1,14 @@
 //! The apphost process: owns the live apps behind a socket, pushing per-app
-//! frames and accepting commands from the frontend. Started as `tuiui --apphost`
+//! frames and accepting commands from its frontends. Started as `tuiui --apphost`
 //! (normally spawned automatically by the frontend daemon). The apps it owns
 //! survive a frontend restart because this process keeps running.
+//!
+//! Since protocol v3 it serves **several frontends at once** — the desktop
+//! daemon plus any number of short-lived `tuiui ps` / `tuiui kill-app`
+//! connections and `tuiui view` viewers — each on its own thread with its own
+//! change state, all sharing one [`LocalAppHost`] behind a mutex. Before v3 a
+//! second connection queued behind the attached daemon forever (so `tuiui ps`
+//! hung while a desktop was attached).
 
 use crate::apphost::proto::{recv, send, AppListEntry, HostEvt, HostReq, ImgBlob, RosterEntry};
 use crate::apphost::{AppHost, AppId, LocalAppHost};
@@ -11,8 +18,19 @@ use std::fs::Permissions;
 use std::io::BufReader;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::sync::mpsc;
+use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc, Mutex, MutexGuard};
 use std::time::Duration;
+
+/// The app table every frontend connection shares.
+pub type SharedHost = Arc<Mutex<LocalAppHost>>;
+
+/// Lock the shared host, recovering a poisoned lock (one panicking connection
+/// thread must not wedge every other frontend — or the apps — forever).
+fn lock(local: &Mutex<LocalAppHost>) -> MutexGuard<'_, LocalAppHost> {
+    local.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 /// Run the apphost event loop until a frontend sends `Shutdown`.
 pub fn run() -> std::io::Result<()> {
@@ -32,30 +50,88 @@ pub fn run() -> std::io::Result<()> {
     std::fs::set_permissions(&path, Permissions::from_mode(0o600))?;
     crate::dbg_log("apphost: listening");
 
-    let mut local = LocalAppHost::new();
-    let mut shutdown = false;
-
-    for stream in listener.incoming() {
-        let Ok(stream) = stream else { continue };
-        serve_frontend(&mut local, stream, &mut shutdown);
-        if shutdown {
-            break;
-        }
-        crate::dbg_log("apphost: frontend detached; apps stay alive");
-    }
+    let local: SharedHost = Arc::new(Mutex::new(LocalAppHost::new()));
+    serve(listener, &path, &local);
 
     // Full shutdown: kill every app, then remove the socket.
-    for id in local.list() {
-        local.kill(id);
+    {
+        let mut host = lock(&local);
+        for id in host.list() {
+            host.kill(id);
+        }
     }
     let _ = std::fs::remove_file(&path);
     crate::dbg_log("apphost: shut down");
     Ok(())
 }
 
-/// Serve a single connected frontend. Per-connection change state is fresh so
-/// the frontend always gets full grids on (re)connect.
-fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut bool) {
+/// Accept frontends on `listener` (bound at `path`) until one sends
+/// `Shutdown`, serving each on its own thread. Returns once shut down; the
+/// caller kills the apps.
+pub fn serve(listener: UnixListener, path: &Path, local: &SharedHost) {
+    let shutdown = Arc::new(AtomicBool::new(false));
+    for stream in listener.incoming() {
+        if shutdown.load(Ordering::SeqCst) {
+            break; // woken by the thread that saw Shutdown
+        }
+        let Ok(stream) = stream else { continue };
+        let local = Arc::clone(local);
+        let flag = Arc::clone(&shutdown);
+        let wake_path = path.to_path_buf();
+        std::thread::spawn(move || {
+            serve_frontend(&local, stream, &flag);
+            if flag.load(Ordering::SeqCst) {
+                // Unblock the accept loop so it sees the flag and exits.
+                let _ = UnixStream::connect(&wake_path);
+            } else {
+                crate::dbg_log("apphost: frontend detached; apps stay alive");
+            }
+        });
+    }
+}
+
+/// Per-connection change tracking. Fresh for every connection, so a frontend
+/// always gets full grids on (re)connect.
+#[derive(Default)]
+struct ConnState {
+    last_grid: HashMap<AppId, crate::buffer::CellBuffer>,
+    last_placements: HashMap<AppId, Vec<crate::kittygfx::Placement>>,
+    last_mouse: HashMap<AppId, crate::mouse::AppMouse>,
+    last_title: HashMap<AppId, Option<String>>,
+    last_cursor: HashMap<AppId, Option<(u16, u16)>>,
+    sent_images: HashMap<AppId, HashSet<u32>>,
+    /// Bell total / clipboard sequence already forwarded on THIS connection.
+    bells_seen: HashMap<AppId, u64>,
+    clip_seen: HashMap<AppId, u64>,
+    /// Apps this connection has been streaming (so it can be told `Gone` even
+    /// when another connection's thread reaped the app first).
+    known: HashSet<AppId>,
+    /// `Some` once the frontend sent `Watch`: only these apps get frames, and
+    /// the connection is a viewer (never takes bells / clipboard stores).
+    watch: Option<HashSet<u64>>,
+}
+
+impl ConnState {
+    fn forget(&mut self, id: AppId) {
+        self.last_grid.remove(&id);
+        self.last_placements.remove(&id);
+        self.last_mouse.remove(&id);
+        self.last_title.remove(&id);
+        self.last_cursor.remove(&id);
+        self.sent_images.remove(&id);
+        self.bells_seen.remove(&id);
+        self.clip_seen.remove(&id);
+        self.known.remove(&id);
+    }
+
+    fn watches(&self, id: AppId) -> bool {
+        self.watch.as_ref().map(|w| w.contains(&id.0)).unwrap_or(true)
+    }
+}
+
+/// Serve a single connected frontend until it disconnects or any frontend
+/// requests `Shutdown` (which sets `shutdown`).
+fn serve_frontend(local: &Mutex<LocalAppHost>, stream: UnixStream, shutdown: &AtomicBool) {
     let Ok(reader_stream) = stream.try_clone() else { return };
     let mut writer = stream;
 
@@ -70,123 +146,68 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
         }
     });
 
-    // Roster so the frontend can rebuild its windows.
-    let roster = HostEvt::Roster {
-        apps: local
+    let mut st = ConnState::default();
+    // Roster so the frontend can rebuild its windows. Bells/clipboard stores
+    // that predate this connection were already delivered (or are stale), so
+    // start this connection's counters at the current totals.
+    let roster = {
+        let host = lock(local);
+        let apps = host
             .list()
             .into_iter()
-            .map(|id| RosterEntry { app: id.0, meta: local.meta(id).unwrap_or_default() })
-            .collect(),
-        proto: crate::apphost::proto::PROTO_VERSION,
+            .map(|id| {
+                st.bells_seen.insert(id, host.bell_total(id));
+                st.clip_seen.insert(id, host.clipboard_latest(id).0);
+                RosterEntry { app: id.0, meta: host.meta(id).unwrap_or_default(), pid: host.pid(id) }
+            })
+            .collect();
+        HostEvt::Roster { apps, proto: crate::apphost::proto::PROTO_VERSION }
     };
     // Best-effort: a short-lived connection (e.g. `tuiui kill` sending Shutdown)
     // may close before we finish writing the roster. Don't abandon the
     // connection on that — we still want to read any pending command (Shutdown).
     let _ = send(&mut writer, &roster);
 
-    // Per-connection change tracking.
-    let mut last_grid: HashMap<AppId, crate::buffer::CellBuffer> = HashMap::new();
-    let mut last_placements: HashMap<AppId, Vec<crate::kittygfx::Placement>> = HashMap::new();
-    let mut last_mouse: HashMap<AppId, crate::mouse::AppMouse> = HashMap::new();
-    let mut sent_images: HashMap<AppId, HashSet<u32>> = HashMap::new();
-
     loop {
-        // Drain commands.
+        if shutdown.load(Ordering::SeqCst) {
+            return;
+        }
+        // Drain commands. Each one holds the host lock only while it runs;
+        // replies are written after the lock is released, so a slow peer can
+        // only ever stall its own thread.
         loop {
-            match rx.try_recv() {
-                Ok(HostReq::Spawn { req_id, cmd, args, cwd, cols, rows }) => {
-                    let cwd_path = cwd.as_deref().map(std::path::Path::new);
-                    let evt = match local.spawn(&cmd, &args, cwd_path, cols, rows) {
-                        Ok(id) => HostEvt::Spawned { req_id, app: id.0, pid: local.pid(id) },
-                        Err(e) => HostEvt::SpawnFailed { req_id, error: e.to_string() },
-                    };
-                    if send(&mut writer, &evt).is_err() {
-                        return;
-                    }
-                }
-                Ok(HostReq::Input { app, bytes }) => local.input(AppId(app), &bytes),
-                Ok(HostReq::Resize { app, cols, rows }) => local.resize(AppId(app), cols, rows),
-                Ok(HostReq::Scroll { app, lines }) => local.scroll(AppId(app), lines),
-                Ok(HostReq::SetMeta { app, meta }) => local.set_meta(AppId(app), meta),
-                Ok(HostReq::Kill { app }) => local.kill(AppId(app)),
-                Ok(HostReq::ListApps) => {
-                    let now = std::time::Instant::now();
-                    let mut apps = Vec::new();
-                    for id in local.list() {
-                        let (cmd, args) = local
-                            .launch_cmd(id)
-                            .map(|(c, a)| (c.to_string(), a.to_vec()))
-                            .unwrap_or_else(|| (String::new(), Vec::new()));
-                        let (cols, rows) = local.dims(id).unwrap_or((0, 0));
-                        let age_secs = local
-                            .spawn_time(id)
-                            .map(|t| now.duration_since(t).as_secs())
-                            .unwrap_or(0);
-                        apps.push(AppListEntry {
-                            app: id.0,
-                            cmd,
-                            args,
-                            pid: local.pid(id),
-                            cols,
-                            rows,
-                            age_secs,
-                            alive: local.is_alive(id),
-                        });
-                    }
-                    if send(&mut writer, &HostEvt::AppList { apps }).is_err() {
-                        return;
-                    }
-                }
-                Ok(HostReq::Shutdown) => {
-                    *shutdown = true;
-                    return;
-                }
+            let req = match rx.try_recv() {
+                Ok(req) => req,
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => return, // frontend gone
-            }
-        }
-
-        // Push frames for every app whose grid / placements / images changed.
-        for id in local.list() {
-            let alive = local.is_alive(id);
-            if !alive {
-                let _ = send(&mut writer, &HostEvt::Gone { app: id.0 });
-                local.remove(id);
-                last_grid.remove(&id);
-                last_placements.remove(&id);
-                last_mouse.remove(&id);
-                sent_images.remove(&id);
-                continue;
-            }
-            let Some(grid) = local.snapshot(id) else { continue };
-            let placements = local.placements(id);
-            let mouse = local.mouse_mode(id);
-
-            // New image blobs (not yet sent to this frontend).
-            let seen = sent_images.entry(id).or_default();
-            let mut images = Vec::new();
-            for pl in &placements {
-                if !seen.contains(&pl.image_id) {
-                    if let Some(png) = local.image_png(id, pl.image_id) {
-                        images.push(ImgBlob { image_id: pl.image_id, png_b64: crate::kitty::b64(&png) });
-                        seen.insert(pl.image_id);
-                    }
+            };
+            let reply = match req {
+                HostReq::Shutdown => {
+                    shutdown.store(true, Ordering::SeqCst);
+                    return;
                 }
-            }
-
-            let bells = local.take_bells(id);
-            let clip = local.take_clipboard(id);
-            let grid_changed = last_grid.get(&id) != Some(&grid);
-            let placements_changed = last_placements.get(&id) != Some(&placements);
-            let mouse_changed = last_mouse.get(&id) != Some(&mouse);
-            if grid_changed || placements_changed || mouse_changed || !images.is_empty() || bells > 0 || clip.is_some() {
-                let evt = HostEvt::Frame { app: id.0, grid: grid.clone(), placements: placements.clone(), images, alive: true, mouse, bells, clip };
+                HostReq::Watch { apps } => {
+                    st.watch = Some(apps.into_iter().collect());
+                    // Stop tracking apps that are now filtered out.
+                    let drop: Vec<AppId> = st.known.iter().copied().filter(|id| !st.watches(*id)).collect();
+                    for id in drop {
+                        st.forget(id);
+                    }
+                    None
+                }
+                other => handle_req(&mut lock(local), other),
+            };
+            if let Some(evt) = reply {
                 if send(&mut writer, &evt).is_err() {
                     return;
                 }
-                last_grid.insert(id, grid);
-                last_placements.insert(id, placements);
-                last_mouse.insert(id, mouse);
+            }
+        }
+
+        let out = collect_frames(&mut lock(local), &mut st);
+        for evt in &out {
+            if send(&mut writer, evt).is_err() {
+                return;
             }
         }
 
@@ -194,9 +215,157 @@ fn serve_frontend(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut b
     }
 }
 
+/// Apply one (non-Shutdown/Watch) request to the host; returns the reply, if any.
+fn handle_req(host: &mut LocalAppHost, req: HostReq) -> Option<HostEvt> {
+    match req {
+        HostReq::Spawn { req_id, cmd, args, cwd, cols, rows } => {
+            let cwd_path = cwd.as_deref().map(std::path::Path::new);
+            Some(match host.spawn(&cmd, &args, cwd_path, cols, rows) {
+                Ok(id) => HostEvt::Spawned { req_id, app: id.0, pid: host.pid(id) },
+                Err(e) => HostEvt::SpawnFailed { req_id, error: e.to_string() },
+            })
+        }
+        HostReq::Input { app, bytes } => {
+            host.input(AppId(app), &bytes);
+            None
+        }
+        HostReq::Resize { app, cols, rows } => {
+            host.resize(AppId(app), cols, rows);
+            None
+        }
+        HostReq::Scroll { app, lines } => {
+            host.scroll(AppId(app), lines);
+            None
+        }
+        HostReq::SetMeta { app, meta } => {
+            host.set_meta(AppId(app), meta);
+            None
+        }
+        HostReq::Kill { app } => {
+            host.kill(AppId(app));
+            None
+        }
+        HostReq::ListApps => Some(HostEvt::AppList { apps: list_apps(host) }),
+        // Handled by the caller (they touch connection / process state).
+        HostReq::Shutdown | HostReq::Watch { .. } => None,
+    }
+}
+
+/// One `AppListEntry` per hosted app (the `ListApps` reply).
+fn list_apps(host: &mut LocalAppHost) -> Vec<AppListEntry> {
+    let now = std::time::Instant::now();
+    let mut apps = Vec::new();
+    for id in host.list() {
+        let (cmd, args) = host
+            .launch_cmd(id)
+            .map(|(c, a)| (c.to_string(), a.to_vec()))
+            .unwrap_or_else(|| (String::new(), Vec::new()));
+        let (cols, rows) = host.dims(id).unwrap_or((0, 0));
+        let age_secs = host.spawn_time(id).map(|t| now.duration_since(t).as_secs()).unwrap_or(0);
+        apps.push(AppListEntry {
+            app: id.0,
+            cmd,
+            args,
+            pid: host.pid(id),
+            cols,
+            rows,
+            age_secs,
+            alive: host.is_alive(id),
+            meta: host.meta(id).unwrap_or_default(),
+            title: AppHost::title(host, id),
+        });
+    }
+    apps.sort_by_key(|a| a.app);
+    apps
+}
+
+/// Build this connection's outgoing events for one tick: `Gone` for apps that
+/// exited (or that another connection already reaped), and a `Frame` for
+/// every watched app whose grid / placements / mouse mode / title / cursor
+/// changed or that has new images, bells or a clipboard store.
+fn collect_frames(host: &mut LocalAppHost, st: &mut ConnState) -> Vec<HostEvt> {
+    let mut out = Vec::new();
+    let ids: Vec<AppId> = host.list();
+    let live: HashSet<AppId> = ids.iter().copied().collect();
+    let vanished: Vec<AppId> = st.known.iter().copied().filter(|id| !live.contains(id)).collect();
+    for id in vanished {
+        out.push(HostEvt::Gone { app: id.0 });
+        st.forget(id);
+    }
+    for id in ids {
+        if !host.is_alive(id) {
+            // First connection to notice reaps it; the others see it vanish
+            // from `list()` on their next tick and send their own `Gone`.
+            out.push(HostEvt::Gone { app: id.0 });
+            host.remove(id);
+            st.forget(id);
+            continue;
+        }
+        if !st.watches(id) {
+            continue;
+        }
+        st.known.insert(id);
+        let Some(grid) = host.snapshot(id) else { continue };
+        let placements = host.placements(id);
+        let mouse = host.mouse_mode(id);
+        let title = AppHost::title(host, id);
+        let cursor = host.cursor(id);
+
+        // New image blobs (not yet sent to this frontend).
+        let seen = st.sent_images.entry(id).or_default();
+        let mut images = Vec::new();
+        for pl in &placements {
+            if !seen.contains(&pl.image_id) {
+                if let Some(png) = host.image_png(id, pl.image_id) {
+                    images.push(ImgBlob { image_id: pl.image_id, png_b64: crate::kitty::b64(&png) });
+                    seen.insert(pl.image_id);
+                }
+            }
+        }
+
+        // Bells / clipboard: per-connection deltas over the host's monotonic
+        // counters. Viewers never take them (the desktop owns notifications).
+        let viewer = st.watch.is_some();
+        let total = host.bell_total(id);
+        let seen_bells = st.bells_seen.entry(id).or_insert(0);
+        let bells = if viewer { 0 } else { total.saturating_sub(*seen_bells).min(u32::MAX as u64) as u32 };
+        *seen_bells = total;
+        let (seq, text) = host.clipboard_latest(id);
+        let seen_clip = st.clip_seen.entry(id).or_insert(0);
+        let clip = if !viewer && seq > *seen_clip { text } else { None };
+        *seen_clip = seq;
+
+        let changed = st.last_grid.get(&id) != Some(&grid)
+            || st.last_placements.get(&id) != Some(&placements)
+            || st.last_mouse.get(&id) != Some(&mouse)
+            || st.last_title.get(&id) != Some(&title)
+            || st.last_cursor.get(&id) != Some(&cursor);
+        if changed || !images.is_empty() || bells > 0 || clip.is_some() {
+            out.push(HostEvt::Frame {
+                app: id.0,
+                grid: grid.clone(),
+                placements: placements.clone(),
+                images,
+                alive: true,
+                mouse,
+                bells,
+                clip,
+                title: title.clone(),
+                cursor,
+            });
+            st.last_grid.insert(id, grid);
+            st.last_placements.insert(id, placements);
+            st.last_mouse.insert(id, mouse);
+            st.last_title.insert(id, title);
+            st.last_cursor.insert(id, cursor);
+        }
+    }
+    out
+}
+
 /// Test-only re-export of the per-frontend serve loop (used by remote.rs's
-/// loopback test). Not part of the public API.
+/// loopback tests). Not part of the public API.
 #[doc(hidden)]
-pub fn server_serve_for_test(local: &mut LocalAppHost, stream: UnixStream, shutdown: &mut bool) {
+pub fn server_serve_for_test(local: &SharedHost, stream: UnixStream, shutdown: &AtomicBool) {
     serve_frontend(local, stream, shutdown);
 }

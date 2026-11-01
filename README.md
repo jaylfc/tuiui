@@ -114,9 +114,13 @@ and it's all still there.
 
 ```bash
 tuiui            # ensure the daemon is running, then attach
-tuiui attach     # attach to an already-running daemon
+tuiui attach     # attach to an already-running daemon (refuses if one is attached)
+tuiui attach --takeover  # detach the attached client and attach here (like tmux -d)
 tuiui reload     # restart the UI only; apps keep running
 tuiui ps         # list every hosted app (id, pid, cmd, age, alive)
+tuiui ps --json  # same, machine-readable, with dock group + window label
+tuiui view <id>  # show one app full-screen here (Ctrl+Space q to leave);
+                 # --resize fits its PTY to this terminal if no desktop window shows it
 tuiui kill-app <id|all>  # kill one (or every) hosted app
 tuiui kill       # shut the daemon down (closes all windows)
 

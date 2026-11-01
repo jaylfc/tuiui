@@ -501,7 +501,7 @@ pub(crate) fn route_mouse(
 /// Map a crossterm [`event::MouseEvent`] to a [`crate::mouse::MouseInput`] for
 /// passthrough to the focused PTY app. Returns `None` only if the event kind is
 /// somehow unrecognised (should not happen in practice).
-fn to_mouse_input(
+pub(crate) fn to_mouse_input(
     me: &event::MouseEvent,
     p: Point,
     mods: crate::mouse::MouseMods,
@@ -535,7 +535,7 @@ fn send(stream: &mut UnixStream, msg: &ClientMsg) -> std::io::Result<()> {
 }
 
 /// Encode a key into the bytes forwarded to the focused PTY app.
-fn encode_key(code: KeyCode, mods: KeyModifiers) -> Vec<u8> {
+pub(crate) fn encode_key(code: KeyCode, mods: KeyModifiers) -> Vec<u8> {
     match code {
         KeyCode::Char(c) => {
             if mods.contains(KeyModifiers::CONTROL) {

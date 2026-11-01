@@ -6,6 +6,43 @@ carry user-visible feature work and the occasional breaking config change.
 
 ## [Unreleased]
 
+### Added
+- **The app server serves several clients at once** (apphost protocol v3).
+  The desktop daemon stays connected to the apphost for its whole life, so
+  before this every other connection — `tuiui ps`, `tuiui kill-app` — queued
+  behind it and hung forever, attached client or not. Each frontend now gets
+  its own thread and change state; bells and clipboard stores are tracked
+  per connection so a second client can't steal the desktop's notifications.
+  `ps`/`kill-app` also time out (3s) with an explanation instead of hanging
+  against an older apphost. Additive wire change (`MIN_COMPAT` unchanged), but
+  the running apphost must be restarted to get it — which closes its apps.
+- **`tuiui ps --json`**: `{"proto":3,"apps":[…]}` with `id`, `pid`, `cmd`,
+  `args`, `alive`, `age_secs`, `cols`, `rows`, `group` (dock group), `label`
+  (window label), `app_title` (the app's raw terminal title),
+  `user_renamed`, `on_desktop`, `minimized` and `claude` (the Claude Code
+  session in that app's process tree). See `src/pslist.rs`.
+- **`tuiui view <app-id>`** shows one hosted app full-screen in the current
+  terminal (keyboard + mouse forwarded) without disturbing the desktop: its
+  window isn't moved, closed or renamed and its PTY keeps the desktop's size
+  (centred / cropped) unless `--resize` (only when no visible desktop window
+  shows it) or `--force-resize`; the original size is restored on exit.
+  Leave with `Ctrl+Space` then `q`, or it exits with the app.
+- **`tuiui attach --takeover`** (`-d`) detaches an already-attached client and
+  attaches here, like `tmux attach -d`. Plain `attach` (and bare `tuiui`)
+  now says another client is attached and exits instead of hanging.
+- **Claude Code windows are labelled by their session name.** The label
+  follows Claude's terminal title (its session name, status glyph stripped)
+  until you rename the window yourself; renaming a Claude Code window renames
+  the Claude session too (by appending the same records `/rename` writes to
+  the session transcript — Claude picks it up the next time it reads its
+  transcript, and `claude --resume` shows it). New `follow_app_titles` config
+  key lets every app's label follow its terminal title (off by default).
+
+### Fixed
+- `tuiui launch/tile/theme/msg` while a client is attached no longer leaves a
+  wake-up connection queued on the daemon socket, which used to be served as
+  a client (re-applying the message) after the attached client detached.
+
 ## [0.2.14] — 2026-07-20
 
 ### Fixed

@@ -22,6 +22,13 @@ pub enum HostReq {
     ListApps,
     /// Stop the apphost process entirely (full shutdown / `tuiui kill`).
     Shutdown,
+    /// (v3+) Restrict this connection's `Frame` stream to `apps` (empty = no
+    /// frames at all) and mark it a *viewer*: it no longer counts toward bell
+    /// / clipboard forwarding. Sent by `tuiui view` (one app) and `tuiui ps`
+    /// (none). A pre-v3 apphost can't parse the variant; `recv` skips the line
+    /// and the connection just keeps getting every frame, which the CLI
+    /// tolerates.
+    Watch { apps: Vec<u64> },
 }
 
 /// A PNG the app transmitted, base64-encoded, sent once per (frontend, app, id).
@@ -40,7 +47,13 @@ pub struct ImgBlob {
 /// field and the v2 frontend fills `None`; a v1 frontend ignores the unknown
 /// field on a v2 wire payload (serde default is permissive). Do NOT bump
 /// `MIN_COMPAT`.
-pub const PROTO_VERSION: u32 = 2;
+///
+/// v3 — the apphost serves several frontends at once (daemon + `tuiui view`
+/// / `tuiui ps`), adds `HostReq::Watch`, and new `#[serde(default)]` fields:
+/// `Frame.title` / `Frame.cursor`, `RosterEntry.pid`, `AppListEntry.meta` /
+/// `AppListEntry.title`. All additive — a v2 peer on either side degrades to
+/// v2 behaviour, so `MIN_COMPAT` stays put.
+pub const PROTO_VERSION: u32 = 3;
 
 /// The OLDEST apphost protocol this frontend can safely talk to. Apphosts
 /// predating the `proto` roster field report 0. Bump this to `PROTO_VERSION`
@@ -54,6 +67,10 @@ pub const MIN_COMPAT: u32 = 0;
 pub struct RosterEntry {
     pub app: u64,
     pub meta: Vec<u8>,
+    /// The app's OS pid (v3+), so a restored window keeps its activity-monitor
+    /// pid and the Claude title sync can find the session.
+    #[serde(default)]
+    pub pid: Option<u32>,
 }
 
 /// One row in `HostEvt::AppList` — a snapshot of a hosted app's state. Used by
@@ -69,6 +86,14 @@ pub struct AppListEntry {
     pub rows: i32,
     pub age_secs: u64,
     pub alive: bool,
+    /// The frontend's opaque window metadata (v3+; empty = no desktop window
+    /// stored one). `tuiui ps --json` decodes it via
+    /// [`crate::session::decode_window_meta`] for the dock group / label.
+    #[serde(default)]
+    pub meta: Vec<u8>,
+    /// The app's own OSC 0/2 title (v3+).
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 /// apphost → frontend.
@@ -88,6 +113,12 @@ pub enum HostEvt {
         /// The app's latest OSC-52 clipboard store, forwarded to the host.
         #[serde(default)]
         clip: Option<String>,
+        /// The app's OSC 0/2 window title (v3+; `None` = unset / old apphost).
+        #[serde(default)]
+        title: Option<String>,
+        /// The emulator cursor `(col, row)` when visible (v3+).
+        #[serde(default)]
+        cursor: Option<(u16, u16)>,
     },
     /// The app's child exited.
     Gone { app: u64 },
@@ -223,6 +254,8 @@ mod tests {
             HostReq::Kill { app: 3 },
             HostReq::ListApps,
             HostReq::Shutdown,
+            HostReq::Watch { apps: vec![4, 5] },
+            HostReq::Watch { apps: vec![] },
         ];
         for m in msgs {
             let mut buf: Vec<u8> = Vec::new();
@@ -246,13 +279,17 @@ mod tests {
             mouse: Default::default(),
             bells: 2,
             clip: Some("copied".into()),
+            title: Some("✳ my session".into()),
+            cursor: Some((3, 1)),
         };
         let mut buf: Vec<u8> = Vec::new();
         send(&mut buf, &evt).unwrap();
         let mut r = std::io::BufReader::new(&buf[..]);
         let back: HostEvt = recv(&mut r).unwrap().unwrap();
         match back {
-            HostEvt::Frame { app, grid: g, placements, images, alive, mouse, bells, clip } => {
+            HostEvt::Frame { app, grid: g, placements, images, alive, mouse, bells, clip, title, cursor } => {
+                assert_eq!(title.as_deref(), Some("✳ my session"));
+                assert_eq!(cursor, Some((3, 1)));
                 assert_eq!(app, 5);
                 assert_eq!(g, grid);
                 assert_eq!(placements.len(), 1);
@@ -263,6 +300,49 @@ mod tests {
                 assert_eq!(clip.as_deref(), Some("copied"));
             }
             _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn v2_frame_without_title_or_cursor_still_parses() {
+        // A v2 apphost's Frame has neither field; a v3 frontend must default them.
+        let mut buf: Vec<u8> = Vec::new();
+        let grid = CellBuffer::new(1, 1);
+        send(&mut buf, &HostEvt::Frame {
+            app: 1, grid, placements: vec![], images: vec![], alive: true,
+            mouse: Default::default(), bells: 0, clip: None, title: None, cursor: None,
+        }).unwrap();
+        let mut v: serde_json::Value = serde_json::from_slice(&buf).unwrap();
+        let f = v.get_mut("Frame").unwrap().as_object_mut().unwrap();
+        f.remove("title");
+        f.remove("cursor");
+        let line = format!("{}\n", serde_json::to_string(&v).unwrap());
+        let mut r = std::io::BufReader::new(line.as_bytes());
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Frame { title, cursor, .. } => {
+                assert!(title.is_none());
+                assert!(cursor.is_none());
+            }
+            other => panic!("wrong variant {other:?}"),
+        }
+    }
+
+    #[test]
+    fn roster_pid_and_app_list_meta_default_for_v2_peers() {
+        let legacy = br#"{"Roster":{"apps":[{"app":3,"meta":[1]}],"proto":2}}
+{"AppList":{"apps":[{"app":3,"cmd":"sh","args":[],"pid":9,"cols":80,"rows":24,"age_secs":5,"alive":true}]}}
+"#;
+        let mut r = std::io::BufReader::new(&legacy[..]);
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Roster { apps, .. } => assert_eq!(apps[0].pid, None),
+            other => panic!("wrong variant {other:?}"),
+        }
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::AppList { apps } => {
+                assert!(apps[0].meta.is_empty());
+                assert!(apps[0].title.is_none());
+            }
+            other => panic!("wrong variant {other:?}"),
         }
     }
 }

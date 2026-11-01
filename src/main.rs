@@ -1,7 +1,11 @@
 //! tuiui entry point — a thin dispatcher over the daemon/client split.
 //!
 //! - `tuiui`            ensure the daemon is running, then attach a client.
-//! - `tuiui attach`     attach to an already-running daemon.
+//! - `tuiui attach`     attach to an already-running daemon (refuses while
+//!   another client is attached; `--takeover` / `-d` detaches that client
+//!   first, like `tmux attach -d`).
+//! - `tuiui ps [--json]` list hosted apps (`--json`: see `tuiui::pslist`).
+//! - `tuiui view <id>`  show one hosted app full-screen (see `tuiui::viewer`).
 //! - `tuiui --daemon`   run the daemon (normally spawned automatically).
 //! - `tuiui kill`       shut the daemon down (closing all windows).
 //! - `tuiui reload`     restart the frontend only; apps keep running.
@@ -29,8 +33,15 @@ fn main() -> std::io::Result<()> {
         Some("--apphost") => tuiui::apphost::server::run(),
         Some("kill") => kill(),
         Some("kill-app") => kill_app(&rest),
-        Some("ps") => ps(),
-        Some("attach") => attach(false),
+        Some("ps") => ps(&rest),
+        Some("view") => match tuiui::viewer::parse_args(&rest) {
+            Ok(opts) => std::process::exit(tuiui::viewer::run(opts)?),
+            Err(e) => {
+                eprintln!("tuiui view: {e}");
+                std::process::exit(2);
+            }
+        },
+        Some("attach") => attach(false, rest.iter().any(|a| a == "--takeover" || a == "-d")),
         Some("reload") => reload(),
         Some("service") => match rest.first().map(String::as_str) {
             Some("install") => tuiui::service::install(),
@@ -74,11 +85,11 @@ fn main() -> std::io::Result<()> {
         },
         Some(other) => {
             eprintln!(
-                "tuiui: unknown command '{other}' (try: attach, kill, kill-app, ps, reload, launch, tile, theme, msg, service, --daemon)"
+                "tuiui: unknown command '{other}' (try: attach, kill, kill-app, ps, view, reload, launch, tile, theme, msg, service, --daemon)"
             );
             Ok(())
         }
-        None => attach(true),
+        None => attach(true, false),
     }
 }
 
@@ -96,9 +107,35 @@ fn ctl(msg: &tuiui::session::ClientMsg) -> std::io::Result<()> {
 /// Connect to the daemon and run a client. If `spawn_if_missing`, start a daemon
 /// first when none is running. On a `ClientExit::Reload`, waits for the old
 /// daemon socket to drop, then loops to spawn/connect a fresh daemon.
-fn attach(spawn_if_missing: bool) -> std::io::Result<()> {
+fn attach(spawn_if_missing: bool, takeover: bool) -> std::io::Result<()> {
     loop {
         let path = socket_path();
+        // The daemon serves one client at a time; a second connection would
+        // sit in its accept queue until the first detaches. Ask first.
+        if attach_status() == Some(true) {
+            if !takeover {
+                eprintln!(
+                    "tuiui: another client is already attached to this desktop.\n\
+                     tuiui: run `tuiui attach --takeover` to detach it and attach here (its apps keep running)."
+                );
+                std::process::exit(1);
+            }
+            tuiui::dbg_log("client: takeover — detaching the attached client");
+            if let Ok(mut s) = UnixStream::connect(tuiui::protocol::daemon_ctl_path()) {
+                let mut buf = serde_json::to_vec(&tuiui::session::ClientMsg::DetachClient).map_err(std::io::Error::other)?;
+                buf.push(b'\n');
+                let _ = send_and_drain(&mut s, &buf);
+            }
+            let mut freed = false;
+            for _ in 0..100 {
+                if attach_status() != Some(true) { freed = true; break; }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            if !freed {
+                eprintln!("tuiui: the attached client did not detach within 5s");
+                std::process::exit(1);
+            }
+        }
         if UnixStream::connect(&path).is_err() {
             if !spawn_if_missing {
                 eprintln!("tuiui: no daemon running (start it with `tuiui`)");
@@ -244,14 +281,37 @@ fn send_control(msg: &tuiui::session::ClientMsg) -> std::io::Result<bool> {
         let _ = send_and_drain(&mut s, &buf);
         reached = true;
     }
-    if let Ok(mut s) = UnixStream::connect(socket_path()) {
-        // Best-effort wake poke: write and close without draining so we don't
-        // block when the daemon is busy serving an attached client.
-        let _ = s.write_all(&buf);
-        let _ = s.shutdown(std::net::Shutdown::Write);
-        reached = true;
+    // Only an UNATTACHED daemon (blocked in accept) needs the poke. While a
+    // client is attached the control thread already has the message, and a
+    // poke would sit in the accept queue until that client detaches — then be
+    // served as if it were a client, re-applying the message.
+    let attached = if reached { attach_status() } else { None };
+    if attached != Some(true) {
+        if let Ok(mut s) = UnixStream::connect(socket_path()) {
+            // Best-effort wake poke: write and close without draining so we don't
+            // block when the daemon is busy serving an attached client.
+            let _ = s.write_all(&buf);
+            let _ = s.shutdown(std::net::Shutdown::Write);
+            reached = true;
+        }
     }
     Ok(reached)
+}
+
+/// Ask the daemon's control socket whether a desktop client is attached.
+/// `None` when no daemon answers (none running, or one that predates the
+/// `AttachStatus` query).
+fn attach_status() -> Option<bool> {
+    use std::io::BufRead;
+    let mut s = UnixStream::connect(tuiui::protocol::daemon_ctl_path()).ok()?;
+    let _ = s.set_read_timeout(Some(Duration::from_secs(2)));
+    let mut buf = serde_json::to_vec(&tuiui::session::ClientMsg::AttachStatus).ok()?;
+    buf.push(b'\n');
+    s.write_all(&buf).ok()?;
+    let _ = s.shutdown(std::net::Shutdown::Write);
+    let mut line = String::new();
+    std::io::BufReader::new(s).read_line(&mut line).ok()?;
+    serde_json::from_str::<serde_json::Value>(line.trim()).ok()?.get("attached")?.as_bool()
 }
 
 /// Tell a running daemon to reload its frontend (apps keep running via the
@@ -315,7 +375,7 @@ fn format_cmdline(cmd: &str, args: &[String]) -> String {
 /// and drains any non-AppList events that arrive between the request and
 /// reply. Bounded to a small event count so a pre-v2 apphost (which silently
 /// ignores `ListApps`) cannot hang the CLI indefinitely.
-fn fetch_app_list() -> std::io::Result<Vec<tuiui::apphost::AppListEntry>> {
+fn fetch_app_list() -> std::io::Result<(u32, Vec<tuiui::apphost::AppListEntry>)> {
     use tuiui::apphost::proto::{send, HostEvt, HostReq};
     // The on-wire variant that introduced ListApps. Kept inline (instead of
     // imported from `PROTO_VERSION`) so the CLI's behavior against a pre-v2
@@ -333,8 +393,19 @@ fn fetch_app_list() -> std::io::Result<Vec<tuiui::apphost::AppListEntry>> {
     //      understand ListApps and would otherwise hang the drain loop).
     //   2. Get an honest proto version to report.
     // A pre-v2 apphost that predates the `proto` field reports `0`.
+    // Never hang: a pre-v3 apphost serves one frontend at a time and the
+    // daemon stays connected for its whole life, so we'd queue forever.
+    let _ = s.set_read_timeout(Some(Duration::from_secs(3)));
     let mut r = std::io::BufReader::new(s.try_clone().unwrap());
-    let proto: u32 = match tuiui::apphost::proto::recv::<HostEvt, _>(&mut r)? {
+    let first = match tuiui::apphost::proto::recv::<HostEvt, _>(&mut r) {
+        Ok(evt) => evt,
+        Err(e) if matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => {
+            eprintln!("{}", tuiui::pslist::BUSY_HINT);
+            std::process::exit(1);
+        }
+        Err(e) => return Err(e),
+    };
+    let proto: u32 = match first {
         Some(HostEvt::Roster { proto, .. }) => proto,
         Some(_) => {
             // First event isn't a Roster? Unexpected but the apphost might
@@ -358,6 +429,9 @@ fn fetch_app_list() -> std::io::Result<Vec<tuiui::apphost::AppListEntry>> {
         );
         std::process::exit(1);
     }
+    // v3+: no frame stream on this connection (an older apphost skips the
+    // unknown request and we drain its frames below instead).
+    send(&mut r.get_mut(), &HostReq::Watch { apps: vec![] })?;
     send(&mut r.get_mut(), &HostReq::ListApps)?;
     // Bound the drain: a v3 apphost returns AppList within 1-2 non-AppList
     // events (Roster already consumed + a Frame or two). 64 is a generous
@@ -372,7 +446,7 @@ fn fetch_app_list() -> std::io::Result<Vec<tuiui::apphost::AppListEntry>> {
             }
         };
         if let HostEvt::AppList { apps } = evt {
-            return Ok(apps);
+            return Ok((proto, apps));
         }
         // Drop any other event (Frame events for live apps, Gone for exited
         // ones) and keep reading until the AppList arrives.
@@ -384,8 +458,14 @@ fn fetch_app_list() -> std::io::Result<Vec<tuiui::apphost::AppListEntry>> {
     std::process::exit(1);
 }
 
-fn ps() -> std::io::Result<()> {
-    let apps = fetch_app_list()?;
+fn ps(args: &[String]) -> std::io::Result<()> {
+    let json = args.iter().any(|a| a == "--json");
+    let (proto, apps) = fetch_app_list()?;
+    if json {
+        let doc = tuiui::pslist::PsList { proto, apps: tuiui::pslist::rows(&apps, tuiui::pslist::claude_lookup()) };
+        println!("{}", serde_json::to_string(&doc).map_err(std::io::Error::other)?);
+        return Ok(());
+    }
     if apps.is_empty() {
         println!("(no apps running)");
         return Ok(());
@@ -433,7 +513,7 @@ fn kill_app(args: &[String]) -> std::io::Result<()> {
             std::process::exit(2);
         }
     };
-    let apps = fetch_app_list()?;
+    let (_, apps) = fetch_app_list()?;
     let to_kill: Vec<u64> = if target == "all" {
         // `all` is a safe-by-default cleanup: it only reaps apps that have
         // already exited (the apphost still holds the bookkeeping entry until

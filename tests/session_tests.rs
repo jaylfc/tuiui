@@ -783,3 +783,51 @@ fn cli_launch_with_args_via_client_msg_runs_bare() {
     assert_eq!(args, vec!["choose".to_string(), "a".to_string()]);
     core.shutdown();
 }
+
+/// Wait (bounded) until the focused window's label equals `want`.
+fn wait_for_label(core: &mut SessionCore, want: &str) -> bool {
+    for _ in 0..150 {
+        core.sync_app_titles();
+        if core.focused_label_for_test() == want {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    false
+}
+
+#[test]
+fn claude_window_label_follows_osc_title_until_user_renames() {
+    let mut core = SessionCore::new(100, 30, Config { apps: vec![], desktop_enabled: false, ..Config::default() });
+    // A stand-in "Claude Code" window: sets the title the way Claude does,
+    // later changes it (spinner + new name).
+    core.apply(ClientMsg::Launch {
+        name: "Claude Code".into(),
+        command: "sh".into(),
+        args: vec!["-c".into(), "printf '\\033]0;✳ First name\\007'; sleep 1; printf '\\033]0;⠂ Second\\007'; sleep 30".into()],
+    });
+    assert!(wait_for_label(&mut core, "First name"), "label follows Claude's title, glyph stripped");
+    assert!(wait_for_label(&mut core, "Second"), "and keeps following it");
+    // An explicit rename pins the label.
+    core.apply(ClientMsg::RenameFocused);
+    for c in "Mine".chars() {
+        core.apply(ClientMsg::RenameChar(c));
+    }
+    core.apply(ClientMsg::RenameCommit);
+    core.sync_app_titles();
+    assert_eq!(core.focused_label_for_test(), "Mine");
+}
+
+#[test]
+fn other_apps_keep_their_label_unless_follow_app_titles() {
+    let script = vec!["-c".into(), "printf '\\033]2;user@host: ~\\007'; sleep 30".into()];
+    let mut core = SessionCore::new(100, 30, Config { apps: vec![], desktop_enabled: false, ..Config::default() });
+    core.apply(ClientMsg::Launch { name: "Shell".into(), command: "sh".into(), args: script.clone() });
+    assert!(!wait_for_label(&mut core, "user@host: ~"), "a plain app's label is left alone by default");
+    assert_eq!(core.focused_label_for_test(), "Shell");
+
+    let cfg = Config { apps: vec![], desktop_enabled: false, follow_app_titles: true, ..Config::default() };
+    let mut core = SessionCore::new(100, 30, cfg);
+    core.apply(ClientMsg::Launch { name: "Shell".into(), command: "sh".into(), args: script });
+    assert!(wait_for_label(&mut core, "user@host: ~"), "follow_app_titles opts every app in");
+}
