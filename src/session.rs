@@ -324,6 +324,10 @@ pub enum ClientMsg {
     /// Detach the currently attached client (apps keep running). Sent on the
     /// control socket by `tuiui attach --takeover`, like `tmux attach -d`.
     DetachClient,
+    /// The attached client's terminal capabilities, sent right after it
+    /// attaches. Without Kitty graphics, desktop / file-manager icons are
+    /// drawn as cell tiles instead of image placements.
+    ClientCaps { kitty_graphics: bool },
     /// Control-socket query: the daemon replies with one JSON line
     /// `{"attached":bool}` (whether a desktop client is attached). Never
     /// reaches the session.
@@ -2125,6 +2129,10 @@ or a remote-side error — its authorized_keys was left untouched)",
             ClientMsg::Reload => self.reload = true,
             ClientMsg::DetachClient => self.quit = true,
             ClientMsg::AttachStatus => {}
+            ClientMsg::ClientCaps { kitty_graphics } => {
+                crate::dbg_log(&format!("client caps: kitty_graphics={kitty_graphics}"));
+                crate::icons::set_cell_tiles(!kitty_graphics);
+            }
             ClientMsg::MouseInput(m) => self.forward_mouse_to_app(m),
             ClientMsg::ScrollAt { p, lines } => self.scroll_app_at(p, lines),
             ClientMsg::PowerFormChar(c) => self.power_menu.form_char(c),

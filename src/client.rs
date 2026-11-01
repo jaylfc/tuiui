@@ -34,6 +34,8 @@ pub fn run(stream: UnixStream) -> std::io::Result<ClientExit> {
 
     let mut out_stream = stream.try_clone()?;
     send(&mut out_stream, &ClientMsg::Resize { w, h })?;
+    // Lets the daemon draw icons as cell tiles where images can't show.
+    send(&mut out_stream, &ClientMsg::ClientCaps { kitty_graphics: caps.kitty_graphics })?;
 
     // A per-system theme rides over ssh as TUIUI_THEME: apply it to this
     // daemon's config as soon as we attach.

@@ -41,6 +41,14 @@ carry user-visible feature work and the occasional breaking config change.
   default).
 
 ### Fixed
+- **Desktop and file-manager icons look intentional without Kitty graphics**
+  (Termux / the Prism Android terminal, GNOME Terminal, Windows Terminal, …).
+  The icon area used to show one small emoji floating above its label with
+  empty rows in between; the client now reports its graphics support and,
+  where images can't show, each icon is drawn as a rounded, tinted cell tile
+  (role colour, glyph + type tag; pinned apps get their dock badge letter and
+  colour) with the label right under it. Kitty-graphics terminals are
+  unchanged.
 - `tuiui launch/tile/theme/msg` while a client is attached no longer leaves a
   wake-up connection queued on the daemon socket, which used to be served as
   a client (re-applying the message) after the attached client detached.
