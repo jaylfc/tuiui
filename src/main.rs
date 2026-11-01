@@ -438,9 +438,14 @@ fn fetch_app_list() -> std::io::Result<(u32, Vec<tuiui::apphost::AppListEntry>)>
     // ceiling that still aborts in well under a second on a misbehaving peer.
     const MAX_DRAIN: usize = 64;
     for _ in 0..MAX_DRAIN {
-        let evt: HostEvt = match tuiui::apphost::proto::recv(&mut r)? {
-            Some(e) => e,
-            None => {
+        let evt: HostEvt = match tuiui::apphost::proto::recv(&mut r) {
+            Ok(Some(e)) => e,
+            Err(e) if matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => {
+                eprintln!("{}", tuiui::pslist::BUSY_HINT);
+                std::process::exit(1);
+            }
+            Err(e) => return Err(e),
+            Ok(None) => {
                 eprintln!("tuiui: apphost closed before replying");
                 std::process::exit(1);
             }

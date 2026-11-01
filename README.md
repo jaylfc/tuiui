@@ -230,6 +230,10 @@ default_project_dir = "~/Development"   # picker opens here (default: ~)
 # Desktop icons (~/Desktop + pins) — no Settings toggle yet, config-only
 desktop_enabled = true
 
+# Window labels follow each app's terminal title (Claude Code windows always
+# follow their session name; a window you rename keeps your name)
+follow_app_titles = false
+
 # File-type → app handlers (also editable in Settings → Default Apps)
 [default_apps]
 image = "@image"
