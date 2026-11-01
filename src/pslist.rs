@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn row_shape_from_desktop_meta() {
         let rows = rows(&[entry(3, "claude", META, Some("✳ Session x"))], |a| {
-            (a.app == 3).then(|| SessionRef { pid: 9, session_id: "sid".into(), name: Some("Session x".into()) })
+            (a.app == 3).then(|| SessionRef { pid: 9, session_id: "sid".into(), name: Some("Session x".into()), status: None })
         });
         let v = serde_json::to_value(&rows[0]).unwrap();
         assert_eq!(v["id"], 3);

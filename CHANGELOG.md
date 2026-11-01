@@ -33,10 +33,12 @@ carry user-visible feature work and the occasional breaking config change.
 - **Claude Code windows are labelled by their session name.** The label
   follows Claude's terminal title (its session name, status glyph stripped)
   until you rename the window yourself; renaming a Claude Code window renames
-  the Claude session too (by appending the same records `/rename` writes to
-  the session transcript — Claude picks it up the next time it reads its
-  transcript, and `claude --resume` shows it). New `follow_app_titles` config
-  key lets every app's label follow its terminal title (off by default).
+  the Claude session too, by typing `/rename <name>` into it — but only once
+  Claude is idle with an empty prompt (no draft, no dialog, no vim NORMAL
+  mode) and nobody has typed for a moment; until then it waits. The rename
+  shows in the conversation like a manual `/rename`. New `follow_app_titles`
+  config key lets every app's label follow its terminal title (off by
+  default).
 
 ### Fixed
 - `tuiui launch/tile/theme/msg` while a client is attached no longer leaves a

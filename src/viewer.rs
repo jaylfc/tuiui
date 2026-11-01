@@ -9,8 +9,8 @@
 //!
 //! **Size.** By default the app's PTY is left at whatever size the desktop
 //! gave it: the grid is centred when the terminal is larger and cropped when
-//! smaller (left-aligned, bottom-anchored — where shells and Claude Code keep
-//! their prompt — shifted to keep the cursor visible). `--resize` instead
+//! smaller — anchored top-left and scrolled just enough to keep the cursor on
+//! screen (bottom-anchored when the app hides its cursor). `--resize` instead
 //! sizes the PTY to this terminal, but only when no visible desktop window
 //! shows the app (none, or minimized); `--force-resize` does it regardless.
 //! Either way the original size is restored on exit (unless someone else
@@ -65,23 +65,26 @@ pub fn parse_args(args: &[String]) -> Result<ViewOpts, String> {
 }
 
 /// Where the app's `app` (cols, rows) grid goes on a `view` (cols, rows)
-/// screen: centred when it fits; otherwise left-aligned / bottom-anchored,
-/// shifted so the `cursor` (grid coords) stays on screen.
+/// screen: centred along an axis where it fits; where it doesn't, anchored
+/// at the top/left and shifted just enough to keep the `cursor` (grid
+/// coords) on screen — or bottom-anchored when there is no visible cursor.
 pub fn place(app: (i32, i32), view: (i32, i32), cursor: Option<(u16, u16)>) -> Point {
-    let (aw, ah) = app;
-    let (vw, vh) = view;
-    let mut x = if aw <= vw { (vw - aw) / 2 } else { 0 };
-    let mut y = if ah <= vh { (vh - ah) / 2 } else { vh - ah };
-    if let Some((cx, cy)) = cursor {
-        let (cx, cy) = (cx as i32, cy as i32);
-        if aw > vw && cx + x >= vw {
-            x = (vw - 1 - cx).max(vw - aw);
+    // One axis: `a` = app extent, `v` = view extent, `c` = cursor coordinate.
+    fn axis(a: i32, v: i32, c: Option<i32>, no_cursor: i32) -> i32 {
+        if a <= v {
+            return (v - a) / 2;
         }
-        if ah > vh && cy + y < 0 {
-            y = -cy;
+        match c {
+            Some(c) if c >= v => v - 1 - c, // scroll so the cursor is the last visible cell
+            Some(_) => 0,
+            None => no_cursor,
         }
     }
-    Point::new(x, y)
+    let (cx, cy) = match cursor {
+        Some((x, y)) => (Some(x as i32), Some(y as i32)),
+        None => (None, None),
+    };
+    Point::new(axis(app.0, view.0, cx, 0), axis(app.1, view.1, cy, view.1 - app.1))
 }
 
 /// What the viewer's key handler decided.
@@ -369,10 +372,12 @@ mod tests {
     #[test]
     fn centres_a_small_grid_and_crops_a_big_one() {
         assert_eq!(place((80, 24), (100, 30), None), Point::new(10, 3));
-        // Too tall: bottom rows visible (prompt), left-aligned.
+        // Too big, no cursor: left-aligned, bottom rows visible.
         assert_eq!(place((120, 40), (100, 30), None), Point::new(0, -10));
-        // Cursor near the top of a too-tall grid pulls the view up.
-        assert_eq!(place((80, 40), (80, 30), Some((0, 2))), Point::new(0, -2));
+        // Cursor near the top of a too-tall grid: top-anchored.
+        assert_eq!(place((80, 40), (80, 30), Some((0, 2))), Point::new(0, 0));
+        // Cursor below the visible rows: scrolled until it's the last row.
+        assert_eq!(place((80, 40), (80, 30), Some((0, 35))), Point::new(0, -6));
         // Cursor far right of a too-wide grid pulls the view left.
         assert_eq!(place((120, 20), (100, 30), Some((110, 5))), Point::new(-11, 5));
     }

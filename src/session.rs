@@ -428,6 +428,11 @@ pub struct SessionCore {
     /// Windows the user explicitly renamed: their label no longer follows the
     /// app's OSC title (see [`sync_app_titles`](Self::sync_app_titles)).
     user_renamed: std::collections::HashSet<WindowId>,
+    /// User renames waiting to be typed into Claude Code windows as `/rename`.
+    claude_renames: HashMap<WindowId, crate::claude::PendingRename>,
+    /// When the user last typed / clicked into each app (the Claude rename
+    /// never types over fresh input).
+    last_app_input: HashMap<AppId, std::time::Instant>,
     /// The app_key of the dock group whose chooser popup is open (`None` = closed).
     dock_popup: Option<String>,
     /// Dock right-click context menu: `Some((target window, anchor x of the
@@ -542,6 +547,8 @@ impl SessionCore {
             titles: Vec::new(),
             app_keys: HashMap::new(),
             user_renamed: std::collections::HashSet::new(),
+            claude_renames: HashMap::new(),
+            last_app_input: HashMap::new(),
             dock_popup: None,
             dock_ctx: None,
             power_label: Self::host_power_label(),
@@ -1066,6 +1073,38 @@ impl SessionCore {
                 *t = label.clone();
             }
             self.wm.rename_window(id, label);
+        }
+        self.pump_claude_renames();
+    }
+
+    /// Advance pending Claude `/rename`s (see [`crate::claude::PendingRename`]).
+    fn pump_claude_renames(&mut self) {
+        use crate::claude::RenameStep;
+        let wins: Vec<WindowId> = self.claude_renames.keys().copied().collect();
+        for win in wins {
+            let Some(WinContent::App(aid)) = self.contents.get(&win) else {
+                self.claude_renames.remove(&win);
+                continue;
+            };
+            let aid = *aid;
+            let grid = self.apphost.snapshot(aid);
+            let since = self
+                .last_app_input
+                .get(&aid)
+                .map(|t| t.elapsed())
+                .unwrap_or(std::time::Duration::from_secs(3600));
+            let Some(p) = self.claude_renames.get_mut(&win) else { continue };
+            match p.step(grid.as_ref(), since) {
+                RenameStep::Wait => {}
+                RenameStep::Type(bytes) => self.apphost.input(aid, &bytes),
+                RenameStep::Finish(bytes) => {
+                    self.apphost.input(aid, &bytes);
+                    self.claude_renames.remove(&win);
+                }
+                RenameStep::Abandon => {
+                    self.claude_renames.remove(&win);
+                }
+            }
         }
     }
 
@@ -1641,6 +1680,7 @@ or a remote-side error — its authorized_keys was left untouched)",
                 if let Some(id) = self.wm.focused() {
                     if let Some(WinContent::App(aid)) = self.contents.get(&id) {
                         let aid = *aid;
+                        self.last_app_input.insert(aid, std::time::Instant::now());
                         self.apphost.input(aid, &bytes);
                     }
                 }
@@ -2053,11 +2093,12 @@ or a remote-side error — its authorized_keys was left untouched)",
                         // An explicit name sticks: the label stops following
                         // the app's own title from now on.
                         self.user_renamed.insert(id);
-                        // Claude Code windows: rename the session to match
-                        // (no-op unless a Claude session runs in that tree).
+                        // Claude Code windows: rename the session to match once
+                        // it's safe (no-op unless a Claude session runs in that
+                        // tree). Replacing an older pending rename cancels it.
                         if let Some(WinContent::App(aid)) = self.contents.get(&id) {
                             if let Some(pid) = self.apphost.pid(*aid) {
-                                crate::claude::sync_rename_async(pid, buf.clone());
+                                self.claude_renames.insert(id, crate::claude::PendingRename::start(pid, buf.clone()));
                             }
                         }
                         // Update the window titlebar title.
@@ -3582,6 +3623,7 @@ or a remote-side error — its authorized_keys was left untouched)",
         self.titles.retain(|(i, _)| *i != id);
         self.app_keys.remove(&id);
         self.user_renamed.remove(&id);
+        self.claude_renames.remove(&id);
         // Close popup if its group no longer exists after this window closes.
         if let Some(ref key) = self.dock_popup.clone() {
             let still_has_group = self.app_keys.values().any(|k| k == key);
@@ -4055,6 +4097,7 @@ or a remote-side error — its authorized_keys was left untouched)",
         let mode = self.apphost.mouse_mode(aid);
         let local = crate::mouse::MouseInput { col: m.col - area.x, row: m.row - area.y, ..m };
         if let Some(bytes) = crate::mouse::encode(&local, &mode) {
+            self.last_app_input.insert(aid, std::time::Instant::now());
             self.apphost.input(aid, &bytes);
         }
     }
