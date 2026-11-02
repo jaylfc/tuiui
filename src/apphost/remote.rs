@@ -37,6 +37,8 @@ struct Cached {
     /// (the apphost's own spawn time isn't on the wire, so the frontend
     /// stamps this as a close approximation).
     spawned_at: Option<Instant>,
+    /// The app's OSC 0/2 title as of its last frame (v3+ apphosts).
+    title: Option<String>,
 }
 
 #[derive(Default)]
@@ -144,10 +146,11 @@ fn apply_evt(evt: HostEvt, cache: &Arc<Mutex<Cache>>, pending: &Pending, infligh
                 let _ = tx.send(Err(error));
             }
         }
-        HostEvt::Frame { app, grid, placements, images, alive, mouse, bells, clip } => {
+        HostEvt::Frame { app, grid, placements, images, alive, mouse, bells, clip, title, cursor: _ } => {
             let mut c = cache.lock().unwrap();
             let entry = c.apps.entry(AppId(app)).or_default();
             entry.grid = Some(grid);
+            entry.title = title;
             entry.placements = placements;
             entry.alive = alive;
             entry.mouse = mouse;
@@ -173,7 +176,11 @@ fn apply_evt(evt: HostEvt, cache: &Arc<Mutex<Cache>>, pending: &Pending, infligh
             for entry in apps {
                 let id = AppId(entry.app);
                 c.meta.insert(id, entry.meta);
-                c.apps.entry(id).or_default().alive = true;
+                let cached = c.apps.entry(id).or_default();
+                cached.alive = true;
+                if entry.pid.is_some() {
+                    cached.pid = entry.pid;
+                }
             }
         }
         HostEvt::AppList { .. } => {
@@ -313,6 +320,10 @@ impl AppHost for RemoteAppHost {
     fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse {
         self.cache.lock().unwrap().apps.get(&id).map(|c| c.mouse).unwrap_or_default()
     }
+
+    fn title(&self, id: AppId) -> Option<String> {
+        self.cache.lock().unwrap().apps.get(&id).and_then(|c| c.title.clone())
+    }
 }
 
 #[cfg(test)]
@@ -332,10 +343,10 @@ mod tests {
         // Minimal server thread: own a LocalAppHost, serve one frontend.
         let server = std::thread::spawn(move || {
             use crate::apphost::LocalAppHost;
-            let mut local = LocalAppHost::new();
-            let mut shutdown = false;
+            let local = Arc::new(Mutex::new(LocalAppHost::new()));
+            let shutdown = std::sync::atomic::AtomicBool::new(false);
             if let Some(Ok(stream)) = listener.incoming().next() {
-                crate::apphost::server::server_serve_for_test(&mut local, stream, &mut shutdown);
+                crate::apphost::server::server_serve_for_test(&local, stream, &shutdown);
             }
         });
 
@@ -383,10 +394,10 @@ mod tests {
 
         let server = std::thread::spawn(move || {
             use crate::apphost::LocalAppHost;
-            let mut local = LocalAppHost::new();
-            let mut shutdown = false;
+            let local = Arc::new(Mutex::new(LocalAppHost::new()));
+            let shutdown = std::sync::atomic::AtomicBool::new(false);
             if let Some(Ok(stream)) = listener.incoming().next() {
-                crate::apphost::server::server_serve_for_test(&mut local, stream, &mut shutdown);
+                crate::apphost::server::server_serve_for_test(&local, stream, &shutdown);
             }
         });
 
@@ -467,10 +478,10 @@ mod tests {
 
         let server = std::thread::spawn(move || {
             use crate::apphost::LocalAppHost;
-            let mut local = LocalAppHost::new();
-            let mut shutdown = false;
+            let local = Arc::new(Mutex::new(LocalAppHost::new()));
+            let shutdown = std::sync::atomic::AtomicBool::new(false);
             if let Some(Ok(stream)) = listener.incoming().next() {
-                crate::apphost::server::server_serve_for_test(&mut local, stream, &mut shutdown);
+                crate::apphost::server::server_serve_for_test(&local, stream, &shutdown);
             }
         });
 
@@ -494,5 +505,121 @@ mod tests {
         drop(remote);
         let _ = std::fs::remove_file(&path);
         let _ = server.join();
+    }
+
+    /// v3 multi-frontend: while one frontend (the "desktop") stays connected
+    /// and streaming, a second connection must still get its roster and an
+    /// `AppList` (carrying the desktop's meta and the app's OSC title), a
+    /// viewer watching one app gets only that app's frames, and `Gone` reaches
+    /// every connection.
+    #[test]
+    fn second_frontend_lists_apps_while_first_is_connected() {
+        use crate::apphost::proto::{recv, send, HostEvt, HostReq};
+        let dir = crate::protocol::socket_dir();
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(format!("apphost-multi-test-{}.sock", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let local: crate::apphost::server::SharedHost = Arc::new(Mutex::new(crate::apphost::LocalAppHost::new()));
+        let server = {
+            let path = path.clone();
+            let local = local.clone();
+            std::thread::spawn(move || crate::apphost::server::serve(listener, &path, &local))
+        };
+
+        let mut desktop = RemoteAppHost::connect(&path).unwrap();
+        let titled = desktop
+            .spawn("sh", &["-c".into(), "printf '\\033]2;✳ Probe\\007'; sleep 30".into()], None, 40, 10)
+            .unwrap();
+        let other = desktop.spawn("sh", &["-c".into(), "sleep 30".into()], None, 40, 10).unwrap();
+        desktop.set_meta(titled, br#"{"title":"Win"}"#.to_vec());
+        // The desktop's cache learns the OSC title from the frame stream.
+        let mut got_title = false;
+        for _ in 0..150 {
+            if desktop.title(titled).as_deref() == Some("✳ Probe") {
+                got_title = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(got_title, "Frame.title must reach the frontend");
+
+        // A `tuiui ps`-style second connection, with the desktop still attached.
+        let mut ps = UnixStream::connect(&path).unwrap();
+        ps.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        let mut r = BufReader::new(ps.try_clone().unwrap());
+        match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+            HostEvt::Roster { apps, proto } => {
+                assert_eq!(proto, crate::apphost::proto::PROTO_VERSION);
+                assert_eq!(apps.len(), 2);
+                assert!(apps.iter().all(|a| a.pid.is_some()), "roster carries pids");
+            }
+            other => panic!("expected roster, got {other:?}"),
+        }
+        send(&mut ps, &HostReq::Watch { apps: vec![] }).unwrap();
+        send(&mut ps, &HostReq::ListApps).unwrap();
+        let list = loop {
+            match recv::<HostEvt, _>(&mut r).unwrap().unwrap() {
+                HostEvt::AppList { apps } => break apps,
+                _ => continue,
+            }
+        };
+        let row = list.iter().find(|a| a.app == titled.0).expect("titled app listed");
+        assert_eq!(row.meta, br#"{"title":"Win"}"#.to_vec());
+        assert_eq!(row.title.as_deref(), Some("✳ Probe"));
+        drop(r);
+        drop(ps);
+
+        // A viewer of one app: only its frames arrive.
+        let mut view = UnixStream::connect(&path).unwrap();
+        view.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        let mut vr = BufReader::new(view.try_clone().unwrap());
+        let _roster = recv::<HostEvt, _>(&mut vr).unwrap();
+        send(&mut view, &HostReq::Watch { apps: vec![other.0] }).unwrap();
+        // Frames for both may race the Watch on the first tick; after a
+        // resize of `other` we must see its frame, and kill → Gone.
+        std::thread::sleep(Duration::from_millis(100));
+        desktop.resize(other, 30, 8);
+        let mut saw_resized = false;
+        for _ in 0..50 {
+            match recv::<HostEvt, _>(&mut vr) {
+                Ok(Some(HostEvt::Frame { app, grid, .. })) if app == other.0 && grid.width() == 30 => {
+                    saw_resized = true;
+                    break;
+                }
+                Ok(Some(_)) => continue,
+                _ => break,
+            }
+        }
+        assert!(saw_resized, "viewer gets the watched app's frames");
+        desktop.kill(other);
+        let mut saw_gone = false;
+        for _ in 0..200 {
+            match recv::<HostEvt, _>(&mut vr) {
+                Ok(Some(HostEvt::Gone { app })) if app == other.0 => {
+                    saw_gone = true;
+                    break;
+                }
+                Ok(Some(HostEvt::Frame { app, .. })) => assert_eq!(app, other.0, "viewer only gets watched frames"),
+                Ok(Some(_)) => continue,
+                _ => break,
+            }
+        }
+        assert!(saw_gone, "viewer is told the watched app is gone");
+        // ...and so is the desktop (whichever thread reaped it).
+        let mut desktop_gone = false;
+        for _ in 0..100 {
+            if !desktop.is_alive(other) {
+                desktop_gone = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(desktop_gone, "desktop also learns the app is gone");
+
+        desktop.kill(titled);
+        desktop.shutdown_apphost();
+        let _ = server.join();
+        let _ = std::fs::remove_file(&path);
     }
 }

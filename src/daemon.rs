@@ -1,6 +1,12 @@
 //! The tuiui daemon: owns the [`SessionCore`] (windows + PTYs) and serves frames
 //! to one attached client at a time over a Unix socket. Apps keep running while
 //! detached, so reattaching restores the live session.
+//!
+//! A second `tuiui attach` would queue behind the attached client forever, so
+//! the CLI first asks the control socket (`ClientMsg::AttachStatus`) whether a
+//! client is attached: plain `attach` then refuses with a hint, and
+//! `attach --takeover` sends `ClientMsg::DetachClient` (the attached client
+//! gets a normal detach) and connects once the daemon is free.
 
 use crate::compositor::Compositor;
 use crate::config::Config;
@@ -11,7 +17,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Duration;
@@ -50,11 +56,15 @@ pub fn run() -> std::io::Result<()> {
     let _ = std::fs::remove_file(&ctl_path);
     let ctl = Arc::new(AtomicU8::new(CTL_NONE));
     let ctl_queue: CtlQueue = Arc::new(std::sync::Mutex::new(Vec::new()));
+    // Whether a desktop client is attached right now (answered on the control
+    // socket so a second `tuiui attach` can refuse / take over instead of hanging).
+    let attached = Arc::new(AtomicBool::new(false));
     if let Ok(ctl_listener) = UnixListener::bind(&ctl_path) {
         let _ = std::fs::set_permissions(&ctl_path, Permissions::from_mode(0o600));
         let ctl_flag = Arc::clone(&ctl);
         let queue = Arc::clone(&ctl_queue);
-        std::thread::spawn(move || serve_control(ctl_listener, ctl_flag, queue));
+        let attached = Arc::clone(&attached);
+        std::thread::spawn(move || serve_control(ctl_listener, ctl_flag, queue, attached));
     }
 
     let cfg = Config::load();
@@ -112,7 +122,12 @@ pub fn run() -> std::io::Result<()> {
             // A control message arrived while unattached; this stream is the wake
             // poke. Don't serve it as a client.
         } else if let Ok(stream) = stream {
+            // A detach queued while nobody was attached (a late takeover) must
+            // not bounce the client that is attaching now.
+            core.clear_quit();
+            attached.store(true, Ordering::SeqCst);
             serve_client(&mut core, &mut comp, stream, &ctl, &ctl_queue);
+            attached.store(false, Ordering::SeqCst);
         }
         core.clear_quit();
         if core.shutdown_requested() {
@@ -252,6 +267,7 @@ fn serve_client(
 
         core.reap_dead();
         core.pump_app_events();
+        core.sync_app_titles();
         core.refresh_app_graphics();
         core.sync_app_meta();
         core.pump_thumbnails();
@@ -358,13 +374,17 @@ fn apply_ctl(ctl: &Arc<AtomicU8>, queue: &CtlQueue, core: &mut SessionCore) -> b
 /// Accept control connections for the daemon's lifetime, flipping the shared flag
 /// on `Shutdown` / `Reload`. Each connection is one short-lived message from the
 /// `tuiui kill` / `tuiui reload` CLI.
-fn serve_control(listener: UnixListener, ctl: Arc<AtomicU8>, queue: CtlQueue) {
+fn serve_control(listener: UnixListener, ctl: Arc<AtomicU8>, queue: CtlQueue, attached: Arc<AtomicBool>) {
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
         let mut r = BufReader::new(stream);
         let mut line = String::new();
         if r.read_line(&mut line).is_ok() {
             match serde_json::from_str::<ClientMsg>(line.trim()) {
+                Ok(ClientMsg::AttachStatus) => {
+                    let reply = format!("{{\"attached\":{}}}\n", attached.load(Ordering::SeqCst));
+                    let _ = r.get_mut().write_all(reply.as_bytes());
+                }
                 Ok(ClientMsg::Shutdown) => ctl.store(CTL_SHUTDOWN, Ordering::SeqCst),
                 Ok(ClientMsg::Reload) => ctl.store(CTL_RELOAD, Ordering::SeqCst),
                 // Any other message (e.g. `tuiui launch/tile/theme/msg` from the

@@ -182,6 +182,101 @@ fn encode(img: &RgbaImage) -> Option<Vec<u8>> {
     Some(buf.into_inner())
 }
 
+// ── Cell-drawn tiles (terminals without Kitty graphics) ──────────────────────
+
+/// Whether the attached client lacks Kitty graphics, so icon tiles must be
+/// drawn in cells instead of relying on the image layer. Set by the session
+/// from the client's `ClientCaps` (one client at a time per daemon); defaults
+/// to `false`, i.e. the image path with its single-glyph fallback, so an older
+/// client that doesn't report caps sees exactly what it always did.
+static CELL_TILES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_cell_tiles(on: bool) {
+    CELL_TILES.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn cell_tiles() -> bool {
+    CELL_TILES.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// The role's tile colour (the same tint the PNG icon uses), as a cell colour.
+pub fn tint(role: Role) -> crate::cell::Rgba {
+    let (Rgba([r, g, b, _]), _) = palette(role);
+    crate::cell::Rgba::rgb(r, g, b)
+}
+
+/// A short type tag shown under the symbol on a cell tile.
+pub fn role_tag(role: Role) -> &'static str {
+    match role {
+        Role::Directory => "",
+        Role::Image => "IMG",
+        Role::Audio => "AUDIO",
+        Role::Video => "VIDEO",
+        Role::Archive => "ZIP",
+        Role::Pdf => "PDF",
+        Role::Code => "CODE",
+        Role::Text => "TXT",
+        _ => "",
+    }
+}
+
+/// Draw an icon tile into `rect` (the icon area above the label) using only
+/// cells: a rounded, `card`-coloured half-block tile with `symbol` centred
+/// and an optional `tag` under it. Used when the terminal can't show the
+/// image icon, so the tile reads as an intentional icon rather than a lone
+/// glyph floating in empty space.
+/// `bg` is what shows around the rounded corners (the surface the tile sits on).
+pub fn draw_cell_tile(
+    buf: &mut crate::buffer::CellBuffer,
+    rect: crate::geometry::Rect,
+    card: crate::cell::Rgba,
+    bg: crate::cell::Rgba,
+    symbol: &str,
+    tag: &str,
+) {
+    use crate::cell::{Cell, CellAttrs, Rgba as C};
+    let ink = C::rgb(245, 248, 252);
+    let w = rect.w.min(10);
+    let h = rect.h;
+    if w < 3 || h < 2 {
+        return;
+    }
+    let x0 = rect.x + (rect.w - w) / 2;
+    let (top, bottom) = (rect.y, rect.y + h - 1);
+    let edge = |ch: char| Cell { ch, fg: card, bg, attrs: CellAttrs::default() };
+    let fill = Cell { ch: ' ', fg: ink, bg: card, attrs: CellAttrs::default() };
+    for x in x0..x0 + w {
+        let (first, last) = (x == x0, x == x0 + w - 1);
+        buf.set(x, top, edge(if first { '▗' } else if last { '▖' } else { '▄' }));
+        buf.set(x, bottom, edge(if first { '▝' } else if last { '▘' } else { '▀' }));
+        for y in top + 1..bottom {
+            buf.set(x, y, fill);
+        }
+    }
+    let interior = bottom - top - 1;
+    if interior < 1 {
+        return;
+    }
+    let has_tag = !tag.is_empty() && interior >= 2;
+    let sym_y = if has_tag { top + 1 + (interior - 2) / 2 } else { top + 1 + (interior - 1) / 2 };
+    let bold = CellAttrs { bold: true, ..Default::default() };
+    let put = |buf: &mut crate::buffer::CellBuffer, y: i32, text: &str, attrs: CellAttrs| {
+        let cols: i32 = text.chars().map(|c| if crate::compositor::is_wide(c) { 2 } else { 1 }).sum();
+        let mut x = x0 + (w - cols).max(0) / 2;
+        for ch in text.chars() {
+            if x >= x0 + w {
+                break;
+            }
+            buf.set(x, y, Cell { ch, fg: ink, bg: card, attrs });
+            x += if crate::compositor::is_wide(ch) { 2 } else { 1 };
+        }
+    };
+    put(buf, sym_y, symbol, bold);
+    if has_tag {
+        put(buf, sym_y + 1, tag, CellAttrs::default());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,5 +290,25 @@ mod tests {
             use image::GenericImageView;
             assert_eq!(img.dimensions(), (160, 128), "role {role:?}");
         }
+    }
+
+    #[test]
+    fn cell_tile_is_rounded_and_centres_symbol_and_tag() {
+        let mut buf = crate::buffer::CellBuffer::new(12, 5);
+        let card = crate::cell::Rgba::rgb(1, 2, 3);
+        let bg = crate::cell::Rgba::rgb(9, 9, 9);
+        draw_cell_tile(&mut buf, crate::geometry::Rect::new(0, 0, 12, 5), card, bg, "S", "TXT");
+        let row = |y: i32| -> String { (0..12).map(|x| buf.get(x, y).unwrap().ch).collect() };
+        assert_eq!(row(0), " ▗▄▄▄▄▄▄▄▄▖ ");
+        assert_eq!(row(4), " ▝▀▀▀▀▀▀▀▀▘ ");
+        assert_eq!(row(1).trim(), "S");
+        assert_eq!(row(2).trim(), "TXT");
+        assert_eq!(buf.get(1, 0).unwrap().bg, bg, "corners show the surface");
+        assert_eq!(buf.get(5, 3).unwrap().bg, card, "interior is the tint");
+        assert!(buf.get(6, 1).unwrap().attrs.bold || buf.get(5, 1).unwrap().attrs.bold);
+        // Too small to draw: left alone.
+        let mut tiny = crate::buffer::CellBuffer::new(2, 1);
+        draw_cell_tile(&mut tiny, crate::geometry::Rect::new(0, 0, 2, 1), card, bg, "S", "");
+        assert_eq!(tiny.get(0, 0).unwrap().ch, ' ');
     }
 }

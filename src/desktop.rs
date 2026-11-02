@@ -275,8 +275,16 @@ impl<F: FsOps> DesktopIcons<F> {
     }
 
     /// Render the icon layer into a `w×h` buffer (transparent background so the
-    /// wallpaper shows through; only icon tiles draw).
+    /// wallpaper shows through; only icon tiles draw). Draws full cell tiles
+    /// when the client lacks Kitty graphics (see [`crate::icons::cell_tiles`]).
     pub fn render(&self, w: i32, h: i32) -> crate::buffer::CellBuffer {
+        self.render_with(w, h, crate::icons::cell_tiles())
+    }
+
+    /// [`render`](Self::render) with the tile style explicit: `cell_tiles`
+    /// draws each icon as a tinted cell tile (no-graphics terminals); otherwise
+    /// a single glyph that the Kitty image placement covers.
+    pub fn render_with(&self, w: i32, h: i32, cell_tiles: bool) -> crate::buffer::CellBuffer {
         use crate::cell::{Cell, Rgba};
         const FG: Rgba = Rgba { r: 220, g: 226, b: 236, a: 255 };
         const SEL_BG: Rgba = Rgba { r: 45, g: 58, b: 85, a: 200 };
@@ -288,14 +296,26 @@ impl<F: FsOps> DesktopIcons<F> {
             let ir = self.icon_image_rect(icon.cell);
             let selected = self.selection.contains(&i);
             let bg = if selected { SEL_BG } else { transparent };
-            // Glyph fallback, centered in the icon area (the image layer covers it
-            // on Kitty-graphics terminals; this shows on the rest).
-            let glyph = glyph_for(icon.role);
-            buf.set(
-                ir.x + ir.w / 2,
-                ir.y + ir.h / 2,
-                Cell { ch: glyph, fg: FG, bg: transparent, attrs: Default::default() },
-            );
+            if cell_tiles {
+                // No image layer: draw the tile itself. Pins (apps) get their
+                // dock badge letter + colour; files their role tint + glyph.
+                if icon.source == IconSource::Pinned {
+                    let b = crate::badge::badge_for(&icon.label, &BTreeMap::new());
+                    crate::icons::draw_cell_tile(&mut buf, ir, b.color, transparent, &b.letter.to_string(), "");
+                } else {
+                    let glyph = glyph_for(icon.role).to_string();
+                    crate::icons::draw_cell_tile(&mut buf, ir, crate::icons::tint(icon.role), transparent, &glyph, crate::icons::role_tag(icon.role));
+                }
+            } else {
+                // Glyph fallback, centered in the icon area (the image layer
+                // covers it on Kitty-graphics terminals).
+                let glyph = glyph_for(icon.role);
+                buf.set(
+                    ir.x + ir.w / 2,
+                    ir.y + ir.h / 2,
+                    Cell { ch: glyph, fg: FG, bg: transparent, attrs: Default::default() },
+                );
+            }
             // Label: centered on the tile's last row, truncated to the tile width.
             let label_y = tile.y + ICON_H - 1;
             let name: String = icon.label.chars().take(ICON_W as usize).collect();
@@ -727,6 +747,41 @@ mod tests {
         let buf = dt.render(100, 30);
         assert_eq!(buf.width(), 100);
         assert_eq!(buf.height(), 30);
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn cell_tiles_fill_the_icon_area_with_the_label_right_under() {
+        let d = tmp("celltile");
+        fs::create_dir(d.join("proj")).unwrap();
+        let mut dt = DesktopIcons::new(d.clone());
+        dt.reload(&[], &BTreeMap::new());
+        dt.layout(100, 30);
+        let i = dt.icons().iter().position(|ic| ic.label == "proj").expect("folder icon");
+        let cell = dt.icons()[i].cell;
+        let ir = dt.icon_image_rect(cell);
+        let tile = dt.tile_rect(cell);
+        let tint = crate::icons::tint(Role::Directory);
+
+        let buf = dt.render_with(100, 30, true);
+        // Rounded half-block edges top and bottom, tinted interior.
+        let mid_x = ir.x + ir.w / 2;
+        assert_eq!(buf.get(mid_x, ir.y).unwrap().ch, '▄');
+        assert_eq!(buf.get(mid_x, ir.y + ir.h - 1).unwrap().ch, '▀');
+        assert_eq!(buf.get(mid_x, ir.y + 1).unwrap().bg, tint);
+        // The folder glyph sits inside the tile.
+        let inside: String = (ir.x..ir.x + ir.w).flat_map(|x| (ir.y..ir.y + ir.h).map(move |y| (x, y)))
+            .map(|(x, y)| buf.get(x, y).unwrap().ch).collect();
+        assert!(inside.contains('\u{1F4C1}'), "glyph inside the tile");
+        // The label is on the very next row after the tile.
+        assert_eq!(tile.y + ICON_H - 1, ir.y + ir.h);
+        let label: String = (tile.x..tile.x + ICON_W).map(|x| buf.get(x, tile.y + ICON_H - 1).unwrap().ch).collect();
+        assert!(label.contains("proj"));
+
+        // The Kitty path is unchanged: just the glyph, no tile.
+        let plain = dt.render_with(100, 30, false);
+        assert_eq!(plain.get(mid_x, ir.y).unwrap().ch, ' ');
+        assert_eq!(plain.get(mid_x, ir.y + ir.h / 2).unwrap().ch, '\u{1F4C1}');
         let _ = fs::remove_dir_all(&d);
     }
 }

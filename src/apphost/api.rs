@@ -82,6 +82,9 @@ pub trait AppHost: Send {
     /// (but `None` for apps it learned about via the on-connect Roster).
     fn launch_cmd(&self, _id: AppId) -> Option<(String, Vec<String>)> { None }
 
+    /// The app's own OSC 0/2 window title, if it set one (default none).
+    fn title(&self, id: AppId) -> Option<String> { let _ = id; None }
+
     /// The app's current terminal mouse mode (default = no mouse).
     fn mouse_mode(&self, id: AppId) -> crate::mouse::AppMouse { let _ = id; crate::mouse::AppMouse::default() }
 

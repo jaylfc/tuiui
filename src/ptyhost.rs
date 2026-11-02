@@ -34,7 +34,21 @@ struct PtyResponder {
     bells: Arc<std::sync::atomic::AtomicU32>,
     /// Last OSC-52 clipboard store from the app (forwarded to the host terminal).
     clip: Arc<Mutex<Option<String>>>,
+    /// Non-draining views of the same events, for the multi-frontend apphost:
+    /// each connection keeps its own "last seen" so one frontend draining a bell
+    /// or clipboard store can never steal it from another.
+    shared: Arc<SharedEvents>,
 }
+
+/// Monotonic (never-drained) app events: a running bell total, the latest
+/// OSC-52 store with a sequence number, and the app's OSC 0/2 window title.
+#[derive(Default)]
+pub struct SharedEvents {
+    bell_total: std::sync::atomic::AtomicU64,
+    clip: Mutex<(u64, Option<String>)>,
+    title: Mutex<Option<String>>,
+}
+
 impl EventListener for PtyResponder {
     fn send_event(&self, event: Event) {
         match event {
@@ -46,10 +60,28 @@ impl EventListener for PtyResponder {
             }
             Event::Bell => {
                 self.bells.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.shared.bell_total.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
             Event::ClipboardStore(_, text) => {
+                if let Ok(mut c) = self.shared.clip.lock() {
+                    c.0 += 1;
+                    c.1 = Some(text.clone());
+                }
                 if let Ok(mut c) = self.clip.lock() {
                     *c = Some(text);
+                }
+            }
+            // OSC 0/2: the app's own window title (Claude Code puts its
+            // session name here). Surfaced to the frontend, which decides
+            // whether a window label follows it.
+            Event::Title(t) => {
+                if let Ok(mut cur) = self.shared.title.lock() {
+                    *cur = Some(t);
+                }
+            }
+            Event::ResetTitle => {
+                if let Ok(mut cur) = self.shared.title.lock() {
+                    *cur = None;
                 }
             }
             _ => {}
@@ -73,6 +105,7 @@ pub struct AppInstance {
     /// Bell rings + OSC-52 clipboard stores captured by the emulator's events.
     bells: Arc<std::sync::atomic::AtomicU32>,
     clip: Arc<Mutex<Option<String>>>,
+    shared: Arc<SharedEvents>,
     cols: u16,
     rows: u16,
     /// Wall-clock instant the child was spawned. Used by the activity monitor to
@@ -149,10 +182,11 @@ impl AppInstance {
         // child over the same PTY writer.
         let bells = Arc::new(std::sync::atomic::AtomicU32::new(0));
         let clip: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+        let shared = Arc::new(SharedEvents::default());
         let term = Arc::new(Mutex::new(Term::new(
             Config::default(),
             &TermSize::new(cols as usize, rows as usize),
-            PtyResponder { writer: writer.clone(), bells: bells.clone(), clip: clip.clone() },
+            PtyResponder { writer: writer.clone(), bells: bells.clone(), clip: clip.clone(), shared: shared.clone() },
         )));
 
         // Captured Kitty-graphics state, shared with the reader thread.
@@ -200,7 +234,7 @@ impl AppInstance {
             }
         });
 
-        Ok(AppInstance { term, master: pair.master, writer, child, graphics, bells, clip, cols, rows, spawned_at: Instant::now() })
+        Ok(AppInstance { term, master: pair.master, writer, child, graphics, bells, clip, shared, cols, rows, spawned_at: Instant::now() })
     }
 
     /// Bell rings since the last call (drained).
@@ -211,6 +245,33 @@ impl AppInstance {
     /// The app's latest OSC-52 clipboard store, if any (drained).
     pub fn take_clipboard(&self) -> Option<String> {
         self.clip.lock().ok().and_then(|mut c| c.take())
+    }
+
+    /// Total bell rings since spawn (never drained; see [`SharedEvents`]).
+    pub fn bell_total(&self) -> u64 {
+        self.shared.bell_total.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// The latest OSC-52 store and its sequence number (0 = none yet). Not
+    /// drained: callers compare the sequence against what they last forwarded.
+    pub fn clipboard_latest(&self) -> (u64, Option<String>) {
+        self.shared.clip.lock().map(|c| c.clone()).unwrap_or((0, None))
+    }
+
+    /// The app's current OSC 0/2 window title, if it set one.
+    pub fn title(&self) -> Option<String> {
+        self.shared.title.lock().ok().and_then(|t| t.clone())
+    }
+
+    /// The emulator cursor `(col, row)` on the live screen, or `None` while
+    /// the app hides it (DECTCEM off) or the view is scrolled back.
+    pub fn cursor(&self) -> Option<(u16, u16)> {
+        use alacritty_terminal::term::TermMode;
+        let t = self.term.lock().ok()?;
+        if !t.mode().contains(TermMode::SHOW_CURSOR) || t.grid().display_offset() != 0 {
+            return None;
+        }
+        Some(cursor_cell(&t))
     }
 
     /// Convert the current emulator grid into a Tuiui [`CellBuffer`].

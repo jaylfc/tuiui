@@ -170,7 +170,7 @@ impl Compositor {
 /// pragmatic range check covering the icon emoji we use plus the common wide
 /// scripts; good enough for the cell grid (full Unicode width tables aren't
 /// needed here).
-fn is_wide(c: char) -> bool {
+pub(crate) fn is_wide(c: char) -> bool {
     matches!(c as u32,
         0x1100..=0x115F        // Hangul Jamo
         | 0x2E80..=0xA4CF      // CJK radicals … Yi

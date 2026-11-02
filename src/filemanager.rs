@@ -820,11 +820,17 @@ impl<F: FsOps> FileManager<F> {
                     // non-graphics terminals; a loaded thumbnail/role-icon
                     // image covers the same rect on Kitty-graphics terminals
                     // (see `thumbnail_placements`).
-                    buf.set(
-                        ir.x + ir.w / 2,
-                        ir.y + ir.h / 2,
-                        Cell { ch: Self::glyph(e), fg: FG, bg: BG, attrs: Default::default() },
-                    );
+                    if crate::icons::cell_tiles() {
+                        // No image layer on this terminal: draw the tile.
+                        let glyph = Self::glyph(e).to_string();
+                        crate::icons::draw_cell_tile(&mut buf, ir, crate::icons::tint(e.role), BG, &glyph, crate::icons::role_tag(e.role));
+                    } else {
+                        buf.set(
+                            ir.x + ir.w / 2,
+                            ir.y + ir.h / 2,
+                            Cell { ch: Self::glyph(e), fg: FG, bg: BG, attrs: Default::default() },
+                        );
+                    }
                     // Label: centered on the tile's last row. Selection/focus
                     // highlight lives here only, like the desktop.
                     let label_bg = if selected || focused { SEL_BG } else { BG };
